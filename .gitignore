@@ -1,4 +1,4 @@
-# Byte-compiled / cached
+﻿# Byte-compiled / cached
 __pycache__/
 *.py[cod]
 *$py.class
@@ -23,14 +23,12 @@ Thumbs.db
 *.swp
 
 # Data and large artifacts
-documentos_srt/**/*.srt
-documentos_srt/*.srt
 chroma_db/
 chroma_db_backup_*/
 faiss_index_backup_*/
 
 # FAISS index - INCLUIDO en repo para Streamlit Cloud (317 MB)
-# Índice actualizado: chunk_size=800, overlap=150, 84,266 docs
+# Ãndice actualizado: chunk_size=800, overlap=150, 84,266 docs
 # faiss_index/index.faiss
 # faiss_index/index.pkl
 
@@ -49,5 +47,7 @@ __pycache__/
 chroma_db/
 chroma_db.zip
 gerard_log.txt
-# Si no quieres subir los archivos .srt (datos), descomenta la siguiente línea:
-# documentos_srt/
+# Si no quieres subir los archivos .srt (datos), descomenta la siguiente lÃ­nea:
+
+# Índice FAISS (se construye automáticamente)
+faiss_index/
