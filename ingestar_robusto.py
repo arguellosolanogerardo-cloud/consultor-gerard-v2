@@ -60,7 +60,7 @@ def get_srt_documents(data_path):
         if filename.endswith('.srt'):
             filepath = os.path.join(data_path, filename)
             try:
-                loader = TextLoader(filepath, encoding='utf-8')
+                loader = TextLoader(filepath, encoding='latin-1')
                 docs = loader.load()
                 
                 # Agregar metadata con el nombre del archivo

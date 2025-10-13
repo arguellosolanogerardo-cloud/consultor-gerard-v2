@@ -54,7 +54,7 @@ def get_srt_text(data_path):
         if filename.endswith(".srt"):
             file_path = os.path.join(data_path, filename)
             try:
-                loader = TextLoader(file_path, encoding='utf-8')
+                loader = TextLoader(file_path, encoding='latin-1')
                 documents = loader.load()
                 documents_list.extend(documents)
                 doc_counter += 1

@@ -36,7 +36,7 @@ for filename in os.listdir(DATA_PATH):
     if filename.endswith('.srt') and file_count < MAX_FILES:
         filepath = os.path.join(DATA_PATH, filename)
         try:
-            loader = TextLoader(filepath, encoding='utf-8')
+            loader = TextLoader(filepath, encoding='latin-1')
             docs = loader.load()
             
             for doc in docs:
