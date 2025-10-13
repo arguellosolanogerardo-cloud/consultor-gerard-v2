@@ -161,55 +161,57 @@ def load_resources():
 
             
             # === DESCARGA DEL ÍNDICE FAISS DESDE GITHUB RELEASE ===
-            if not os.path.exists("faiss_index/index.faiss"):
-                # Verificar si ya se intento descargar en esta sesion
-                if "faiss_downloaded" not in st.session_state:
-                    st.session_state.faiss_downloaded = False
+            # Usar archivo .faiss_ready como marca persistente
+            faiss_marker = "faiss_index/.faiss_ready"
+            if os.path.exists(faiss_marker):
+                pass  # Ya descargado previamente
+            elif not os.path.exists("faiss_index/index.faiss"):
+                st.info("[>] Descargando indice FAISS pre-construido...")
+                st.info("[tiempo] Descarga unica (~250 MB, espera 1-2 min)")
                 
-                if not st.session_state.faiss_downloaded:
-                    st.info("[>] Descargando indice FAISS pre-construido...")
-                    st.info("[tiempo] Descarga unica (~250 MB, espera 1-2 min)")
+                try:
+                    import requests
+                    import zipfile
+                    from io import BytesIO
                     
-                    try:
-                        import requests
-                        import zipfile
-                        from io import BytesIO
+                    FAISS_URL = "https://github.com/arguellosolanogerardo-cloud/consultor-gerard-v2/releases/download/faiss-v1.0/faiss_index.zip"
+                    
+                    progress_bar = st.progress(0)
+                    status_text = st.empty()
+                    
+                    with st.spinner("Descargando..."):
+                        response = requests.get(FAISS_URL, stream=True, timeout=600)
+                        response.raise_for_status()
                         
-                        FAISS_URL = "https://github.com/arguellosolanogerardo-cloud/consultor-gerard-v2/releases/download/faiss-v1.0/faiss_index.zip"
+                        total_size = int(response.headers.get('content-length', 0))
+                        downloaded = 0
+                        zip_data = BytesIO()
                         
-                        progress_bar = st.progress(0)
-                        status_text = st.empty()
-                        
-                        with st.spinner("Descargando..."):
-                            response = requests.get(FAISS_URL, stream=True, timeout=600)
-                            response.raise_for_status()
-                            
-                            total_size = int(response.headers.get('content-length', 0))
-                            downloaded = 0
-                            zip_data = BytesIO()
-                            
-                            for chunk in response.iter_content(chunk_size=1024*1024):
-                                zip_data.write(chunk)
-                                downloaded += len(chunk)
-                                if total_size > 0:
-                                    progress = int((downloaded / total_size) * 100)
-                                    progress_bar.progress(progress / 100)
-                                    status_text.text(f"[>] {progress}% descargado ({downloaded // (1024*1024)} MB / {total_size // (1024*1024)} MB)")
-                        
-                        status_text.text("[paquete] Extrayendo...")
-                        os.makedirs("faiss_index", exist_ok=True)
-                        zip_data.seek(0)
-                        with zipfile.ZipFile(zip_data) as zf:
-                            zf.extractall("faiss_index")
-                        
-                        st.session_state.faiss_downloaded = True
-                        progress_bar.empty()
-                        status_text.empty()
-                        st.success("[OK] Indice descargado! No se volvera a descargar.")
-                        
-                    except Exception as e:
-                        st.error(f"[ERROR] Error descargando: {str(e)}")
-                        raise
+                        for chunk in response.iter_content(chunk_size=1024*1024):
+                            zip_data.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0:
+                                progress = int((downloaded / total_size) * 100)
+                                progress_bar.progress(progress / 100)
+                                status_text.text(f"[>] {progress}% descargado ({downloaded // (1024*1024)} MB / {total_size // (1024*1024)} MB)")
+                    
+                    status_text.text("[paquete] Extrayendo...")
+                    os.makedirs("faiss_index", exist_ok=True)
+                    zip_data.seek(0)
+                    with zipfile.ZipFile(zip_data) as zf:
+                        zf.extractall("faiss_index")
+                    
+                    # Crear archivo de marca para evitar descargas futuras
+                    with open(faiss_marker, "w") as f:
+                        f.write("downloaded")
+                    
+                    progress_bar.empty()
+                    status_text.empty()
+                    st.success("[OK] Indice descargado! No se volvera a descargar.")
+                    
+                except Exception as e:
+                    st.error(f"[ERROR] Error descargando: {str(e)}")
+                    raise
             # === FIN DESCARGA ===
 
 
