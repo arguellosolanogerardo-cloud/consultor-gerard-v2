@@ -159,6 +159,30 @@ def load_resources():
                 embeddings = FakeEmbeddings()
                 st.error("‚ö†Ô∏è ADVERTENCIA: Usando embeddings simuladas (hash-based). La b√∫squeda sem√°ntica ser√° limitada. Verifica la API key de Google.")
 
+            
+            # === AUTO-CONSTRUCCI”N DEL ÕNDICE FAISS ===
+            if not os.path.exists("faiss_index/index.faiss"):
+                st.warning(" Õndice FAISS no encontrado. Construyendo autom·ticamente...")
+                st.info(" Este proceso tomar· aproximadamente 25-30 minutos. Por favor espera...")
+                
+                try:
+                    from auto_build_index import build_faiss_index
+                    success = build_faiss_index(api_key, force=True)
+                    
+                    if success:
+                        st.success(" Õndice FAISS construido exitosamente!")
+                    else:
+                        st.error(" Error construyendo el Ìndice FAISS")
+                        raise Exception("Failed to build FAISS index")
+                except ImportError:
+                    st.error(" auto_build_index.py no encontrado")
+                    raise
+                except Exception as e:
+                    st.error(f" Error en construcciÛn: {str(e)}")
+                    raise
+            # === FIN AUTO-CONSTRUCCI”N ===
+
+
             faiss_vs = FAISS.load_local(folder_path="faiss_index", embeddings=embeddings, allow_dangerous_deserialization=True)
             # Debug: verificar que se carg√≥ correctamente
             doc_count = faiss_vs.index.ntotal if hasattr(faiss_vs, 'index') else 'unknown'
@@ -1702,5 +1726,6 @@ if prompt_input:
 if st.session_state.get('_new_message_added', False):
     st.session_state['_new_message_added'] = False
     st.rerun()
+
 
 
