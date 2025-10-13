@@ -109,6 +109,43 @@ class GeoLocator:
         except Exception:
             return None
     
+
+    def _get_location_from_dbip(self, ip: str) -> Optional[Dict]:
+        """
+        Obtiene ubicaciÛn usando db-ip.com (gratuito, 1000 req/dÌa).
+        API m·s confiable y actualizada.
+
+        Args:
+            ip: DirecciÛn IP
+
+        Returns:
+            Diccionario con informaciÛn geogr·fica o None
+        """
+        try:
+            # DB-IP ofrece API gratuita con buen lÌmite
+            url = f"https://api.db-ip.com/v2/free/{ip}"
+            response = requests.get(url, timeout=self.timeout)
+
+            if response.status_code == 200:
+                data = response.json()
+
+                # Verificar si hay error
+                if 'error' in data or data.get('countryName') is None:
+                    return None
+
+                return {
+                    "ip": ip,
+                    "pais": data.get("countryName", "Desconocido"),
+                    "ciudad": data.get("city", "Desconocido"),
+                    "region": data.get("stateProv", "Desconocido"),
+                    "coordenadas": "N/A",  # API gratuita no incluye coordenadas
+                    "codigo_pais": data.get("countryCode", "N/A"),
+                    "timezone": "N/A",
+                    "org": "N/A",
+                    "fuente": "db-ip.com"
+                }
+        except Exception as e:
+            return None
     def _get_location_from_ipapi_co(self, ip: str) -> Optional[Dict]:
         """
         Obtiene ubicaci√≥n usando ipapi.co (gratuito, 1000 req/d√≠a).
