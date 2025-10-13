@@ -162,13 +162,13 @@ def load_resources():
             
             # === DESCARGA DEL ÍNDICE FAISS DESDE GITHUB RELEASE ===
             if not os.path.exists("faiss_index/index.faiss"):
-                # Verificar si ya se intentó descargar en esta sesión
+                # Verificar si ya se intento descargar en esta sesion
                 if "faiss_downloaded" not in st.session_state:
                     st.session_state.faiss_downloaded = False
                 
                 if not st.session_state.faiss_downloaded:
-                    st.info("📥 Descargando índice FAISS pre-construido...")
-                    st.info("⏱️ Descarga única (~250 MB, espera 1-2 min)")
+                    st.info("[>] Descargando indice FAISS pre-construido...")
+                    st.info("[tiempo] Descarga unica (~250 MB, espera 1-2 min)")
                     
                     try:
                         import requests
@@ -194,9 +194,9 @@ def load_resources():
                                 if total_size > 0:
                                     progress = int((downloaded / total_size) * 100)
                                     progress_bar.progress(progress / 100)
-                                    status_text.text(f"📥 {progress}% descargado ({downloaded // (1024*1024)} MB / {total_size // (1024*1024)} MB)")
+                                    status_text.text(f"[>] {progress}% descargado ({downloaded // (1024*1024)} MB / {total_size // (1024*1024)} MB)")
                         
-                        status_text.text("📦 Extrayendo...")
+                        status_text.text("[paquete] Extrayendo...")
                         os.makedirs("faiss_index", exist_ok=True)
                         zip_data.seek(0)
                         with zipfile.ZipFile(zip_data) as zf:
@@ -205,10 +205,10 @@ def load_resources():
                         st.session_state.faiss_downloaded = True
                         progress_bar.empty()
                         status_text.empty()
-                        st.success("✅ Índice descargado! No se volverá a descargar.")
+                        st.success("[OK] Indice descargado! No se volvera a descargar.")
                         
                     except Exception as e:
-                        st.error(f"❌ Error descargando: {str(e)}")
+                        st.error(f"[ERROR] Error descargando: {str(e)}")
                         raise
             # === FIN DESCARGA ===
 
