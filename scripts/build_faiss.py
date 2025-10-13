@@ -39,7 +39,7 @@ def get_srt_documents(data_path):
     for fn in tqdm(files, desc='Reading .srt files'):
         path = os.path.join(data_path, fn)
         try:
-            loader = TextLoader(path, encoding='utf-8')
+            loader = TextLoader(path, encoding='latin-1')
             loaded = loader.load()
             docs.extend(loaded)
         except Exception as e:
