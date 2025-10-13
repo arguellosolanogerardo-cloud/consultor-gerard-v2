@@ -1351,6 +1351,44 @@ div[data-testid="stTextInput"] input:focus::placeholder {
 <div class="title-style">GERARD</div>
 """, unsafe_allow_html=True)
 
+# JavaScript específico para sidebar solamente
+st.components.v1.html("""
+<script>
+function fixSidebarOnly() {
+    const sidebar = document.querySelector('[data-testid="stSidebar"]');
+    if (sidebar) {
+        // Solo corregir texto específico del sidebar, no CSS
+        const textElements = sidebar.querySelectorAll('h2, h3, div, p, span');
+        textElements.forEach(element => {
+            if (element.textContent && !element.innerHTML.includes('<style')) {
+                let text = element.textContent;
+                
+                // Correcciones específicas solo para texto visible
+                text = text.replace(/ðŸ/g, '');
+                text = text.replace(/â/g, '');
+                text = text.replace(/ConversaciÃ³n/g, 'CONVERSACION');
+                text = text.replace(/ExportaciÃ³n/g, 'EXPORTACION');
+                text = text.replace(/aquÃ­/g, 'AQUI');
+                text = text.replace(/CÃ³mo/g, 'COMO');
+                text = text.replace(/CATEGORÃAS/g, 'CATEGORIAS');
+                text = text.replace(/BÃšSQUEDA/g, 'BUSQUEDA');
+                
+                if (text !== element.textContent) {
+                    element.textContent = text;
+                }
+            }
+        });
+    }
+}
+
+// Ejecutar solo en el sidebar
+setTimeout(fixSidebarOnly, 1000);
+setInterval(fixSidebarOnly, 2000);
+
+console.log('Sidebar-specific cleaner active');
+</script>
+""", height=0)
+
 # Aplicar wrapper UTF-8 a todas las funciones de Streamlit
 def create_utf8_wrapper():
     """Crea un wrapper para todas las funciones de Streamlit que muestran texto."""
@@ -2098,5 +2136,5 @@ if st.session_state.get('_new_message_added', False):
     st.session_state['_new_message_added'] = False
     st.rerun()
 
-# EJECUTAR LIMPIADOR DE CARACTERES AL FINAL
-force_streamlit_utf8()
+# EJECUTAR LIMPIADOR DE CARACTERES AL FINAL (DESACTIVADO TEMPORALMENTE)
+# force_streamlit_utf8()
