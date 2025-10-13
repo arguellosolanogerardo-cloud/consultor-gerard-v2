@@ -160,27 +160,45 @@ def load_resources():
                 st.error("âš ï¸ ADVERTENCIA: Usando embeddings simuladas (hash-based). La bÃºsqueda semÃ¡ntica serÃ¡ limitada. Verifica la API key de Google.")
 
             
-            # === AUTO-CONSTRUCCIÓN DEL ÍNDICE FAISS ===
+            # === DESCARGA DEL ÍNDICE FAISS DESDE GITHUB RELEASE ===
             if not os.path.exists("faiss_index/index.faiss"):
-                st.warning(" Índice FAISS no encontrado. Construyendo automáticamente...")
-                st.info(" Este proceso tomará aproximadamente 25-30 minutos. Por favor espera...")
+                st.info("📥 Descargando índice FAISS pre-construido...")
+                st.info("⏱️ Descarga única (~80 MB, 30-60 segundos)")
                 
                 try:
-                    from auto_build_index import build_faiss_index
-                    success = build_faiss_index(api_key, force=True)
+                    import requests
+                    import zipfile
+                    from io import BytesIO
                     
-                    if success:
-                        st.success(" Índice FAISS construido exitosamente!")
-                    else:
-                        st.error(" Error construyendo el índice FAISS")
-                        raise Exception("Failed to build FAISS index")
-                except ImportError:
-                    st.error(" auto_build_index.py no encontrado")
-                    raise
+                    FAISS_URL = "https://github.com/arguellosolanogerardo-cloud/consultor-gerard-v2/releases/download/faiss-v1.0/faiss_index.zip"
+                    
+                    with st.spinner("Descargando..."):
+                        response = requests.get(FAISS_URL, stream=True, timeout=300)
+                        response.raise_for_status()
+                        
+                        total_size = int(response.headers.get('content-length', 0))
+                        downloaded = 0
+                        zip_data = BytesIO()
+                        
+                        for chunk in response.iter_content(chunk_size=1024*1024):
+                            zip_data.write(chunk)
+                            downloaded += len(chunk)
+                            if total_size > 0 and downloaded % (10*1024*1024) == 0:
+                                progress = int((downloaded / total_size) * 100)
+                                st.info(f"📥 {progress}% descargado")
+                    
+                    st.info("📦 Extrayendo...")
+                    os.makedirs("faiss_index", exist_ok=True)
+                    zip_data.seek(0)
+                    with zipfile.ZipFile(zip_data) as zf:
+                        zf.extractall("faiss_index")
+                    
+                    st.success("✅ Listo! (no se volverá a descargar)")
+                    
                 except Exception as e:
-                    st.error(f" Error en construcción: {str(e)}")
+                    st.error(f"❌ Error: {str(e)}")
                     raise
-            # === FIN AUTO-CONSTRUCCIÓN ===
+            # === FIN DESCARGA ===
 
 
             faiss_vs = FAISS.load_local(folder_path="faiss_index", embeddings=embeddings, allow_dangerous_deserialization=True)
