@@ -100,3 +100,5 @@ Los scripts extraen el JSON mediante `re.search(r'\[.*\]')` y luego `json.loads(
 - (Opcional) Ayuda para limpiar el historial Git si la clave fue expuesta.
 
 Si quieres que genere la GitHub Action preventiva o que limpie el historial de Git automáticamente, dime y lo preparo.
+
+<!-- Last updated: 2025-10-13 10:30:02 -->
