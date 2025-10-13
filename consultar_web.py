@@ -1087,265 +1087,28 @@ user_avatar = "https://api.iconify.design/line-md/question-circle.svg?color=%235
 assistant_avatar = "https://api.iconify.design/mdi/ufo-outline.svg?color=%238A2BE2"
 
 
-# --- Estilos CSS y Título ---
+# --- CSS Simplificado y Título ---
 st.markdown("""
-<meta charset="UTF-8">
-<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<meta http-equiv="Content-Language" content="es">
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;800&display=swap');
+/* TITULO PRINCIPAL */
 .title-style {
-    /* Tipografía moderna y mayor tamaño */
-    font-family: 'Poppins', 'Orbitron', sans-serif;
-    font-size: 8em; /* un poco más grande */
+    font-family: sans-serif;
+    font-size: 6em;
     text-align: center;
-    color: #8A2BE2; /* Violeta */
-    padding: 20px 0 20px 0;
+    color: #8A2BE2;
+    padding: 20px 0;
     margin-top: 10px;
-    line-height: 1.1;
-    /* pulso suave (palpitante) */
-    animation: pulse-title 2s infinite ease-in-out;
-    text-shadow: 0 6px 18px rgba(138,43,226,0.15);
 }
-.welcome-text {
-    font-family: 'Orbitron', sans-serif;
-    font-size: 2.5em;
-    text-align: center;
-    color: #28a745; /* Green */
-    padding-bottom: 5px;
-}
-.sub-welcome-text {
-    text-align: center;
-    font-size: 1.1em;
-    margin-top: -15px;
-    padding-bottom: 20px;
-}
+/* ESTILOS BASICOS SOLAMENTE */
 .intro-text {
-    text-transform: uppercase;
     text-align: center;
-    color: #58ACFA; /* Azul claro */
-    font-size: 2.6em;
-    padding-bottom: 20px;
-}
-.loader-container {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    padding-top: 5px;
-}
-.dot {
-    height: 10px;
-    width: 10px;
-    margin: 0 3px;
-    background-color: #8A2BE2; /* Violeta */
-    border-radius: 50%;
-    display: inline-block;
-    animation: bounce 1.4s infinite ease-in-out both;
-}
-.dot:nth-child(1) { animation-delay: -0.32s; }
-.dot:nth-child(2) { animation-delay: -0.16s; }
-@keyframes bounce {
-    0%, 80%, 100% { transform: scale(0); }
-    40% { transform: scale(1.0); }
-}
-
-@keyframes pulse-title {
-    0% { transform: scale(1); }
-    50% { transform: scale(1.06); }
-    100% { transform: scale(1); }
-}
-
-/* Responsive: ajustar tamaño del título en móviles */
-@media screen and (max-width: 768px) {
-    .title-style {
-        font-size: 5em !important;
-        padding: 15px 0 15px 0 !important;
-        margin-top: 5px !important;
-    }
-}
-
-@media screen and (max-width: 480px) {
-    .title-style {
-        font-size: 4em !important;
-        padding: 10px 0 10px 0 !important;
-        margin-top: 0 !important;
-    }
-    
-    .block-container {
-        padding-top: 2rem !important;
-    }
-}
-
-/* --- ¡NUEVA ANIMACIÓN CSS! --- */
-.pulsing-q {
-    font-size: 1.5em; /* 24px */
-    color: red;
-    font-weight: bold;
-    animation: pulse 1.5s infinite;
-}
-@keyframes pulse {
-    0% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.25); opacity: 0.75; }
-    100% { transform: scale(1); opacity: 1; }
-}
-/* Clase reutilizable para texto verde pulsante */
-.green-pulse {
-    color: #28a745; /* verde */
-    font-weight: bold;
-    font-size: 2em;
-    animation: pulse 1.2s infinite;
-}
-
-/* Animación de parpadeo lento para el placeholder */
-@-webkit-keyframes blink-slow {
-    0% { opacity: 1; }
-    25% { opacity: 1; }
-    50% { opacity: 0; }
-    75% { opacity: 0; }
-    100% { opacity: 1; }
-}
-@-moz-keyframes blink-slow {
-    0% { opacity: 1; }
-    25% { opacity: 1; }
-    50% { opacity: 0; }
-    75% { opacity: 0; }
-    100% { opacity: 1; }
-}
-@keyframes blink-slow {
-    0% { opacity: 1; }
-    25% { opacity: 1; }
-    50% { opacity: 0; }
-    75% { opacity: 0; }
-    100% { opacity: 1; }
-}
-
-/* Media queries para móviles (mejor legibilidad en Android/iOS antiguos y modernos) */
-@media (max-width: 1200px) {
-    .title-style { font-size: 5.2em; }
-    .intro-text { font-size: 1.6em; }
-}
-@media (max-width: 800px) {
-    .title-style { font-size: 3.2em; }
-    .intro-text { font-size: 1.15em; }
-    .welcome-text { font-size: 1.6em; }
-}
-@media (max-width: 480px) {
-    .title-style { font-size: 2.4em; }
-    .intro-text { font-size: 1.0em; }
-    .welcome-text { font-size: 1.2em; }
-    .green-pulse { font-size: 1.2em; }
-}
-@media (max-width: 360px) {
-    .title-style { font-size: 2.0em; }
-    .intro-text { font-size: 0.95em; }
-    .green-pulse { font-size: 1.0em; }
-}
-
-/* Fondo blanco para la casilla de preguntas */
-.stChatInput {
-    background-color: white !important;
-}
-.stChatInput > div {
-    background-color: white !important;
+    color: #58ACFA;
+    font-size: 1.5em;
+    padding: 10px;
 }
 .stChatInput textarea {
     background-color: white !important;
     color: black !important;
-    cursor: text !important;
-}
-.stChatInput textarea::placeholder {
-    color: #CC0000 !important;
-    font-weight: bold !important;
-    opacity: 1 !important;
-    -webkit-animation: blink-slow 2s infinite;
-    -moz-animation: blink-slow 2s infinite;
-    animation: blink-slow 2s infinite;
-}
-.stChatInput textarea::-webkit-input-placeholder {
-    color: #CC0000 !important;
-    font-weight: bold !important;
-    -webkit-animation: blink-slow 2s infinite;
-    animation: blink-slow 2s infinite;
-}
-.stChatInput textarea::-moz-placeholder {
-    color: #CC0000 !important;
-    font-weight: bold !important;
-    -moz-animation: blink-slow 2s infinite;
-    animation: blink-slow 2s infinite;
-}
-/* Ocultar placeholder cuando "PREGUNTA¡..." está oculto */
-.hide-placeholder textarea::placeholder {
-    opacity: 0 !important;
-    color: transparent !important;
-    animation: none !important;
-    -webkit-animation: none !important;
-    -moz-animation: none !important;
-}
-.hide-placeholder textarea::-webkit-input-placeholder {
-    opacity: 0 !important;
-    color: transparent !important;
-    animation: none !important;
-    -webkit-animation: none !important;
-}
-.hide-placeholder textarea::-moz-placeholder {
-    opacity: 0 !important;
-    color: transparent !important;
-    animation: none !important;
-    -moz-animation: none !important;
-}
-/* Ocultar placeholder al hacer focus */
-.stChatInput textarea:focus::placeholder {
-    opacity: 0 !important;
-    color: transparent !important;
-    animation: none !important;
-    -webkit-animation: none !important;
-    -moz-animation: none !important;
-}
-/* Asegurar que el cursor sea visible */
-.stChatInput textarea:focus {
-    cursor: text !important;
-    caret-color: black !important;
-}
-
-/* Clase para ocultar el texto PREGUNTA durante la búsqueda */
-.pregunta-hidden {
-    display: none !important;
-    visibility: hidden !important;
-    opacity: 0 !important;
-}
-
-/* Fondo verde para la casilla de nombre */
-input[aria-label="Tu Nombre"] {
-    background-color: #28a745 !important;
-    color: white !important;
-    font-weight: bold !important;
-    font-size: 1.1em !important;
-    cursor: text !important;
-    caret-color: white !important;
-}
-div[data-testid="stTextInput"] input {
-    background-color: #28a745 !important;
-    color: white !important;
-    font-weight: bold !important;
-    font-size: 1.1em !important;
-    cursor: text !important;
-    caret-color: white !important;
-}
-/* Placeholder de la casilla de nombre */
-input[aria-label="Tu Nombre"]::placeholder {
-    color: rgba(255, 255, 255, 0.7) !important;
-    font-weight: normal !important;
-}
-div[data-testid="stTextInput"] input::placeholder {
-    color: rgba(255, 255, 255, 0.7) !important;
-    font-weight: normal !important;
-}
-/* Ocultar placeholder al hacer focus en casilla de nombre */
-input[aria-label="Tu Nombre"]:focus::placeholder {
-    opacity: 0 !important;
-}
-div[data-testid="stTextInput"] input:focus::placeholder {
-    opacity: 0 !important;
 }
 </style>
 <div class="title-style">GERARD</div>
