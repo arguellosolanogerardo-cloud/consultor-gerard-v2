@@ -161,8 +161,16 @@ class InteractionLogger:
             else:
                 session_data["device_info"] = self.device_detector.detect_from_terminal()
             
-            # Obtener información geográfica
-            session_data["geo_info"] = self.geo_locator.get_location()
+            # Obtener información geográfica (TEMPORALMENTE DESACTIVADO)
+            # session_data["geo_info"] = self.geo_locator.get_location()
+            session_data["geo_info"] = {
+                "ip": "Desconocido",
+                "pais": "Desconocido", 
+                "ciudad": "Desconocido",
+                "region": "N/A",
+                "coordenadas": "N/A",
+                "fuente": "desactivado"
+            }
             
             # Anonimizar IP si está configurado
             if self.anonymize and "ip" in session_data["geo_info"]:
