@@ -667,6 +667,9 @@ def _convert_spans_to_font_tags(html: str) -> str:
     """
     # Normalizar algunos cierres y saltos
     s = html
+    # Formatear citas de fuente en negrita magenta
+    fuente_pattern = r'\((Fuente:[^)]+)\)'
+    s = re.sub(fuente_pattern, r'<b><font color="#FF00FF">(\1)</font></b>', s)
     # Reemplazar span color (hex o nombre)
     s = re.sub(r'<span\s+style="[^"]*color\s*:\s*([^;\"]+)[^\"]*">(.*?)</span>', lambda m: f"<font color=\"{m.group(1).strip()}\">{m.group(2)}</font>", s, flags=re.DOTALL)
     # Reemplazar any remaining <span> without color -> remove span
