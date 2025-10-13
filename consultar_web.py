@@ -1209,9 +1209,21 @@ with st.sidebar:
         📖 **Contexto completo** de la enseñanza  
         
         ---
-        
-        📚 **[Ver Guía Completa](https://github.com/arguellosolanogerardo-cloud/consultor-gerard/blob/main/GUIA_MODELOS_PREGUNTA_GERARD.md)** con ejemplos detallados
         """)
+        
+        # Botón de descarga del PDF de la guía
+        try:
+            with open("assets/Guia_GERARD.pdf", "rb") as pdf_file:
+                pdf_bytes = pdf_file.read()
+                st.download_button(
+                    label="� Descargar Guía Completa (PDF)",
+                    data=pdf_bytes,
+                    file_name="Guia_Completa_GERARD.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+        except FileNotFoundError:
+            st.markdown("📚 [Ver Guía en línea](https://github.com/arguellosolanogerardo-cloud/consultor-gerard-v2/blob/main/GUIA_MODELOS_PREGUNTA_GERARD.md)")
 
 # ============================================================================
 
