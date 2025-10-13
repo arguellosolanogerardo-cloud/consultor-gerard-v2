@@ -112,24 +112,22 @@ class GeoLocator:
 
     def _get_location_from_dbip(self, ip: str) -> Optional[Dict]:
         """
-        Obtiene ubicaci髇 usando db-ip.com (gratuito, 1000 req/d韆).
-        API m醩 confiable y actualizada.
+        Obtiene ubicaci贸n usando db-ip.com (gratuito, 1000 req/d铆a).
+        API m谩s confiable y actualizada.
 
         Args:
-            ip: Direcci髇 IP
+            ip: Direcci贸n IP
 
         Returns:
-            Diccionario con informaci髇 geogr醘ica o None
+            Diccionario con informaci贸n geogr谩fica o None
         """
         try:
-            # DB-IP ofrece API gratuita con buen l韒ite
             url = f"https://api.db-ip.com/v2/free/{ip}"
             response = requests.get(url, timeout=self.timeout)
 
             if response.status_code == 200:
                 data = response.json()
 
-                # Verificar si hay error
                 if 'error' in data or data.get('countryName') is None:
                     return None
 
@@ -138,14 +136,15 @@ class GeoLocator:
                     "pais": data.get("countryName", "Desconocido"),
                     "ciudad": data.get("city", "Desconocido"),
                     "region": data.get("stateProv", "Desconocido"),
-                    "coordenadas": "N/A",  # API gratuita no incluye coordenadas
+                    "coordenadas": "N/A",
                     "codigo_pais": data.get("countryCode", "N/A"),
                     "timezone": "N/A",
                     "org": "N/A",
                     "fuente": "db-ip.com"
                 }
-        except Exception as e:
+        except Exception:
             return None
+
     def _get_location_from_ipapi_co(self, ip: str) -> Optional[Dict]:
         """
         Obtiene ubicaci贸n usando ipapi.co (gratuito, 1000 req/d铆a).
@@ -181,6 +180,42 @@ class GeoLocator:
         except Exception:
             return None
     
+
+    def _get_location_from_dbip(self, ip: str) -> Optional[Dict]:
+        """
+        Obtiene ubicaci贸n usando db-ip.com (gratuito, 1000 req/d铆a).
+        API m谩s confiable y actualizada.
+
+        Args:
+            ip: Direcci贸n IP
+
+        Returns:
+            Diccionario con informaci贸n geogr谩fica o None
+        """
+        try:
+            url = f"https://api.db-ip.com/v2/free/{ip}"
+            response = requests.get(url, timeout=self.timeout)
+
+            if response.status_code == 200:
+                data = response.json()
+
+                if 'error' in data or data.get('countryName') is None:
+                    return None
+
+                return {
+                    "ip": ip,
+                    "pais": data.get("countryName", "Desconocido"),
+                    "ciudad": data.get("city", "Desconocido"),
+                    "region": data.get("stateProv", "Desconocido"),
+                    "coordenadas": "N/A",
+                    "codigo_pais": data.get("countryCode", "N/A"),
+                    "timezone": "N/A",
+                    "org": "N/A",
+                    "fuente": "db-ip.com"
+                }
+        except Exception:
+            return None
+
     def _get_location_from_ipapi_com(self, ip: str) -> Optional[Dict]:
         """
         Obtiene ubicaci贸n usando ip-api.com (gratuito, 45 req/min).
@@ -290,8 +325,9 @@ class GeoLocator:
         # Intentar obtener ubicaci贸n con diferentes servicios
         location_data = None
         
-        # Prioridad de servicios
+        # Prioridad de servicios (DB-IP primero por ser m谩s confiable)
         services = [
+            self._get_location_from_dbip,
             self._get_location_from_ipapi_co,
             self._get_location_from_ipapi_com,
             self._get_location_from_ipinfo_io
