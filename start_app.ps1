@@ -9,8 +9,9 @@ Write-Host "Iniciando aplicación Streamlit..." -ForegroundColor Yellow
 Write-Host "Entorno: .venv_clean (protobuf 5.29.5)" -ForegroundColor Gray
 Write-Host ""
 
-# Activar entorno limpio y ejecutar Streamlit
-& E:\proyecto-gemini\.venv_clean\Scripts\python.exe -m streamlit run E:\proyecto-gemini\consultar_web.py
+# Cambiar al directorio del proyecto y activar entorno limpio
+Set-Location E:\proyecto-gemini-limpio
+& .\\.venv_clean\Scripts\python.exe -m streamlit run consultar_web.py
 
 Write-Host ""
 Write-Host "Aplicación detenida." -ForegroundColor Yellow

@@ -2,6 +2,13 @@
 headless = true
 port = 8501
 maxUploadSize = 500
+enableCORS = false
+enableXsrfProtection = false
+fileWatcherType = "none"
+
+[global]
+# Configuración UTF-8
+dataFrameSerialization = "legacy"
 
 [browser]
 gatherUsageStats = false
@@ -18,4 +25,3 @@ font = "sans serif"
 [ui]
 # Ocultar elementos de la interfaz de Streamlit
 hideTopBar = true
-hideSidebarNav = false
