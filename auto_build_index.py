@@ -39,7 +39,7 @@ def build_faiss_index(api_key: str, force: bool = False):
             DATA_PATH,
             glob="**/*.srt",
             loader_cls=TextLoader,
-            loader_kwargs={'encoding': 'utf-8', 'errors': 'ignore'}
+            loader_kwargs={'encoding': 'latin-1'}
         )
         documents = loader.load()
         
