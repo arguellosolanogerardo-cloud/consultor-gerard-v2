@@ -1171,6 +1171,14 @@ st.markdown("""
 <div class="title-style">GERARD</div>
 """, unsafe_allow_html=True)
 
+# --- BOTÓN DE VERIFICACIÓN DE GOOGLE SHEETS ---
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    if st.button("🔍 Verificar Google Sheets", key="verify_sheets", help="Verificar que las credenciales de Google Sheets estén configuradas correctamente"):
+        st.switch_page("verificar_cloud.py")
+
+st.markdown("---")
+
 # JavaScript específico para sidebar solamente
 st.components.v1.html("""
 <script>
