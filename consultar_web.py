@@ -1095,9 +1095,15 @@ st.markdown("""
     font-family: sans-serif;
     font-size: 6em;
     text-align: center;
-    color: #8A2BE2;
+    color: #00FF00;
     padding: 20px 0;
     margin-top: 10px;
+    animation: pulse-green 2s infinite;
+}
+@keyframes pulse-green {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
 }
 /* ESTILOS BASICOS SOLAMENTE */
 .intro-text {
