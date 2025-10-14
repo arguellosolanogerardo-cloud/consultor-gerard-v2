@@ -514,29 +514,37 @@ def get_user_location() -> dict:
         user_ip = None
         if hasattr(st, 'context') and hasattr(st.context, 'headers'):
             headers = st.context.headers
+            print(f"[DEBUG] Headers disponibles: {list(headers.keys())}")
             # Intentar diferentes headers para obtener la IP real
             for header_name in ['X-Forwarded-For', 'X-Real-IP', 'CF-Connecting-IP', 'X-Client-IP']:
                 if header_name in headers:
                     ip_value = headers[header_name]
+                    print(f"[DEBUG] Header {header_name}: {ip_value}")
                     # X-Forwarded-For puede contener múltiples IPs, tomar la primera
                     user_ip = ip_value.split(',')[0].strip()
+                    print(f"[DEBUG] IP extraída: {user_ip}")
                     break
 
         # Si no se encontró IP en headers, usar api.ipify.org como fallback
         if not user_ip:
             try:
+                print("[DEBUG] Usando api.ipify.org como fallback")
                 response = requests.get('https://api.ipify.org?format=json', timeout=5)
                 response.raise_for_status()
                 ip_data = response.json()
                 user_ip = ip_data.get('ip', 'Unknown')
-            except:
+                print(f"[DEBUG] IP de api.ipify.org: {user_ip}")
+            except Exception as e:
+                print(f"[DEBUG] Error con api.ipify.org: {e}")
                 user_ip = 'Unknown'
 
         # Geolocalizar la IP usando ip-api.com
         if user_ip and user_ip != 'Unknown':
+            print(f"[DEBUG] Geolocalizando IP: {user_ip}")
             geo_response = requests.get(f'http://ip-api.com/json/{user_ip}', timeout=5)
             geo_response.raise_for_status()
             geo_data = geo_response.json()
+            print(f"[DEBUG] Respuesta de ip-api.com: {geo_data}")
 
             if geo_data.get('status') == 'success':
                 city = geo_data.get('city', 'Desconocida')
@@ -547,6 +555,7 @@ def get_user_location() -> dict:
                 org = geo_data.get('org', '')
                 timezone = geo_data.get('timezone', '')
 
+                print(f"[DEBUG] Geolocalización exitosa: {city}, {country}")
                 return {
                     'ip': user_ip,
                     'city': city,
@@ -557,8 +566,11 @@ def get_user_location() -> dict:
                     'org': org,
                     'timezone': timezone
                 }
+            else:
+                print(f"[DEBUG] Geolocalización fallida, status: {geo_data.get('status')}")
 
         # Fallback si la geolocalización falla
+        print("[DEBUG] Usando fallback")
         return {
             'ip': user_ip or 'No disponible',
             'city': 'Desconocida',
@@ -571,6 +583,8 @@ def get_user_location() -> dict:
         }
     except Exception as e:
         print(f"[!] Error obteniendo ubicación: {e}")
+        import traceback
+        traceback.print_exc()
         return {
             'ip': 'No disponible',
             'city': 'Desconocida',
