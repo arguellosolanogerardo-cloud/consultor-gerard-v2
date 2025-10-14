@@ -1456,7 +1456,15 @@ if not st.session_state.user_name:
         height=0,
     )
     
-    st.markdown('<div style="text-align:center; margin-top:8px;"><span class="green-pulse">TU NOMBRE</span></div>', unsafe_allow_html=True)
+    st.markdown('''
+    <div style="text-align:center; margin-top:8px;">
+        <span style="color: #00FF00; font-weight: bold; font-size: 3em; 
+                     text-shadow: 2px 2px 4px rgba(0,0,0,0.3); 
+                     letter-spacing: 0.1em; display: block; margin-bottom: 10px;">
+            TU NOMBRE
+        </span>
+    </div>
+    ''', unsafe_allow_html=True)
     user_name_input = st.text_input("Tu Nombre", key="name_inputter", label_visibility="collapsed")
     if user_name_input:
         st.session_state.user_name = user_name_input.upper()
@@ -1530,9 +1538,11 @@ if prompt_input:
     if not st.session_state.user_name:
         st.markdown("""
         <div style="text-align: center; margin: 20px 0;">
-            <p style="color: red; font-size: 1.3em; font-weight: bold; animation: pulse 1.5s infinite;">
+            <p style="color: #00FF00; font-size: 2.5em; font-weight: bold; 
+                      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+                      letter-spacing: 0.05em; animation: pulse 1.5s infinite;">
                 INGRESA primero TU NOMBRE<br>
-                en la casilla verde de arriba.
+                <span style="font-size: 0.7em;">en la casilla verde de arriba.</span>
             </p>
         </div>
         """, unsafe_allow_html=True)
