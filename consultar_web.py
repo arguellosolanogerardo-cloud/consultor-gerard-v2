@@ -265,72 +265,58 @@ def load_resources():
 # --- Inicializar sistema de logging completo ---
 @st.cache_resource
 def init_logger():
-    """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
-    return InteractionLogger(
-        platform="web",
-        log_dir="logs",
-        anonymize=False,  # Guardar datos completos
-        enable_json=True  # Guardar también en formato JSON
-    )
+    """
+    Obtiene la ubicación del usuario mediante geolocalización por IP (ipinfo.io).
+    Esta versión NO solicita permiso al navegador y no inyecta JavaScript.
+    """
+    # Si ya está en session_state, usarla
+    if 'geo_location' in st.session_state:
+        return st.session_state['geo_location']
 
-# --- Inicializar Google Sheets Logger (si está disponible) ---
-@st.cache_resource
-def init_sheets_logger():
-    """Inicializa el logger de Google Sheets si está configurado."""
-    if GOOGLE_SHEETS_AVAILABLE:
-        return create_sheets_logger()
-    return None
+    # Obtener geolocalización por IP directamente (sin prompt)
+    try:
+        resp = requests.get("https://ipinfo.io/json", timeout=5)
+        data = resp.json()
+        loc = data.get('loc', '') or ''
+        if loc and ',' in loc:
+            try:
+                latitude, longitude = [float(x) for x in loc.split(',')]
+            except Exception:
+                latitude = 0.0
+                longitude = 0.0
+        else:
+            latitude = 0.0
+            longitude = 0.0
 
-# --- Lógica de GERARD v3.01 - Actualizado ---
-prompt = ChatPromptTemplate.from_template(r"""
-🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
-IDENTIDAD DEL SISTEMA
-═══════════════════════════════════════════════════════════
-Nombre: GERARD
-Versión: 3.01 - Analista Documental
-Modelo Base: Gemini Pro Latest 2.5
-Temperatura: 0.3-0.5 (Máxima Precisión y Consistencia)
-Especialización: Criptoanálisis de Archivos .srt
-═══════════════════════════════════════════════════════════
-MISIÓN CRÍTICA
-Eres GERARD, un sistema de inteligencia analítica especializado en arqueología documental de archivos de subtítulos (.srt). Tu propósito es descubrir patrones ocultos, mensajes encriptados y conexiones invisibles que emergen al correlacionar múltiples documentos mediante técnicas forenses avanzadas. DESCUBRIR EXACTAMENTE EL TITULO, LA HORA, EL MINUTO DE LOS ARCHIVOS.SRT QUE ESTAN EN LA BASE VECTORIAL COMO FUENTE UNICA DEL CONOCIMIENTO
-Configuración de Temperatura Optimizada (0.2-0.3)
-Esta temperatura baja garantiza:
-• Consistencia absoluta entre consultas repetidas
-• Reproducibilidad de hallazgos para verificación
-• Precisión quirúrgica en extracción de datos
-• Eliminación de variabilidad en respuestas críticas
-• Confiabilidad forense en análisis investigativos
-________________________________________
-🚨 PROTOCOLOS DE SEGURIDAD ANALÍTICA
-REGLAS ABSOLUTAS (Nivel de Cumplimiento: 100%)
-🔴 PROHIBICIÓN NIVEL 1: FABRICACIÓN DE DATOS
-├─ ❌ NO inventar información bajo ninguna circunstancia
-├─ ❌ NO usar conocimiento del modelo base (entrenamiento general)
-├─ ❌ NO suponer o inferir más allá de lo textualmente disponible
-└─ ❌ NO completar información faltante con lógica externa
-
-🔴 PROHIBICIÓN NIVEL 2: CONTAMINACIÓN ANALÍTICA
-├─ ❌ NO mezclar análisis con citas textuales
-├─ ❌ NO parafrasear cuando se requiere texto literal
-├─ ❌ NO interpretar sin declarar explícitamente que es interpretación
-└─ ❌ NO omitir información contradictoria si existe
-
-🟢 MANDATOS OBLIGATORIOS
-├─ ✅ Cada afirmación DEBE tener cita textual verificable
-├─ ✅ Cada cita DEBE incluir: [Documento] + [Timestamp] + [Texto Literal]
-├─ ✅ Cada análisis DEBE separarse claramente de evidencias
-├─ ✅ Cada consulta DEBE ejecutar los 8 Protocolos de Búsqueda Profunda
-└─ ✅ Cada respuesta DEBE incluir nivel de confianza estadístico
-________________________________________
-� INSTRUCCIÓN CRÍTICA DE FORMATO
-CADA FRASE O PÁRRAFO de respuesta DEBE ir seguido inmediatamente de su cita de fuente en PARÉNTESIS.
-El texto de la cita DEBE ir en COLOR MAGENTA.
-Formato: [Tu respuesta aquí] (Fuente: TITULO_ARCHIVO, Timestamp: HH:MM:SS)
-
-EJEMPLO:
-"El amor es la fuerza más poderosa del universo (Fuente: MEDITACION_42_EL_AMOR_DIVINO, Timestamp: 00:15:32)"
-
+        geo_dict = {
+            'ip': data.get('ip', 'No disponible'),
+            'city': data.get('city', 'Desconocida'),
+            'country': data.get('country', 'Desconocido'),
+            'region': data.get('region', ''),
+            'latitude': latitude,
+            'longitude': longitude,
+            'org': data.get('org', ''),
+            'timezone': data.get('timezone', '')
+        }
+        # Guardar versión legible para logging
+        st.session_state['geo_location'] = geo_dict
+        st.session_state['geo_location_str'] = f"{geo_dict['city']}, {geo_dict['country']} ({geo_dict['latitude']},{geo_dict['longitude']})"
+        return geo_dict
+    except Exception as e:
+        print(f"[!] Error ipinfo fallback: {e}")
+        fallback = {
+            'ip': 'No disponible',
+            'city': 'Desconocida',
+            'country': 'Desconocido',
+            'region': '',
+            'latitude': 0,
+            'longitude': 0,
+            'org': '',
+            'timezone': ''
+        }
+        st.session_state['geo_location'] = fallback
+        st.session_state['geo_location_str'] = f"{fallback['city']}, {fallback['country']}"
+        return fallback
 🚨 FORMATO DE SALIDA OBLIGATORIO (JSON)
 CRÍTICO: Tu respuesta DEBE ser un array JSON válido con esta estructura exacta:
 
@@ -514,36 +500,73 @@ def get_user_location() -> dict:
     if 'geo_location' in st.session_state:
         return st.session_state['geo_location']
 
-    # Mostrar componente JS para pedir ubicación
-    geo_data = st.components.v1.html(
-        '''
-        <script>
-        function sendLocation(pos) {
-            const lat = pos.coords.latitude;
-            const lon = pos.coords.longitude;
-            const payload = lat + "," + lon;
-            window.parent.postMessage({type: "geo_location", payload: payload}, "*");
-        }
-        function askLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(sendLocation, function(e){window.parent.postMessage({type: "geo_location", payload: "error"}, "*");});
-            } else {
-                window.parent.postMessage({type: "geo_location", payload: "error"}, "*");
-            }
-        }
-        askLocation();
-        window.addEventListener("message", function(event) {
-            if (event.data && event.data.type === "geo_location_response") {
-                // Recibido desde Streamlit
-            }
-        });
-        </script>
-        <div id="geo-status" style="font-size:1.1em; color:#888; text-align:center;">Obteniendo ubicación real...</div>
-        ''', height=0)
+    # Primero, revisar si el navegador ya redirigió con ?geo=lat,lon
+    params = st.experimental_get_query_params()
+    if 'geo' in params:
+        try:
+            geo_val = params.get('geo')[0]
+            lat_str, lon_str = geo_val.split(',')
+            lat = float(lat_str)
+            lon = float(lon_str)
 
-    # Streamlit no puede recibir el mensaje directamente, pero puede leerlo en el siguiente rerun
-    # Usar st.experimental_get_query_params para leer la ubicación si se envía como parámetro
-    # Si no, usar ipinfo.io como fallback
+            # Reverse geocoding con Nominatim (OpenStreetMap)
+            try:
+                nominatim = f"https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&accept-language=es"
+                r = requests.get(nominatim, timeout=5, headers={"User-Agent": "GERARD-App/1.0"})
+                r.raise_for_status()
+                j = r.json()
+                address = j.get('address', {})
+                city = address.get('city') or address.get('town') or address.get('village') or address.get('hamlet') or address.get('municipality') or ''
+                # Algunos países devuelven state y county en lugar de city
+                if not city:
+                    city = address.get('county') or address.get('state') or ''
+                country = address.get('country') or ''
+
+                geo_dict = {
+                    'ip': params.get('ip', ['No disponible'])[0],
+                    'city': city or 'Desconocida',
+                    'country': country or 'Desconocido',
+                    'region': address.get('state', ''),
+                    'latitude': lat,
+                    'longitude': lon,
+                    'org': '',
+                    'timezone': ''
+                }
+                st.session_state['geo_location'] = geo_dict
+                return geo_dict
+            except Exception as e:
+                print(f"[!] Error reverse-geocoding Nominatim: {e}")
+                # Si falla reverse, guardar lat/lon y usar ipinfo fallback below
+        except Exception:
+            pass
+
+    # Si no hay geo en URL, inyectar JS que pide permiso y redirige con ?geo=lat,lon
+    js = f"""
+    <script>
+    (function() {{
+        function redirectWithGeo(lat, lon) {{
+            const qp = new URLSearchParams(window.location.search);
+            qp.set('geo', lat + ',' + lon);
+            const newUrl = window.location.pathname + '?' + qp.toString();
+            window.location.replace(newUrl);
+        }}
+        if (navigator.geolocation) {{
+            navigator.geolocation.getCurrentPosition(function(pos) {{
+                redirectWithGeo(pos.coords.latitude, pos.coords.longitude);
+            }}, function(err) {{
+                // Usuario negó o error: no hacer nada
+                console.log('Geolocation denied or error', err);
+            }}, {{timeout:10000}});
+        }} else {{
+            console.log('Geolocation not supported');
+        }}
+    }})();
+    </script>
+    <div style="font-size:0.9em; color:#666; text-align:center;">Solicitando permiso de ubicación al navegador... si no aceptas, se usará una ubicación aproximada por IP.</div>
+    """
+    st.components.v1.html(js, height=0)
+
+    # Mientras esperamos la redirección, usar fallback de ipinfo
     try:
         response = requests.get('https://ipinfo.io/json', timeout=10)
         data = response.json()
@@ -562,7 +585,8 @@ def get_user_location() -> dict:
         }
         st.session_state['geo_location'] = geo_dict
         return geo_dict
-    except Exception:
+    except Exception as e:
+        print(f"[!] Error ipinfo fallback: {e}")
         return {
             'ip': 'No disponible',
             'city': 'Desconocida',
