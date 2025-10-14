@@ -506,27 +506,68 @@ retrieval_chain = None
 @st.cache_data
 def get_user_location() -> dict:
     """
-    Obtiene la ubicación del usuario usando ipinfo.io.
+    Obtiene la ubicación del usuario usando headers de Streamlit y geolocalización.
     Retorna un diccionario con los datos de ubicación.
     """
     try:
-        response = requests.get('https://ipinfo.io/json', timeout=5)
-        data = response.json()
-        
-        # Extraer coordenadas si están disponibles
-        loc = data.get('loc', '0,0').split(',')
-        latitude = float(loc[0]) if len(loc) > 0 else 0
-        longitude = float(loc[1]) if len(loc) > 1 else 0
-        
+        # Obtener IP real del usuario desde headers de Streamlit
+        user_ip = None
+        if hasattr(st, 'context') and hasattr(st.context, 'headers'):
+            headers = st.context.headers
+            # Intentar diferentes headers para obtener la IP real
+            for header_name in ['X-Forwarded-For', 'X-Real-IP', 'CF-Connecting-IP', 'X-Client-IP']:
+                if header_name in headers:
+                    ip_value = headers[header_name]
+                    # X-Forwarded-For puede contener múltiples IPs, tomar la primera
+                    user_ip = ip_value.split(',')[0].strip()
+                    break
+
+        # Si no se encontró IP en headers, usar api.ipify.org como fallback
+        if not user_ip:
+            try:
+                response = requests.get('https://api.ipify.org?format=json', timeout=5)
+                response.raise_for_status()
+                ip_data = response.json()
+                user_ip = ip_data.get('ip', 'Unknown')
+            except:
+                user_ip = 'Unknown'
+
+        # Geolocalizar la IP usando ip-api.com
+        if user_ip and user_ip != 'Unknown':
+            geo_response = requests.get(f'http://ip-api.com/json/{user_ip}', timeout=5)
+            geo_response.raise_for_status()
+            geo_data = geo_response.json()
+
+            if geo_data.get('status') == 'success':
+                city = geo_data.get('city', 'Desconocida')
+                country = geo_data.get('country', 'Desconocido')
+                region = geo_data.get('regionName', '')
+                latitude = geo_data.get('lat', 0)
+                longitude = geo_data.get('lon', 0)
+                org = geo_data.get('org', '')
+                timezone = geo_data.get('timezone', '')
+
+                return {
+                    'ip': user_ip,
+                    'city': city,
+                    'country': country,
+                    'region': region,
+                    'latitude': latitude,
+                    'longitude': longitude,
+                    'org': org,
+                    'timezone': timezone
+                }
+
+        # Fallback si la geolocalización falla
         return {
-            'ip': data.get('ip', 'No disponible'),
-            'city': data.get('city', 'Desconocida'),
-            'country': data.get('country', 'Desconocido'),
-            'region': data.get('region', ''),
-            'latitude': latitude,
-            'longitude': longitude,
-            'org': data.get('org', ''),
-            'timezone': data.get('timezone', '')
+            'ip': user_ip or 'No disponible',
+            'city': 'Desconocida',
+            'country': 'Desconocido',
+            'region': '',
+            'latitude': 0,
+            'longitude': 0,
+            'org': '',
+            'timezone': ''
         }
     except Exception as e:
         print(f"[!] Error obteniendo ubicación: {e}")
