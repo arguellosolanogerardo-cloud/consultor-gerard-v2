@@ -1113,7 +1113,7 @@ st.markdown("""
     padding: 10px;
 }
 .stChatInput textarea {
-    background-color: white !important;
+    background-color: #7FFFD4 !important;
     color: black !important;
 }
 </style>
