@@ -76,7 +76,7 @@ class GoogleSheetsLogger:
                     print(f"[DEBUG] Claves en st.secrets: {list(st.secrets.keys())}")
                     
                     if 'gcp_service_account' in st.secrets:
-                        print("[INFO] Usando credenciales desde Streamlit secrets")
+                        print("[INFO] Usando credenciales desde Streamlit secrets (gcp_service_account)")
                         gcp_dict = dict(st.secrets['gcp_service_account'])
                         print(f"[DEBUG] Claves en gcp_service_account: {list(gcp_dict.keys())}")
                         
@@ -85,9 +85,26 @@ class GoogleSheetsLogger:
                             gcp_dict,
                             scope
                         )
-                        print("[DEBUG] Credenciales cargadas exitosamente desde secrets")
+                        print("[DEBUG] Credenciales cargadas exitosamente desde gcp_service_account")
+                    elif 'GOOGLE_CREDENTIALS' in st.secrets:
+                        print("[INFO] Usando credenciales desde Streamlit secrets (GOOGLE_CREDENTIALS)")
+                        # GOOGLE_CREDENTIALS puede ser un string JSON o un dict
+                        google_creds = st.secrets['GOOGLE_CREDENTIALS']
+                        if isinstance(google_creds, str):
+                            import json
+                            gcp_dict = json.loads(google_creds)
+                        else:
+                            gcp_dict = dict(google_creds)
+                        print(f"[DEBUG] Claves en GOOGLE_CREDENTIALS: {list(gcp_dict.keys())}")
+                        
+                        # Usar credenciales desde secrets
+                        creds = ServiceAccountCredentials.from_json_keyfile_dict(
+                            gcp_dict,
+                            scope
+                        )
+                        print("[DEBUG] Credenciales cargadas exitosamente desde GOOGLE_CREDENTIALS")
                     else:
-                        print("[DEBUG] 'gcp_service_account' NO encontrado en st.secrets")
+                        print("[DEBUG] 'gcp_service_account' ni 'GOOGLE_CREDENTIALS' encontrados en st.secrets")
                 else:
                     print("[DEBUG] st.secrets NO está disponible")
                     
