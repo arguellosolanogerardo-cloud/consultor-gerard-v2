@@ -319,6 +319,26 @@ def init_logger():
     st.session_state['geo_location_str'] = f"{fallback['city']}, {fallback['country']}"
     return fallback
 
+# --- Inicializar Google Sheets Logger (si está disponible) ---
+@st.cache_resource
+def init_sheets_logger():
+    """Inicializa el logger de Google Sheets si está configurado.
+    Devuelve None o un objeto logger con atributo `enabled`.
+    """
+    if GOOGLE_SHEETS_AVAILABLE:
+        try:
+            return create_sheets_logger()
+        except Exception as e:
+            print(f"[!] No se pudo inicializar Google Sheets Logger: {e}")
+            return None
+    # Retornar un objeto dummy con enabled=False para evitar comprobaciones None
+    class DummySheets:
+        enabled = False
+        def log(self, *args, **kwargs):
+            return None
+
+    return DummySheets()
+
 # --- Lógica de GERARD v3.01 - Actualizado ---
 prompt = ChatPromptTemplate.from_template(r"""
 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
