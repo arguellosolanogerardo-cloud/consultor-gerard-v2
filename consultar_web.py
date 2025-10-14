@@ -1118,6 +1118,10 @@ st.markdown("""
     padding: 10px 15px !important;
     border-radius: 15px !important;
 }
+.stTextInput input {
+    background-color: #4169E1 !important;
+    color: white !important;
+}
 </style>
 <div class="title-style">GERARD</div>
 """, unsafe_allow_html=True)
