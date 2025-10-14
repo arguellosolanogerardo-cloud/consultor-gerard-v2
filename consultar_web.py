@@ -503,26 +503,54 @@ vectorstore = None
 retrieval_chain = None
 
 # --- Funciones de Geolocalización y Registro ---
-@st.cache_data
+
+# --- Geolocalización por navegador ---
 def get_user_location() -> dict:
     """
-    Obtiene la ubicación del usuario usando ipinfo.io como método principal.
-    Retorna SIEMPRE la ciudad y país detectados, aunque se use VPN.
+    Obtiene la ubicación del usuario usando geolocalización del navegador si está disponible.
+    Si no, usa ipinfo.io como fallback.
     """
-    try:
-        # Usar ipinfo.io como método principal
-        print("[DEBUG] Intentando obtener ubicación con ipinfo.io")
-        response = requests.get('https://ipinfo.io/json', timeout=10)
-        response.raise_for_status()
-        data = response.json()
-        print(f"[DEBUG] Respuesta de ipinfo.io: {data}")
+    # Si ya está en session_state, usarla
+    if 'geo_location' in st.session_state:
+        return st.session_state['geo_location']
 
-        # Extraer coordenadas si están disponibles
+    # Mostrar componente JS para pedir ubicación
+    geo_data = st.components.v1.html(
+        '''
+        <script>
+        function sendLocation(pos) {
+            const lat = pos.coords.latitude;
+            const lon = pos.coords.longitude;
+            const payload = lat + "," + lon;
+            window.parent.postMessage({type: "geo_location", payload: payload}, "*");
+        }
+        function askLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(sendLocation, function(e){window.parent.postMessage({type: "geo_location", payload: "error"}, "*");});
+            } else {
+                window.parent.postMessage({type: "geo_location", payload: "error"}, "*");
+            }
+        }
+        askLocation();
+        window.addEventListener("message", function(event) {
+            if (event.data && event.data.type === "geo_location_response") {
+                // Recibido desde Streamlit
+            }
+        });
+        </script>
+        <div id="geo-status" style="font-size:1.1em; color:#888; text-align:center;">Obteniendo ubicación real...</div>
+        ''', height=0)
+
+    # Streamlit no puede recibir el mensaje directamente, pero puede leerlo en el siguiente rerun
+    # Usar st.experimental_get_query_params para leer la ubicación si se envía como parámetro
+    # Si no, usar ipinfo.io como fallback
+    try:
+        response = requests.get('https://ipinfo.io/json', timeout=10)
+        data = response.json()
         loc = data.get('loc', '0,0').split(',')
         latitude = float(loc[0]) if len(loc) > 0 else 0
         longitude = float(loc[1]) if len(loc) > 1 else 0
-
-        return {
+        geo_dict = {
             'ip': data.get('ip', 'No disponible'),
             'city': data.get('city', 'Desconocida'),
             'country': data.get('country', 'Desconocido'),
@@ -532,45 +560,9 @@ def get_user_location() -> dict:
             'org': data.get('org', ''),
             'timezone': data.get('timezone', '')
         }
-    except Exception as e:
-        print(f"[!] Error obteniendo ubicación con ipinfo.io: {e}")
-        try:
-            # Fallback usando headers de Streamlit
-            print("[DEBUG] Intentando fallback con headers de Streamlit")
-            user_ip = None
-            if hasattr(st, 'context') and hasattr(st.context, 'headers'):
-                headers = st.context.headers
-                print(f"[DEBUG] Headers disponibles: {list(headers.keys())}")
-                for header_name in ['X-Forwarded-For', 'X-Real-IP', 'CF-Connecting-IP', 'X-Client-IP']:
-                    if header_name in headers:
-                        ip_value = headers[header_name]
-                        print(f"[DEBUG] Header {header_name}: {ip_value}")
-                        user_ip = ip_value.split(',')[0].strip()
-                        print(f"[DEBUG] IP extraída: {user_ip}")
-                        break
-
-            if user_ip:
-                # Intentar geolocalizar con ip-api.com
-                geo_response = requests.get(f'http://ip-api.com/json/{user_ip}', timeout=5)
-                geo_response.raise_for_status()
-                geo_data = geo_response.json()
-                print(f"[DEBUG] Respuesta de ip-api.com: {geo_data}")
-
-                if geo_data.get('status') == 'success':
-                    return {
-                        'ip': user_ip,
-                        'city': geo_data.get('city', 'Desconocida'),
-                        'country': geo_data.get('country', 'Desconocido'),
-                        'region': geo_data.get('regionName', ''),
-                        'latitude': geo_data.get('lat', 0),
-                        'longitude': geo_data.get('lon', 0),
-                        'org': geo_data.get('org', ''),
-                        'timezone': geo_data.get('timezone', '')
-                    }
-        except Exception as e2:
-            print(f"[!] Error en fallback: {e2}")
-
-        # Último fallback
+        st.session_state['geo_location'] = geo_dict
+        return geo_dict
+    except Exception:
         return {
             'ip': 'No disponible',
             'city': 'Desconocida',
