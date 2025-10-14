@@ -1090,14 +1090,17 @@ assistant_avatar = "https://api.iconify.design/mdi/ufo-outline.svg?color=%238A2B
 # --- CSS Simplificado y Título ---
 st.markdown("""
 <style>
-/* TITULO PRINCIPAL */
+/* TITULO PRINCIPAL - GERARD EN NEGRITA VERDE GIGANTE */
 .title-style {
     font-family: sans-serif;
-    font-size: 6em;
+    font-size: 18em;
+    font-weight: bold;
     text-align: center;
-    color: #8A2BE2;
-    padding: 20px 0;
-    margin-top: 10px;
+    color: #00FF00;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    padding: 30px 0;
+    margin-top: 20px;
+    letter-spacing: 0.1em;
 }
 /* ESTILOS BASICOS SOLAMENTE */
 .intro-text {
@@ -1256,7 +1259,12 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     # Logo/Titulo del sidebar  
-    st.markdown("## GERARD")
+    st.markdown("""
+    <h1 style="color: #00FF00; font-weight: bold; font-size: 3em; text-align: center; 
+               text-shadow: 2px 2px 4px rgba(0,0,0,0.3); letter-spacing: 0.1em;">
+    GERARD
+    </h1>
+    """, unsafe_allow_html=True)
     st.markdown("---")
     
     # SECCION 1: EXPORTAR CONVERSACION
