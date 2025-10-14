@@ -66,7 +66,7 @@ if logger:
             "interaction_id": "TEST_" + datetime.now().strftime("%Y%m%d_%H%M%S"),
             "user": "TEST_USER",
             "question": "Pregunta de prueba",
-            "answer": [{"type": "normal", "content": "Respuesta de prueba"}],
+            "answer": "Respuesta de prueba",
             "device_info": {"device_type": "test", "browser": "test", "os": "test"},
             "location_info": {"city": "Test City", "country": "Test Country", "ip": "0.0.0.0"},
             "timing": {"total_time": 1.5},
