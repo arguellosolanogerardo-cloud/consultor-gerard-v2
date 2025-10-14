@@ -314,9 +314,19 @@ def init_logger():
             'org': '',
             'timezone': ''
         }
-        st.session_state['geo_location'] = fallback
-        st.session_state['geo_location_str'] = f"{fallback['city']}, {fallback['country']}"
-        return fallback
+    st.session_state['geo_location'] = fallback
+    st.session_state['geo_location_str'] = f"{fallback['city']}, {fallback['country']}"
+    return fallback
+
+# --- Inicializar Google Sheets Logger (si está disponible) ---
+@st.cache_resource
+def init_sheets_logger():
+    """Inicializa el logger de Google Sheets si está configurado."""
+    if GOOGLE_SHEETS_AVAILABLE:
+        return create_sheets_logger()
+    return None
+
+prompt = ChatPromptTemplate.from_template(r"""
 🚨 FORMATO DE SALIDA OBLIGATORIO (JSON)
 CRÍTICO: Tu respuesta DEBE ser un array JSON válido con esta estructura exacta:
 
