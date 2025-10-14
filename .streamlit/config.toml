@@ -8,7 +8,3 @@ enableXsrfProtection = true
 [global]
 developmentMode = false
 dataFrameSerialization = "legacy"
-
-[theme]
-base = "light"
-primaryColor = "#FF4B4B"

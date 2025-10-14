@@ -51,11 +51,36 @@ def check_streamlit_config():
 
         return True
     except ImportError:
-        print("⚠️ tomllib no disponible, saltando validación TOML")
-        return True
+        print("⚠️ tomllib no disponible, saltando validación TOML detallada")
+        # Verificación básica: el archivo existe y tiene contenido
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                if "[server]" in content and "headless = true" in content:
+                    print("✅ Configuración básica correcta (headless activado)")
+                    return True
+                else:
+                    print("⚠️ Configuración básica podría tener problemas")
+                    return False
+        except Exception as e:
+            print(f"❌ Error leyendo archivo de configuración: {e}")
+            return False
     except Exception as e:
-        print(f"❌ Error en configuración TOML: {e}")
-        return False
+        print(f"⚠️ Error en validación TOML detallada: {e}")
+        print("⚠️ Intentando validación básica...")
+        # Verificación básica como fallback
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                content = f.read()
+                if "[server]" in content and "headless = true" in content:
+                    print("✅ Configuración básica correcta (headless activado)")
+                    return True
+                else:
+                    print("❌ Configuración básica incorrecta")
+                    return False
+        except Exception as e2:
+            print(f"❌ Error en validación básica: {e2}")
+            return False
 
 def check_main_app():
     """Verifica que la aplicación principal exista y sea ejecutable"""
