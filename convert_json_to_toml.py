@@ -27,8 +27,11 @@ def convert_json_to_toml_format():
         print(f"📧 Service Account: {data.get('client_email', 'N/A')}")
         print(f"🏗️ Project ID: {data.get('project_id', 'N/A')}")
 
-        # Convertir a JSON string escapado
+        # Convertir a JSON string escapado para TOML
         json_string = json.dumps(data, ensure_ascii=False, separators=(',', ':'))
+
+        # Escapar comillas para TOML
+        escaped_json = json_string.replace('"', '\\"')
 
         print("\n" + "="*60)
         print("COPIA Y PEGA ESTO EN STREAMLIT CLOUD SECRETS:")
@@ -36,7 +39,7 @@ def convert_json_to_toml_format():
 
         print(f'GOOGLE_API_KEY = "tu_clave_real_de_google_ai_studio"')
         print()
-        print(f'GOOGLE_CREDENTIALS = "{json_string}"')
+        print(f'GOOGLE_CREDENTIALS = "{escaped_json}"')
         print()
         print(f'SHEET_ID = "1O92R7BmxXfIOBO-qA3T0XpF1M2ena19bxqn8OrsqB2E"')
         print()
