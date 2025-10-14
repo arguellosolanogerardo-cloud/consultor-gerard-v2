@@ -1,8 +1,8 @@
 import os
 import sys
 
-faiss_index_path = r"E:/proyecto-gemini/faiss_index/index.faiss"
-srt_dir = r"E:/proyecto-gemini/documentos_srt"
+faiss_index_path = r"E:/proyecto-gemini-limpio/faiss_index/index.faiss"
+srt_dir = r"E:/proyecto-gemini-limpio/documentos_srt"
 
 # Check FAISS
 try:

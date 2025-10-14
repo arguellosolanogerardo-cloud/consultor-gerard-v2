@@ -17,7 +17,7 @@ Una hoja de Google Sheets que se actualiza automáticamente con cada consulta de
 ## 📝 **PASO 1: Instalar Dependencias**
 
 ```powershell
-cd E:\proyecto-gemini
+cd E:\proyecto-gemini-limpio
 pip install gspread oauth2client
 ```
 
@@ -126,11 +126,11 @@ gerard-sheets-logger@gerard-logger-123456.iam.gserviceaccount.com
 ### 6.1 Renombrar y Mover el Archivo JSON
 
 1. Renombra el archivo descargado a: `google_credentials.json`
-2. Muévelo a la carpeta del proyecto: `E:\proyecto-gemini\`
+2. Muévelo a la carpeta del proyecto: `E:\proyecto-gemini-limpio\`
 
 ```powershell
 # Ejemplo (ajusta la ruta del archivo descargado)
-Move-Item "$env:USERPROFILE\Downloads\gerard-logger-*.json" E:\proyecto-gemini\google_credentials.json
+Move-Item "$env:USERPROFILE\Downloads\gerard-logger-*.json" E:\proyecto-gemini-limpio\google_credentials.json
 ```
 
 ### 6.2 Agregar al .gitignore
@@ -188,7 +188,7 @@ if sheets_logger:
 ### 8.1 Probar Localmente
 
 ```powershell
-cd E:\proyecto-gemini
+cd E:\proyecto-gemini-limpio
 streamlit run consultar_web.py
 ```
 

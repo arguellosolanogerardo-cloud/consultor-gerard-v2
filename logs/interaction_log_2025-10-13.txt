@@ -1,0 +1,68 @@
+=====================================
+REGISTRO #001
+Fecha/Hora: 2025-10-13 16:45:25
+Usuario: JAVIER
+País: Desconocido
+Ciudad: Desconocido
+Coordenadas: N/A
+IP: Desconocido
+Dispositivo: PC - Windows
+Navegador: Chrome
+Resolución: N/A
+Plataforma: Web
+URL: N/A
+
+PREGUNTA:
+roma es la misma iglesia catolica?
+
+RESPUESTA:
+[Sin respuesta registrada]
+
+MÉTRICAS DE RENDIMIENTO:
+─────────────────────────
+⏱️ Tiempo total: 31.604s
+⏱️ Tiempo preparación RAG: 0.000s
+⏱️ Tiempo consulta LLM: 0.000s
+⏱️ Tiempo post-procesamiento: 0.000s
+⏱️ Tiempo renderizado: 0.000s
+⏱️ Latencia percibida: 31.604s
+📊 Tokens procesados: N/A
+📄 Documentos recuperados: 0
+✅ Estado: Exitoso
+
+=====================================
+
+=====================================
+REGISTRO #002
+Fecha/Hora: 2025-10-13 17:02:40
+Usuario: MARIACHI
+País: Desconocido
+Ciudad: Desconocido
+Coordenadas: N/A
+IP: Desconocido
+Dispositivo: PC - Windows
+Navegador: Chrome
+Resolución: N/A
+Plataforma: Web
+URL: N/A
+
+PREGUNTA:
+QUE ES EL AMOR
+
+RESPUESTA:
+[Sin respuesta registrada]
+
+MÉTRICAS DE RENDIMIENTO:
+─────────────────────────
+⏱️ Tiempo total: 39.386s
+⏱️ Tiempo preparación RAG: 0.000s
+⏱️ Tiempo consulta LLM: 0.000s
+⏱️ Tiempo post-procesamiento: 0.000s
+⏱️ Tiempo renderizado: 0.000s
+⏱️ Latencia percibida: 39.386s
+📊 Tokens procesados: N/A
+📄 Documentos recuperados: 0
+✅ Estado: Exitoso
+
+=====================================
+

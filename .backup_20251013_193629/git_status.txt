@@ -1,0 +1,46 @@
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Changes not staged for commit:
+  (use "git add/rm <file>..." to update what will be committed)
+  (use "git restore <file>..." to discard changes in working directory)
+	modified:   GOOGLE_SHEETS_SETUP.md
+	modified:   INSTRUCCIONES_GOOGLE_SHEETS_CLOUD.md
+	modified:   SISTEMA_LOGGING_README.md
+	deleted:    assets/matrix.gif
+	deleted:    assets/ovniverde.gif
+	modified:   assets/pregunta.gif
+	deleted:    assets/ufo.gif
+	modified:   scripts/check_faiss_info.py
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+	.backup_20251013_193629/
+	.streamlit/encoding_setup.sh
+	DEPLOY_EXITOSO_CLOUD.md
+	FIX_GEOLOCALIZACION.md
+	PRUEBA_UTF8_CORRECCIONES.md
+	SOLUCION_COMPLETA.md
+	SOLUCION_ENCODING_DEFINITIVA.md
+	SOLUCION_PERSISTENCIA_FAISS.md
+	SOLUCION_RADICAL_FINAL.md
+	UTF8_FIXES_FINAL.md
+	UTF8_FIX_SUMMARY.md
+	faiss_download_url.txt
+	faiss_index.zip
+	fix_download_faiss.py
+	fix_download_once.py
+	fix_download_robust.py
+	fix_persistent_marker.py
+	fix_repeated_downloads.py
+	fix_simple_marker.py
+	logs/
+	modify_consultar_web_download.py
+	move_download_outside_cache.py
+	remove_emojis_accents.py
+	sincronizar_robusto.py
+	sincronizar_web.py
+	sync_rapido.py
+	upload_faiss_to_release.py
+
+no changes added to commit (use "git add" and/or "git commit -a")

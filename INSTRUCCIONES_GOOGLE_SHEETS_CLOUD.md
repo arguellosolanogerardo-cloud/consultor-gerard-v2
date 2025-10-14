@@ -6,7 +6,7 @@ Las consultas desde la aplicación web NO se registran en Google Sheets porque *
 ## Solución: Agregar Credenciales en Streamlit Cloud
 
 ### Paso 1: Abrir el archivo de credenciales local
-1. Abre el archivo: `e:\proyecto-gemini\google_credentials.json`
+1. Abre el archivo: `e:\proyecto-gemini-limpio\google_credentials.json`
 2. Copia TODO el contenido (es un archivo JSON grande)
 
 ### Paso 2: Configurar Secrets en Streamlit Cloud

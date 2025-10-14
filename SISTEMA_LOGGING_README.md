@@ -72,7 +72,7 @@ Respuesta:
 
 ### 3. **Log Simple (Compatible con versión anterior)**
 ```
-📂 proyecto-gemini/
+📂 proyecto-gemini-limpio/
    └── gerard_log.txt
 ```
 
@@ -126,14 +126,14 @@ python email_reporter.py --date 20251010
    - Desencadenador: Diario a las 8:00 AM
    - Acción: Iniciar programa
      - Programa: `python`
-     - Argumentos: `E:\proyecto-gemini\email_reporter.py`
-     - Iniciar en: `E:\proyecto-gemini`
+     - Argumentos: `E:\proyecto-gemini-limpio\email_reporter.py`
+     - Iniciar en: `E:\proyecto-gemini-limpio`
 
 #### **Alternativa: Script Automático**
 
 Crear `enviar_reporte_diario.ps1`:
 ```powershell
-cd E:\proyecto-gemini
+cd E:\proyecto-gemini-limpio
 python email_reporter.py
 ```
 

@@ -1,0 +1,66 @@
+[
+  {
+    "session_id": "1760391925651422",
+    "timestamp": "2025-10-13T16:45:25.651425",
+    "user": "JAVIER",
+    "platform": "web",
+    "question": "roma es la misma iglesia catolica?",
+    "answer": "",
+    "device_info": {
+      "tipo": "PC",
+      "os": "Windows",
+      "os_version": "10/11",
+      "navegador": "Chrome",
+      "navegador_version": "141.0.0.0",
+      "resolucion": "N/A",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+    },
+    "geo_info": {
+      "ip": "Desconocido",
+      "pais": "Desconocido",
+      "ciudad": "Desconocido",
+      "region": "N/A",
+      "coordenadas": "N/A",
+      "fuente": "desactivado"
+    },
+    "metrics": {
+      "tiempo_total": 31.604335799987894
+    },
+    "sources_count": 0,
+    "tokens": null,
+    "status": "success",
+    "error": null
+  },
+  {
+    "session_id": "1760392960506779",
+    "timestamp": "2025-10-13T17:02:40.506783",
+    "user": "MARIACHI",
+    "platform": "web",
+    "question": "QUE ES EL AMOR",
+    "answer": "",
+    "device_info": {
+      "tipo": "PC",
+      "os": "Windows",
+      "os_version": "10/11",
+      "navegador": "Chrome",
+      "navegador_version": "141.0.0.0",
+      "resolucion": "N/A",
+      "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
+    },
+    "geo_info": {
+      "ip": "Desconocido",
+      "pais": "Desconocido",
+      "ciudad": "Desconocido",
+      "region": "N/A",
+      "coordenadas": "N/A",
+      "fuente": "desactivado"
+    },
+    "metrics": {
+      "tiempo_total": 39.3857818999968
+    },
+    "sources_count": 0,
+    "tokens": null,
+    "status": "success",
+    "error": null
+  }
+]
