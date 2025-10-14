@@ -2,15 +2,26 @@
 
 headless = trueheadless = true
 
-port = 8501
-maxUploadSize = 500
-enableCORS = false
-enableXsrfProtection = true
+port = 8501port = 8501
 
-[global]
-developmentMode = false
-dataFrameSerialization = "legacy"
+maxUploadSize = 500maxUploadSize = 500
 
-[theme]
-base = "light"
-primaryColor = "#FF4B4B"
+enableCORS = falseenableCORS = false
+
+enableXsrfProtection = trueenableXsrfProtection = true
+
+
+
+[global][global]
+
+developmentMode = falsedevelopmentMode = false
+
+dataFrameSerialization = "legacy"dataFrameSerialization = "legacy"
+
+
+
+[theme][theme]
+
+base = "light"base = "light"
+
+primaryColor = "#FF4B4B"primaryColor = "#FF4B4B"
