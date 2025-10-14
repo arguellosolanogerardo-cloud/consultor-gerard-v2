@@ -1090,17 +1090,14 @@ assistant_avatar = "https://api.iconify.design/mdi/ufo-outline.svg?color=%238A2B
 # --- CSS Simplificado y Título ---
 st.markdown("""
 <style>
-/* TITULO PRINCIPAL - GERARD EN NEGRITA VERDE GIGANTE */
+/* TITULO PRINCIPAL */
 .title-style {
     font-family: sans-serif;
-    font-size: 18em;
-    font-weight: bold;
+    font-size: 6em;
     text-align: center;
-    color: #00FF00;
-    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-    padding: 30px 0;
-    margin-top: 20px;
-    letter-spacing: 0.1em;
+    color: #8A2BE2;
+    padding: 20px 0;
+    margin-top: 10px;
 }
 /* ESTILOS BASICOS SOLAMENTE */
 .intro-text {
@@ -1259,12 +1256,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     
     # Logo/Titulo del sidebar  
-    st.markdown("""
-    <h1 style="color: #00FF00; font-weight: bold; font-size: 3em; text-align: center; 
-               text-shadow: 2px 2px 4px rgba(0,0,0,0.3); letter-spacing: 0.1em;">
-    GERARD
-    </h1>
-    """, unsafe_allow_html=True)
+    st.markdown("## GERARD")
     st.markdown("---")
     
     # SECCION 1: EXPORTAR CONVERSACION
@@ -1456,8 +1448,7 @@ if not st.session_state.user_name:
         height=0,
     )
     
-    # ...existing code...
-    st.markdown('<div style="text-align:center; margin-top:8px;"><span class="green-pulse" style="color:#8A2BE2; font-size:2em; font-weight:bold;">TU NOMBRE</span></div>', unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center; margin-top:8px;"><span style="color:#8A2BE2; font-weight:bold; font-size:2em;">TU NOMBRE</span></div>', unsafe_allow_html=True)
     user_name_input = st.text_input("Tu Nombre", key="name_inputter", label_visibility="collapsed")
     if user_name_input:
         st.session_state.user_name = user_name_input.upper()
@@ -1531,11 +1522,9 @@ if prompt_input:
     if not st.session_state.user_name:
         st.markdown("""
         <div style="text-align: center; margin: 20px 0;">
-            <p style="color: #00FF00; font-size: 2.5em; font-weight: bold; 
-                      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-                      letter-spacing: 0.05em; animation: pulse 1.5s infinite;">
+            <p style="color: red; font-size: 1.3em; font-weight: bold; animation: pulse 1.5s infinite;">
                 INGRESA primero TU NOMBRE<br>
-                <span style="font-size: 0.7em;">en la casilla verde de arriba.</span>
+                en la casilla verde de arriba.
             </p>
         </div>
         """, unsafe_allow_html=True)
