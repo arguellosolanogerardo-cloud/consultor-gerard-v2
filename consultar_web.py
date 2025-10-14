@@ -263,63 +263,36 @@ def load_resources():
 # se hará bajo demanda cuando el usuario envíe una consulta.
 
 # --- Inicializar sistema de logging completo ---
-@st.cache_resource
 def init_logger():
     """
-    Obtiene la ubicación del usuario mediante geolocalización por IP (ipinfo.io).
-    Esta versión NO solicita permiso al navegador y no inyecta JavaScript.
+    Inicializa el InteractionLogger para el registro de interacciones.
     """
-    # Si ya está en session_state, usarla
-    if 'geo_location' in st.session_state:
-        return st.session_state['geo_location']
-
-    # Obtener geolocalización por IP directamente (sin prompt)
     try:
-        resp = requests.get("https://ipinfo.io/json", timeout=5)
-        data = resp.json()
-        loc = data.get('loc', '') or ''
-        if loc and ',' in loc:
-            try:
-                latitude, longitude = [float(x) for x in loc.split(',')]
-            except Exception:
-                latitude = 0.0
-                longitude = 0.0
-        else:
-            latitude = 0.0
-            longitude = 0.0
-
-        geo_dict = {
-            'ip': data.get('ip', 'No disponible'),
-            'city': data.get('city', 'Desconocida'),
-            'country': data.get('country', 'Desconocido'),
-            'region': data.get('region', ''),
-            'latitude': latitude,
-            'longitude': longitude,
-            'org': data.get('org', ''),
-            'timezone': data.get('timezone', '')
-        }
-        # Guardar versión legible para logging
-        st.session_state['geo_location'] = geo_dict
-        st.session_state['geo_location_str'] = f"{geo_dict['city']}, {geo_dict['country']} ({geo_dict['latitude']},{geo_dict['longitude']})"
-        return geo_dict
+        logger = InteractionLogger(
+            platform="web",
+            log_dir="logs",
+            anonymize=False,
+            max_file_size_mb=10,
+            enable_json=True
+        )
+        return logger
     except Exception as e:
-        print(f"[!] Error ipinfo fallback: {e}")
-        fallback = {
-            'ip': 'No disponible',
-            'city': 'Desconocida',
-            'country': 'Desconocido',
-            'region': '',
-            'latitude': 0,
-            'longitude': 0,
-            'org': '',
-            'timezone': ''
-        }
-    st.session_state['geo_location'] = fallback
-    st.session_state['geo_location_str'] = f"{fallback['city']}, {fallback['country']}"
-    return fallback
+        print(f"[!] Error inicializando InteractionLogger: {e}")
+        # Fallback: devolver un logger dummy que no haga nada
+        class DummyLogger:
+            def start_interaction(self, *args, **kwargs):
+                return "dummy_interaction_id"
+            def end_interaction(self, *args, **kwargs):
+                pass
+            def log_error(self, *args, **kwargs):
+                pass
+            def log_response(self, *args, **kwargs):
+                pass
+            def mark_phase(self, *args, **kwargs):
+                pass
+        return DummyLogger()
 
 # --- Inicializar Google Sheets Logger (si está disponible) ---
-@st.cache_resource
 def init_sheets_logger():
     """Inicializa el logger de Google Sheets si está configurado."""
     if GOOGLE_SHEETS_AVAILABLE:
@@ -511,7 +484,7 @@ def get_user_location() -> dict:
         return st.session_state['geo_location']
 
     # Primero, revisar si el navegador ya redirigió con ?geo=lat,lon
-    params = st.experimental_get_query_params()
+    params = st.query_params
     if 'geo' in params:
         try:
             geo_val = params.get('geo')[0]
@@ -1684,20 +1657,20 @@ if prompt_input:
                 location = get_user_location()
                 
                 # Inicializar el logger
-                logger = init_logger()
+                interaction_logger = init_logger()
                 
-                # Inicializar Google Sheets Logger
+                # Inicializar Google Sheets Logger (REACTIVADO)
                 sheets_logger = init_sheets_logger()
                 
                 # Debug: imprimir estado en logs (no en UI para no molestar)
-                print(f"[DEBUG UI] Google Sheets Logger enabled: {sheets_logger.enabled if sheets_logger else False}")
+                print(f"[DEBUG UI] Google Sheets Logger enabled: {sheets_logger is not None and sheets_logger.enabled if sheets_logger else False}")
                 
                 # Obtener información del dispositivo y ubicación
                 # Obtener user agent del navegador
                 user_agent = st.context.headers.get("User-Agent", "Unknown") if hasattr(st, 'context') and hasattr(st.context, 'headers') else "Unknown"
                 
                 # Iniciar el registro de la interacción
-                interaction_id = logger.start_interaction(
+                interaction_id = interaction_logger.start_interaction(
                     user=st.session_state.user_name,
                     question=prompt_input,
                     request_info={"user_agent": user_agent}
@@ -1781,10 +1754,11 @@ if prompt_input:
                     answer_json = json.dumps(answer_json, ensure_ascii=False) if isinstance(answer_json, (dict, list)) else str(answer_json)
                 
                 # Registro antiguo (mantener por compatibilidad)
-                save_to_log(st.session_state.user_name, prompt_input, answer_json, location)
+                location_str = st.session_state.get('geo_location_str', f"{location.get('city', 'Desconocida')}, {location.get('country', 'Desconocido')}")
+                save_to_log(st.session_state.user_name, prompt_input, answer_json, location_str)
                 
                 # Finalizar el registro de la interacción con el logger completo
-                logger.end_interaction(
+                interaction_logger.end_interaction(
                     session_id=interaction_id,
                     status="success"
                 )
@@ -1968,7 +1942,7 @@ if prompt_input:
             except Exception as e:
                 # Registrar el error en el logger
                 try:
-                    logger.end_interaction(
+                    interaction_logger.end_interaction(
                         session_id=interaction_id,
                         status="error",
                         error=str(e)
