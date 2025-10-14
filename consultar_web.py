@@ -1115,6 +1115,7 @@ st.markdown("""
 .stChatInput textarea {
     background-color: #7FFFD4 !important;
     color: black !important;
+    padding: 10px 15px !important;
 }
 </style>
 <div class="title-style">GERARD</div>
