@@ -507,6 +507,7 @@ retrieval_chain = None
 def get_user_location() -> dict:
     """
     Obtiene la ubicación del usuario usando ipinfo.io como método principal.
+    Si detecta VPN, retorna ubicación como 'Desconocida' para proteger privacidad.
     Retorna un diccionario con los datos de ubicación.
     """
     try:
@@ -517,10 +518,28 @@ def get_user_location() -> dict:
         data = response.json()
         print(f"[DEBUG] Respuesta de ipinfo.io: {data}")
 
+        # Verificar si está usando VPN
+        is_vpn = data.get('privacy', {}).get('vpn', False)
+        print(f"[DEBUG] Detectado VPN: {is_vpn}")
+
         # Extraer coordenadas si están disponibles
         loc = data.get('loc', '0,0').split(',')
         latitude = float(loc[0]) if len(loc) > 0 else 0
         longitude = float(loc[1]) if len(loc) > 1 else 0
+
+        # Si es VPN, ocultar ubicación real por privacidad
+        if is_vpn:
+            return {
+                'ip': data.get('ip', 'No disponible'),
+                'city': 'Desconocida',
+                'country': 'Desconocido',
+                'region': '',
+                'latitude': 0,
+                'longitude': 0,
+                'org': data.get('org', ''),
+                'timezone': '',
+                'vpn_detected': True
+            }
 
         return {
             'ip': data.get('ip', 'No disponible'),
@@ -530,7 +549,8 @@ def get_user_location() -> dict:
             'latitude': latitude,
             'longitude': longitude,
             'org': data.get('org', ''),
-            'timezone': data.get('timezone', '')
+            'timezone': data.get('timezone', ''),
+            'vpn_detected': False
         }
     except Exception as e:
         print(f"[!] Error obteniendo ubicación con ipinfo.io: {e}")
@@ -565,7 +585,8 @@ def get_user_location() -> dict:
                         'latitude': geo_data.get('lat', 0),
                         'longitude': geo_data.get('lon', 0),
                         'org': geo_data.get('org', ''),
-                        'timezone': geo_data.get('timezone', '')
+                        'timezone': geo_data.get('timezone', ''),
+                        'vpn_detected': False  # No podemos detectar VPN en fallback
                     }
         except Exception as e2:
             print(f"[!] Error en fallback: {e2}")
@@ -579,7 +600,8 @@ def get_user_location() -> dict:
             'latitude': 0,
             'longitude': 0,
             'org': '',
-            'timezone': ''
+            'timezone': '',
+            'vpn_detected': False
         }
 
 def fix_utf8_encoding(text: str) -> str:
