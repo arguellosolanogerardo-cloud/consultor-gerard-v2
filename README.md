@@ -41,6 +41,65 @@ $env:GOOGLE_API_KEY = '<TU_API_KEY>'
 
 Nota: NO subas esa clave al repositorio. Usa `st.secrets` en Cloud o variables de entorno locales.
 
+## Configuración de Google Sheets Logger (opcional pero recomendado)
+
+Para registrar las interacciones de usuarios en Google Sheets:
+
+### 1. Crear Service Account en Google Cloud Console
+
+1. Ve a [Google Cloud Console](https://console.cloud.google.com/)
+2. Crea un nuevo proyecto o selecciona uno existente
+3. Habilita las APIs: Google Sheets API y Google Drive API
+4. Ve a "IAM & Admin" → "Service Accounts"
+5. Crea una nueva Service Account (ej: "gerard-sheets-logger")
+6. Genera una nueva clave JSON y descárgala
+
+### 2. Configurar Google Sheets
+
+1. Crea una nueva hoja de cálculo en Google Sheets
+2. Comparte la hoja con el email de la Service Account (permiso Editor)
+3. Copia el ID de la hoja de la URL (entre `/d/` y `/edit`)
+
+### 3. Configurar Secrets en Streamlit Cloud
+
+Ve a tu app en Streamlit Cloud → Settings → Secrets y añade:
+
+```toml
+# API Key de Google AI Studio (obligatorio)
+GOOGLE_API_KEY = "tu_clave_real_aqui"
+
+# Credenciales de Google Sheets (opcional)
+GOOGLE_CREDENTIALS = """
+{
+  "type": "service_account",
+  "project_id": "tu-proyecto-id",
+  "private_key_id": "...",
+  "private_key": "-----BEGIN PRIVATE KEY-----\n...",
+  "client_email": "gerard-sheets-logger@tu-proyecto.iam.gserviceaccount.com",
+  "client_id": "...",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/...",
+  "universe_domain": "googleapis.com"
+}
+"""
+
+# Configuración del Logger (opcional)
+SHEET_ID = "tu_sheet_id_aqui"
+SHEET_NAME = "Interacciones"
+```
+
+### 4. Diagnosticar problemas en Streamlit Cloud
+
+Si el logging no funciona en Streamlit Cloud, ejecuta el script de diagnóstico:
+
+```powershell
+streamlit run diagnostico_secrets.py
+```
+
+Este script mostrará qué secrets están disponibles y te ayudará a configurar correctamente las credenciales.
+
 ## Comandos habituales
 
 - Generar/recrear la base vectorial (ejecutar cuando añadas/actualices SRTs):
@@ -91,7 +150,9 @@ Los scripts extraen el JSON mediante `re.search(r'\[.*\]')` y luego `json.loads(
 ## Troubleshooting rápido
 
 - Error "GOOGLE_API_KEY no está configurada": asegúrate de que la variable esté en el entorno o añadida en Streamlit Secrets con la clave EXACTA `GOOGLE_API_KEY`.
+- Error con Google Sheets logging: ejecuta `streamlit run diagnostico_secrets.py` para verificar que las credenciales estén configuradas correctamente en Streamlit Cloud.
 - Si Chroma devuelve poco o nada: borra `./chroma_db` y ejecuta `python ingestar.py` para regenerarla.
+- Problemas de conexión en Streamlit Cloud: verifica que las secrets estén en formato TOML válido y que las credenciales de Google Sheets sean un JSON válido.
 
 ## Próximos pasos sugeridos
 
