@@ -1118,6 +1118,11 @@ st.markdown("""
     padding: 10px 15px !important;
     border-radius: 15px !important;
 }
+.stChatInput textarea::placeholder {
+    font-weight: bold !important;
+    font-size: 1.2em !important;
+    color: #FF0000 !important;
+}
 .stTextInput input {
     background-color: #4169E1 !important;
     color: white !important;
