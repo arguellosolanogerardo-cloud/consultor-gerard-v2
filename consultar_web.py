@@ -1438,8 +1438,12 @@ with st.sidebar:
                     content_html = msg.get('content', '')
 
                     if role == 'user':
-                        html_parts.append(f'<p style="color: #00008B; font-weight: bold; text-transform: uppercase; font-size: 1.2em;">Pregunta:</p>')
-                        html_parts.append(f'<p style="color: #000000;">{content_html}</p>')
+                        # Extraer el texto de la pregunta del span (sin el HTML)
+                        import re
+                        match = re.search(r'<span style="[^"]*">([^<]+)</span>', content_html)
+                        question_text = match.group(1) if match else content_html
+                        html_parts.append(f'<p style="color: #00008B; font-weight: bold; text-transform: uppercase; font-size: 1.2em;">PREGUNTA:</p>')
+                        html_parts.append(f'<p style="color: #000000;">{question_text}</p>')
                     else:
                         html_parts.append(f'<p style="color: #000000; font-weight: bold;">Respuesta:</p>')
                         html_parts.append(f'<p>{content_html}</p>')
