@@ -2012,6 +2012,9 @@ if prompt_input:
                     answer_json = answer_json.replace('Ãº', 'ú')
                     answer_json = answer_json.replace('Ã±', 'ñ')
                     answer_json = answer_json.replace('Ã¼', 'ü')
+                    
+                    # Aplicar limpieza de textos no deseados (incluyendo Spanish_auto_generated)
+                    answer_json = cleaning_pattern.sub('', answer_json)
                 
                 match = re.search(r'\[.*\]', answer_json, re.DOTALL)
                 if not match:
