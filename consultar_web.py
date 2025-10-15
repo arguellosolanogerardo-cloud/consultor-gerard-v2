@@ -844,7 +844,7 @@ def save_to_log(user: str, question: str, answer_json: str, location: str) -> No
         f.write(f"--- Conversación del {timestamp} ---\n")
         f.write(f"Usuario: {user}\n")
         f.write(f"Ubicación: {location}\n")
-        f.write(f"PREGUNTA: {question}\n")
+        f.write(f"PREGUNTA: {question.upper()}\n")
         f.write(f"Respuesta de GERARD: {clean_answer}\n")
         f.write("="*40 + "\n\n")
 
@@ -1443,7 +1443,7 @@ with st.sidebar:
                         match = re.search(r'<span style="[^"]*">([^<]+)</span>', content_html)
                         question_text = match.group(1) if match else content_html
                         html_parts.append(f'<p style="color: #00008B; font-weight: bold; text-transform: uppercase; font-size: 1.2em;">PREGUNTA:</p>')
-                        html_parts.append(f'<p style="color: #000000;">{question_text}</p>')
+                        html_parts.append(f'<p style="color: #00008B; font-weight: bold; text-transform: uppercase; font-size: 1.2em;">{question_text}</p>')
                     else:
                         html_parts.append(f'<p style="color: #000000; font-weight: bold;">Respuesta:</p>')
                         html_parts.append(f'<p>{content_html}</p>')
