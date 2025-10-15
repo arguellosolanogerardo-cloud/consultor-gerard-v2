@@ -1761,7 +1761,7 @@ if prompt_input:
         # Se reemplaza la imagen por un texto animado con CSS
         styled_prompt = f"""
         <div style="display: flex; align-items: center; justify-content: flex-start;">
-            <span style="text-transform: uppercase; color: orange; margin-right: 8px; font-weight: bold;">{prompt_input}</span>
+            <span style="text-transform: uppercase; color: #7FFFD4; margin-right: 8px; font-weight: bold; font-size: 1.2em;">{prompt_input}</span>
             <span class="pulsing-q">?</span>
         </div>
         """
