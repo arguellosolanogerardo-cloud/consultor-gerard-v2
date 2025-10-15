@@ -1628,7 +1628,7 @@ if not st.session_state.user_name:
         height=0,
     )
     
-    st.markdown('<div style="text-align:center; margin-top:8px;"><span style="color:rgb(0, 19, 28); font-weight:bold; font-size:2.5em;">TU NOMBRE</span></div>', unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center; margin-top:8px;"><span style="color:#8B4513; font-weight:bold; font-size:2.5em;">TU NOMBRE</span></div>', unsafe_allow_html=True)
     user_name_input = st.text_input("Tu Nombre", key="name_inputter", label_visibility="collapsed")
     if user_name_input:
         st.session_state.user_name = user_name_input.upper()
