@@ -1130,21 +1130,44 @@ assistant_avatar = "https://api.iconify.design/mdi/ufo-outline.svg?color=%238A2B
 # --- CSS Simplificado y Título ---
 st.markdown("""
 <style>
-/* TITULO PRINCIPAL */
+/* FONDO NEGRO GLOBAL */
+[data-testid="stAppViewContainer"] {
+    background-color: #000000 !important;
+}
+[data-testid="stHeader"] {
+    background-color: #000000 !important;
+}
+[data-testid="stToolbar"] {
+    background-color: #000000 !important;
+}
+.main {
+    background-color: #000000 !important;
+}
+.stApp {
+    background-color: #000000 !important;
+}
+
+/* TITULO PRINCIPAL - RESPONSIVE */
 .title-style {
     font-family: sans-serif;
-    font-size: 6em;
+    font-size: clamp(3em, 8vw, 6em) !important;
     text-align: center;
-    color: #00FF00;
-    padding: 20px 0;
-    margin-top: 10px;
+    color: #00FF00 !important;
+    padding: 20px 10px !important;
+    margin: 10px 0 !important;
     animation: pulse-green 2s infinite;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 @keyframes pulse-green {
     0% { opacity: 1; }
     50% { opacity: 0.5; }
     100% { opacity: 1; }
 }
+
 /* ESTILOS BASICOS SOLAMENTE */
 .intro-text {
     text-align: center;
@@ -1166,6 +1189,20 @@ st.markdown("""
 .stTextInput input {
     background-color: #4169E1 !important;
     color: white !important;
+}
+
+/* RESPONSIVE PARA MÓVILES */
+@media (max-width: 768px) {
+    .title-style {
+        font-size: 4em !important;
+        padding: 15px 5px !important;
+    }
+}
+@media (max-width: 480px) {
+    .title-style {
+        font-size: 3em !important;
+        padding: 10px 5px !important;
+    }
 }
 </style>
 <div class="title-style">GERARD</div>
