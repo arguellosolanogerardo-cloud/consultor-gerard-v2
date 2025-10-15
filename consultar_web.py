@@ -844,7 +844,7 @@ def save_to_log(user: str, question: str, answer_json: str, location: str) -> No
         f.write(f"--- Conversación del {timestamp} ---\n")
         f.write(f"Usuario: {user}\n")
         f.write(f"Ubicación: {location}\n")
-        f.write(f"Pregunta: {question}\n")
+        f.write(f"PREGUNTA: {question}\n")
         f.write(f"Respuesta de GERARD: {clean_answer}\n")
         f.write("="*40 + "\n\n")
 
@@ -1438,7 +1438,7 @@ with st.sidebar:
                     content_html = msg.get('content', '')
 
                     if role == 'user':
-                        html_parts.append(f'<p style="color: #000000; font-weight: bold;">Pregunta:</p>')
+                        html_parts.append(f'<p style="color: #00008B; font-weight: bold; text-transform: uppercase; font-size: 1.2em;">Pregunta:</p>')
                         html_parts.append(f'<p style="color: #000000;">{content_html}</p>')
                     else:
                         html_parts.append(f'<p style="color: #000000; font-weight: bold;">Respuesta:</p>')
