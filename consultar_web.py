@@ -1204,6 +1204,54 @@ st.markdown("""
         padding: 10px 5px !important;
     }
 }
+
+/* ESTILOS PARA MENSAJE DE BIENVENIDA */
+.welcome-text {
+    text-align: center !important;
+    color: #00FF00 !important;
+    font-size: 2.2em !important;
+    font-weight: bold !important;
+    margin: 20px 0 10px 0 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.sub-welcome-text {
+    text-align: center !important;
+    color: #00FF00 !important;
+    font-size: 1.4em !important;
+    font-weight: bold !important;
+    margin: 10px 0 30px 0 !important;
+    line-height: 1.4 !important;
+    word-wrap: break-word !important;
+    overflow-wrap: break-word !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* RESPONSIVE PARA MENSAJE DE BIENVENIDA EN MÓVILES */
+@media (max-width: 768px) {
+    .welcome-text {
+        font-size: 1.8em !important;
+        margin: 15px 0 8px 0 !important;
+    }
+    .sub-welcome-text {
+        font-size: 1.2em !important;
+        margin: 8px 0 20px 0 !important;
+    }
+}
+@media (max-width: 480px) {
+    .welcome-text {
+        font-size: 1.5em !important;
+        margin: 10px 0 5px 0 !important;
+    }
+    .sub-welcome-text {
+        font-size: 1.0em !important;
+        margin: 5px 0 15px 0 !important;
+    }
+}
 </style>
 <div class="title-style">GERARD</div>
 """, unsafe_allow_html=True)
