@@ -190,15 +190,37 @@ def load_resources():
 
         # Inicializar embeddings (o usar fallback) y cargar FAISS
         try:
-            # Intentar usar la clase oficial si está disponible
-            if GoogleGenerativeAIEmbeddings is not None:
+            # Intentar OpenAI embeddings primero si hay API key
+            openai_key = os.environ.get("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
+            if openai_key:
                 try:
-                    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
-                    print("[DEBUG] Embeddings de Google inicializadas correctamente")
+                    from langchain_openai import OpenAIEmbeddings
+                    embeddings = OpenAIEmbeddings(
+                        model="text-embedding-3-small",  # Modelo económico
+                        openai_api_key=openai_key
+                    )
+                    print("[DEBUG] Embeddings de OpenAI inicializadas correctamente")
+                    st.info("🔄 Usando embeddings de OpenAI (alternativa a Google)")
+                except ImportError:
+                    st.warning("langchain-openai no instalado. Instala con: pip install langchain-openai")
+                    embeddings = None
                 except Exception as e:
-                    st.warning(f"No fue posible inicializar GoogleEmbeddings: {e}. Usando embeddings de fallback (hash-based).")
+                    st.warning(f"No fue posible inicializar OpenAI embeddings: {e}. Intentando Google...")
+                    embeddings = None
             else:
-                st.warning("GoogleGenerativeAIEmbeddings no disponible, usando embeddings de fallback (hash-based).")
+                st.info("No hay API key de OpenAI, usando Google embeddings...")
+
+            # Si no hay OpenAI o falló, intentar Google embeddings
+            if embeddings is None:
+                # Intentar usar la clase oficial si está disponible
+                if GoogleGenerativeAIEmbeddings is not None:
+                    try:
+                        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
+                        print("[DEBUG] Embeddings de Google inicializadas correctamente")
+                    except Exception as e:
+                        st.warning(f"No fue posible inicializar GoogleEmbeddings: {e}. Usando embeddings de fallback (hash-based).")
+                else:
+                    st.warning("GoogleGenerativeAIEmbeddings no disponible, usando embeddings de fallback (hash-based).")
 
             if embeddings is None:
                 import hashlib
