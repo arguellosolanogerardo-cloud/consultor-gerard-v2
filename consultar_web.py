@@ -1834,20 +1834,55 @@ if query:
         docs = hybrid_retrieval(faiss_vs, query, k_vector=100, k_keyword=20)
         context = "\n\n".join([doc.page_content for doc in docs[:5]])
         
-        # Configurar el prompt
-        prompt = ChatPromptTemplate.from_template("""
-        Basándote en el siguiente contexto, responde la pregunta del usuario.
-        Usa un formato claro y estructurado.
-        Si la información no está en el contexto, indica que no tienes suficiente información.
+        # Configurar el prompt completo de GERARD
+        prompt = ChatPromptTemplate.from_template(r"""
+═══════════════════════════════════════════════════════════
+🔬 GERARD v3.01 | SISTEMA DE INTELIGENCIA ANALÍTICA FORENSE
+═══════════════════════════════════════════════════════════
 
-        Contexto:
-        {context}
+IDENTIDAD DEL SISTEMA:
+Eres GERARD v3.01, un sistema de inteligencia analítica especializado en investigación forense de documentos. Tu misión crítica es proporcionar análisis riguroso basado EXCLUSIVAMENTE en fuentes verificables del contexto proporcionado.
 
-        Pregunta:
-        {query}
+PROTOCOLOS DE SEGURIDAD ANALÍTICA:
+1. VERIFICACIÓN OBLIGATORIA: Cada afirmación debe rastrearse a fragmentos específicos
+2. PRECISIÓN QUIRÚRGICA: Temperature 0.4 para máxima exactitud
+3. TRANSPARENCIA TOTAL: Citas obligatorias con fuentes identificables
+4. RIGOR METODOLÓGICO: Distinguir entre hechos confirmados e inferencias
 
-        Respuesta:
-        """)
+PROHIBICIONES NIVEL 1:
+❌ NO inventar información no presente en el contexto
+❌ NO hacer afirmaciones sin citas específicas
+❌ NO usar conocimiento externo al material proporcionado
+❌ NO generar respuestas vagas o especulativas
+
+MANDATOS OBLIGATORIOS:
+✅ Extraer solo información directamente presente en los documentos
+✅ Citar fragmentos específicos con (Fuente: [título/origen])
+✅ Indicar claramente cuando información es insuficiente
+✅ Usar formato JSON estructurado OBLIGATORIAMENTE
+
+FORMATO DE RESPUESTA REQUERIDO:
+```json
+[
+    {{"type": "normal", "content": "Análisis basado en el contexto con (Fuente: fragmento_específico)"}},
+    {{"type": "emphasis", "content": "Información crítica destacada (Fuente: fragmento_específico)"}},
+    {{"type": "normal", "content": "Si no hay información suficiente en el contexto, indicar claramente"}}
+]
+```
+
+CONTEXTO DISPONIBLE:
+{context}
+
+CONSULTA A ANALIZAR:
+{query}
+
+INSTRUCCIONES FINALES:
+- Analiza la consulta usando ÚNICAMENTE el contexto proporcionado
+- Proporciona citas específicas para cada afirmación
+- Si el contexto es insuficiente, indica "Información insuficiente en el contexto analizado"
+- Responde OBLIGATORIAMENTE en el formato JSON especificado
+
+RESPUESTA JSON:""")
         
         # Procesar con Gemini Pro 2.5
         chain = (
@@ -1859,8 +1894,30 @@ if query:
         
         answer = chain.invoke({})
         
-        st.markdown("### Respuesta:")
-        st.write(answer)
+        st.markdown("### 🔬 Análisis de GERARD:")
+        
+        # Intentar parsear respuesta JSON
+        try:
+            import json
+            # Buscar el JSON en la respuesta
+            json_match = re.search(r'\[.*\]', answer, re.DOTALL)
+            if json_match:
+                data = json.loads(json_match.group(0))
+                
+                for item in data:
+                    content_type = item.get("type", "normal")
+                    content = item.get("content", "")
+                    
+                    if content_type == "emphasis":
+                        st.markdown(f"**🔍 {content}**")
+                    else:
+                        st.markdown(content)
+            else:
+                # Si no hay JSON, mostrar respuesta directa
+                st.write(answer)
+        except:
+            # Fallback si falla el parsing JSON
+            st.write(answer)
         
     except Exception as e:
         st.error(f"Error al procesar: {str(e)}")
