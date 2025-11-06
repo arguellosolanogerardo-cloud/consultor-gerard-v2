@@ -1851,16 +1851,13 @@ if query:
         
         # Procesar con Gemini Pro 2.5
         chain = (
-            {"context": context, "query": query} 
+            RunnablePassthrough.assign(context=lambda x: context, query=lambda x: query)
             | prompt 
             | llm 
             | StrOutputParser()
         )
         
-        answer = chain.invoke({
-            "context": context,
-            "query": query
-        })
+        answer = chain.invoke({})
         
         st.markdown("### Respuesta:")
         st.write(answer)
