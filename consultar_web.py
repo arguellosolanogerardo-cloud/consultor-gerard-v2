@@ -174,12 +174,26 @@ def load_resources():
         # Inicializar LLM si la clase está disponible
         if GoogleGenerativeAI is not None:
             try:
-                llm = GoogleGenerativeAI(
-                    model="gemini-1.5-flash",
-                    temperature=0.4,  # Precisión quirúrgica según prompt GERARD
-                    top_p=0.90,
-                    top_k=25
-                )
+                # Intentar con diferentes modelos disponibles
+                available_models = ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-pro", "models/gemini-pro"]
+                llm = None
+                
+                for model_name in available_models:
+                    try:
+                        llm = GoogleGenerativeAI(
+                            model=model_name,
+                            temperature=0.4,  # Precisión quirúrgica según prompt GERARD
+                            top_p=0.90,
+                            top_k=25
+                        )
+                        st.success(f"✅ Modelo cargado exitosamente: {model_name}")
+                        break
+                    except Exception as model_error:
+                        st.warning(f"❌ Modelo {model_name} no disponible: {str(model_error)}")
+                        continue
+                
+                if llm is None:
+                    st.error("No se pudo cargar ningún modelo de Gemini. Verifica tu configuración de API.")
             except Exception as e:
                 st.warning(f"No se pudo inicializar el LLM (GoogleGenerativeAI): {e}. La aplicación usará un modo de recuperación local sin LLM.")
 
