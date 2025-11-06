@@ -175,7 +175,7 @@ def load_resources():
         if GoogleGenerativeAI is not None:
             try:
                 llm = GoogleGenerativeAI(
-                    model="models/gemini-1.5-pro",
+                    model="gemini-pro",
                     temperature=0.4,  # Precisión quirúrgica según prompt GERARD
                     top_p=0.90,
                     top_k=25
@@ -1817,7 +1817,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🔬 GERARD v3.01 - Sistema de Análisis Investigativo (Gemini 1.5 Pro)")
+st.title("🔬 GERARD v3.01 - Sistema de Análisis Investigativo (Gemini Pro)")
 
 # Cargar recursos
 llm, faiss_vs = load_resources()
@@ -1827,7 +1827,7 @@ st.subheader("Realiza una consulta")
 query = st.text_input("Ingresa tu pregunta:", placeholder="¿Qué deseas saber?")
 
 if query:
-    st.info("Procesando tu consulta con Gemini 1.5 Pro...")
+    st.info("Procesando tu consulta con Gemini Pro...")
     
     try:
         # Búsqueda híbrida
