@@ -130,29 +130,9 @@ class GoogleSheetsLogger:
             
             self.client = gspread.authorize(creds)
             
-            # Leer SHEET_ID y SHEET_NAME desde secrets si están disponibles
+            # Abrir o crear la hoja de calculo
             try:
-                import streamlit as st
-                if hasattr(st, 'secrets'):
-                    if 'SHEET_ID' in st.secrets:
-                        self.spreadsheet_name = st.secrets['SHEET_ID']
-                        print(f"[INFO] Usando SHEET_ID desde secrets: {self.spreadsheet_name}")
-                    if 'SHEET_NAME' in st.secrets:
-                        self.worksheet_name = st.secrets['SHEET_NAME']
-                        print(f"[INFO] Usando SHEET_NAME desde secrets: {self.worksheet_name}")
-            except Exception as e:
-                print(f"[DEBUG] Error leyendo SHEET_ID/SHEET_NAME desde secrets: {e}")
-            
-            # Abrir la hoja de calculo (por ID si es numérico, por nombre si no)
-            try:
-                if str(self.spreadsheet_name).startswith('1') and len(str(self.spreadsheet_name)) > 10:
-                    # Parece un ID de Google Sheets (empieza con 1 y es largo)
-                    spreadsheet = self.client.open_by_key(self.spreadsheet_name)
-                    print(f"[INFO] Abriendo hoja por ID: {self.spreadsheet_name}")
-                else:
-                    # Abrir por nombre
-                    spreadsheet = self.client.open(self.spreadsheet_name)
-                    print(f"[INFO] Abriendo hoja por nombre: {self.spreadsheet_name}")
+                spreadsheet = self.client.open(self.spreadsheet_name)
             except gspread.SpreadsheetNotFound:
                 print(f"[!] Hoja '{self.spreadsheet_name}' no encontrada. Creala y compartela con el service account.")
                 return

@@ -19,17 +19,26 @@ import argparse
 from pathlib import Path
 from dotenv import load_dotenv
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from langchain_ollama import OllamaEmbeddings
 from langchain_community.document_loaders import DirectoryLoader, TextLoader
 from faiss_builder import FAISSVectorBuilder, BuilderConfig
 
-# Cargar variables de entorno
-load_dotenv()
+# Cargar variables de entorno (opcional)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-# Verificar API Key
-if not os.getenv("GOOGLE_API_KEY"):
-    print("❌ ERROR: No se encontró GOOGLE_API_KEY en variables de entorno")
-    print("   Configura la variable antes de ejecutar este script")
+# Verificar que Ollama esté disponible
+try:
+    from langchain_ollama import OllamaEmbeddings
+    test_embeddings = OllamaEmbeddings(model="llama2:7b")
+    test_embeddings.embed_query("test")
+    print("✅ Ollama disponible para embeddings")
+except Exception as e:
+    print(f"❌ ERROR: Ollama no está disponible: {e}")
+    print("   Asegúrate de que Ollama esté ejecutándose con: ollama serve")
     exit(1)
 
 # Configuración de rutas
@@ -126,8 +135,8 @@ def create_faiss_index(text_chunks, force_recreate=False, resume=False):
     print(f"🚀 CONSTRUCCIÓN DE ÍNDICE FAISS CON RATE LIMITING ROBUSTO")
     print(f"{'='*70}")
     print(f"📄 Total de chunks a procesar: {len(text_chunks)}")
-    print(f"🔧 Modelo embeddings: models/embedding-001")
-    print(f"📐 Dimensión vectorial: 768")
+    print(f"🔧 Modelo embeddings: llama2:7b")
+    print(f"📐 Dimensión vectorial: 4096")
     
     # Configuración robusta
     config = BuilderConfig(
@@ -150,8 +159,8 @@ def create_faiss_index(text_chunks, force_recreate=False, resume=False):
     print(f"   • Backoff exponencial: {config.initial_backoff}s → {config.max_backoff}s")
     
     # Crear embeddings
-    print(f"\n🔧 Inicializando GoogleGenerativeAIEmbeddings...")
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+    print(f"\n🔧 Inicializando OllamaEmbeddings...")
+    embeddings = OllamaEmbeddings(model="llama2:7b")
     
     # Crear función de embedding para el builder
     def embed_function(texts: list) -> list:
