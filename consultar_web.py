@@ -1821,33 +1821,25 @@ st.subheader("Realiza una consulta")
 query = st.text_input("Ingresa tu pregunta:", placeholder="¿Qué deseas saber?")
 
 if query:
-    st.info("Procesando tu consulta... (Usando DeepSeek R1 8B local)")
+    st.info("Procesando tu consulta con Gemini Pro 2.5...")
     
     # Búsqueda híbrida
     docs = hybrid_retrieval(faiss_vs, query, k_vector=100, k_keyword=20)
     context = "\n\n".join([doc.page_content for doc in docs[:5]])
     
-    # Enviar a Ollama
+    # Procesar con Gemini Pro 2.5
     try:
-        import requests
-        import json
-        
-        prompt = f"""Contexto disponible:
-{context}
-
-Consulta del usuario: {query}
-
-Basándote estrictamente en el contenido disponible arriba, responde la consulta en formato JSON con citas obligatorias."""
-        
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": "deepseek-r1:8b",
-                "prompt": prompt,
-                "stream": False
-            },
-            timeout=300
+        chain = (
+            {"context": context, "query": query} 
+            | prompt 
+            | llm 
+            | StrOutputParser()
         )
+        
+        answer = chain.invoke({
+            "context": context,
+            "query": query
+        })
         
         if response.status_code == 200:
             result = response.json()
