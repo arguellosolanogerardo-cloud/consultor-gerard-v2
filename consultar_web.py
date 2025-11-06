@@ -4,6 +4,8 @@ import sys
 import json
 import re
 import colorama
+import streamlit as st
+import requests
 
 # Configurar UTF-8 para Streamlit Cloud
 if hasattr(sys.stdout, 'reconfigure'):
@@ -24,9 +26,7 @@ from langchain_core.output_parsers import StrOutputParser
 from datetime import datetime
 import uuid
 from typing import Any, Iterable, List, Pattern
-import streamlit as st
 import streamlit.components.v1 as components
-import requests  # Para obtener la IP y geolocalización
 import io
 import textwrap
 
@@ -188,170 +188,60 @@ def load_resources():
             except Exception as e:
                 st.warning(f"No se pudo inicializar el LLM (GoogleGenerativeAI): {e}. La aplicación usará un modo de recuperación local sin LLM.")
 
-        # Inicializar embeddings (o usar fallback) y cargar FAISS
-        try:
-            # Intentar OpenAI embeddings primero si hay API key
-            openai_key = os.environ.get("OPENAI_API_KEY") or st.secrets.get("OPENAI_API_KEY")
-            if openai_key:
-                try:
-                    from langchain_openai import OpenAIEmbeddings
-                    embeddings = OpenAIEmbeddings(
-                        model="text-embedding-3-small",  # Modelo económico
-                        openai_api_key=openai_key
-                    )
-                    print("[DEBUG] Embeddings de OpenAI inicializadas correctamente")
-                    st.info("🔄 Usando embeddings de OpenAI (alternativa a Google)")
-                except ImportError:
-                    st.warning("langchain-openai no instalado. Instala con: pip install langchain-openai")
-                    embeddings = None
-                except Exception as e:
-                    st.warning(f"No fue posible inicializar OpenAI embeddings: {e}. Intentando Google...")
-                    embeddings = None
-            else:
-                st.info("No hay API key de OpenAI, usando Google embeddings...")
+    # Inicializar embeddings (o usar fallback) y cargar FAISS
+    # Descargar FAISS antes de cargar (solo se ejecutará una vez debido al caché)
+    download_faiss_if_needed()
 
-            # Si no hay OpenAI o falló, intentar Google embeddings
-            if embeddings is None:
-                # Intentar usar la clase oficial si está disponible
-                if GoogleGenerativeAIEmbeddings is not None:
-                    try:
-                        embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001", google_api_key=api_key)
-                        print("[DEBUG] Embeddings de Google inicializadas correctamente")
-                    except Exception as e:
-                        st.warning(f"No fue posible inicializar GoogleEmbeddings: {e}. Usando embeddings de fallback (hash-based).")
-                else:
-                    st.warning("GoogleGenerativeAIEmbeddings no disponible, usando embeddings de fallback (hash-based).")
-
-            if embeddings is None:
-                import hashlib
-                # Intentar deducir la dimensión del índice FAISS para generar vectores compatibles
-                target_dim = 768
-                try:
-                    import faiss
-                    idx_path = os.path.join('faiss_index', 'index.faiss')
-                    if os.path.exists(idx_path):
-                        idx = faiss.read_index(idx_path)
-                        target_dim = getattr(idx, 'd', target_dim)
-                except Exception:
-                    # Si faiss no está disponible o falla, seguimos con el valor por defecto
-                    pass
-
-                class FakeEmbeddings:
-                    def __init__(self, dim: int = target_dim):
-                        self.dim = dim
-
-                    def _text_to_vector(self, text: str) -> List[float]:
-                        out_bytes = b''
-                        counter = 0
-                        while len(out_bytes) < self.dim:
-                            h = hashlib.sha256((text + '|' + str(counter)).encode('utf-8')).digest()
-                            out_bytes += h
-                            counter += 1
-                        vec = [b / 255.0 for b in out_bytes[: self.dim]]
-                        return vec
-
-                    def embed_documents(self, texts: Iterable[str]) -> List[List[float]]:
-                        return [self._text_to_vector(t) for t in texts]
-
-                    def embed_query(self, text: str) -> List[float]:
-                        return self._text_to_vector(text)
-
-                embeddings = FakeEmbeddings()
-                st.error("⚠️ ADVERTENCIA: Usando embeddings simuladas (hash-based). La búsqueda semántica será limitada. Verifica la API key de Google.")
-
-            
-            # === DESCARGA MOVIDA FUERA DE CACHE ===
-            # Ver funcion download_faiss_if_needed() antes de load_resources()
-            
-
-            faiss_vs = FAISS.load_local(folder_path="faiss_index", embeddings=embeddings, allow_dangerous_deserialization=True)
-            # Debug: verificar que se cargó correctamente
-            doc_count = faiss_vs.index.ntotal if hasattr(faiss_vs, 'index') else 'unknown'
-            print(f"[DEBUG load_resources] FAISS cargado exitosamente con {doc_count} documentos")
-            # Mostrar mensaje con estilo tenue y sin fondo
-            st.markdown(
-                f'<p style="color: rgba(128, 128, 128, 0.5); font-size: 0.85em; margin: 5px 0;">✅ Base vectorial cargada: {doc_count} BLOQUES CHUNKS disponibles</p>',
-                unsafe_allow_html=True
-            )
-        except Exception as e:
-            print(f"[ERROR load_resources] Error al cargar FAISS: {e}")
-            st.error(f"❌ No fue posible cargar el índice FAISS: {e}")
-            st.stop()
-
-    return llm, faiss_vs
-
-# NOTA: No ejecutar load_resources() al importar el módulo para evitar inicializar
-# las librerías de Google (protobuf/GRPC) en el arranque de Streamlit. La carga
-# se hará bajo demanda cuando el usuario envíe una consulta.
-
-# --- Inicializar sistema de logging completo ---
-def init_logger():
-    """
-    Inicializa el InteractionLogger para el registro de interacciones.
-    """
+    # Inicialización 100% local, sin dependencias de Google ni API keys
+    import hashlib
+    # Intentar deducir la dimensión del índice FAISS para generar vectores compatibles
+    target_dim = 768
     try:
-        logger = InteractionLogger(
-            platform="web",
-            log_dir="logs",
-            anonymize=False,
-            max_file_size_mb=10,
-            enable_json=True
-        )
-        return logger
-    except Exception as e:
-        print(f"[!] Error inicializando InteractionLogger: {e}")
-        # Fallback: devolver un logger dummy que no haga nada
-        class DummyLogger:
-            def start_interaction(self, *args, **kwargs):
-                return "dummy_interaction_id"
-            def end_interaction(self, *args, **kwargs):
-                pass
-            def log_error(self, *args, **kwargs):
-                pass
-            def log_response(self, *args, **kwargs):
-                pass
-            def mark_phase(self, *args, **kwargs):
-                pass
-        return DummyLogger()
+        import faiss
+        idx_path = os.path.join('faiss_index', 'index.faiss')
+        if os.path.exists(idx_path):
+            idx = faiss.read_index(idx_path)
+            target_dim = getattr(idx, 'd', target_dim)
+    except Exception:
+        pass
 
-# --- Inicializar Google Sheets Logger (si está disponible) ---
-def init_sheets_logger():
-    """Inicializa el logger de Google Sheets si está configurado."""
-    if GOOGLE_SHEETS_AVAILABLE:
-        return create_sheets_logger()
-    return None
+    class FakeEmbeddings:
+        def __init__(self, dim: int = target_dim):
+            self.dim = dim
 
-prompt = ChatPromptTemplate.from_template(r"""
-🚨 FORMATO DE SALIDA OBLIGATORIO (JSON)
-CRÍTICO: Tu respuesta DEBE ser un array JSON válido con esta estructura exacta:
+        def _text_to_vector(self, text: str) -> List[float]:
+            out_bytes = b''
+            counter = 0
+            while len(out_bytes) < self.dim:
+                h = hashlib.sha256((text + '|' + str(counter)).encode('utf-8')).digest()
+                out_bytes += h
+                counter += 1
+            vec = [b / 255.0 for b in out_bytes[: self.dim]]
+            return vec
 
-[
-  {{"type": "normal", "content": "Texto con su cita (Fuente: archivo, Timestamp: HH:MM:SS)"}},
-  {{"type": "emphasis", "content": "Texto enfatizado con su cita (Fuente: archivo, Timestamp: HH:MM:SS)"}},
-  {{"type": "normal", "content": "Más texto con cita (Fuente: archivo, Timestamp: HH:MM:SS)"}}
-]
+        def embed_documents(self, texts: Iterable[str]) -> List[List[float]]:
+            return [self._text_to_vector(t) for t in texts]
 
-REGLAS:
-- type: puede ser "normal" o "emphasis"
-- content: string que SIEMPRE incluye la cita de fuente al final entre paréntesis
-- Formato de cita: (Fuente: NOMBRE_EXACTO_archivo, Timestamp: HH:MM:SS)
-- NO agregues texto fuera del array JSON
-- NO uses markdown, solo el array JSON puro
-- NUNCA omitas la cita de fuente
+        def embed_query(self, text: str) -> List[float]:
+            return self._text_to_vector(text)
 
-Contexto disponible:
-{context}
+    embeddings = FakeEmbeddings()
+    faiss_vs = FAISS.load_local(folder_path="faiss_index", embeddings=embeddings, allow_dangerous_deserialization=True)
+    doc_count = faiss_vs.index.ntotal if hasattr(faiss_vs, 'index') else 'unknown'
+    print(f"[DEBUG load_resources] FAISS cargado exitosamente con {doc_count} documentos")
+    st.markdown(
+        f'<p style="color: rgba(128, 128, 128, 0.5); font-size: 0.85em; margin: 5px 0;">✅ Base vectorial cargada: {doc_count} BLOQUES CHUNKS disponibles</p>',
+        unsafe_allow_html=True
+    )
+    return None, faiss_vs
 
-Consulta del usuario: {input}
+# Contexto disponible:
+# {context}
+#
+# Consulta del usuario: {input}
+#
+# Basándote estrictamente en el contenido disponible arriba, responde la consulta en formato JSON con citas obligatorias.
 
-Basándote estrictamente en el contenido disponible arriba, responde la consulta en formato JSON con citas obligatorias.
-
-═══════════════════════════════════════════════════════════
-FIN DEL ANÁLISIS
-LA VERDAD OS HARA LIBRES
-LA CLAVE ES EL AMOR
-═══════════════════════════════════════════════════════════
-""")
 
 def get_cleaning_pattern() -> Pattern:
     # Textos entre corchetes a eliminar
@@ -376,21 +266,18 @@ cleaning_pattern = get_cleaning_pattern()
 
 def hybrid_retrieval(vectorstore, query: str, k_vector: int = 100, k_keyword: int = 20):
     """
-    Búsqueda híbrida: vectorial + keyword fallback
-    
-    1. Hace búsqueda vectorial normal (k_vector docs)
-    2. Si los términos clave no aparecen en los resultados, 
-       busca directamente en el docstore por keywords
-    3. Combina resultados únicos
-    
-    Args:
-        vectorstore: FAISS vectorstore
-        query: consulta del usuario
-        k_vector: número de docs a recuperar con búsqueda vectorial
-        k_keyword: número de docs adicionales a buscar con keywords
-    
-    Returns:
-        Lista de documentos únicos combinados
+    # Búsqueda híbrida: vectorial + keyword fallback
+    # 1. Hace búsqueda vectorial normal (k_vector docs)
+    # 2. Si los términos clave no aparecen en los resultados, 
+    #    busca directamente en el docstore por keywords
+    # 3. Combina resultados únicos
+    # Args:
+    #     vectorstore: FAISS vectorstore
+    #     query: consulta del usuario
+    #     k_vector: número de docs a recuperar con búsqueda vectorial
+    #     k_keyword: número de docs adicionales a buscar con keywords
+    # Returns:
+    #     Lista de documentos únicos combinados
     """
     # 1. Búsqueda vectorial normal
     vector_docs = vectorstore.similarity_search(query, k=k_vector)
@@ -447,10 +334,10 @@ def hybrid_retrieval(vectorstore, query: str, k_vector: int = 100, k_keyword: in
     return combined_docs
 
 def format_docs_with_metadata(docs: Iterable[Any]) -> str:
-    """Formatea una secuencia de documentos recuperados y limpia su contenido.
-    
-    docs: iterable de objetos con atributos `metadata` (dict) y `page_content` (str).
-    Devuelve una única cadena con todos los documentos formateados.
+    """
+    Formatea una secuencia de documentos recuperados y limpia su contenido.
+    # docs: iterable de objetos con atributos `metadata` (dict) y `page_content` (str).
+    # Devuelve una única cadena con todos los documentos formateados.
     """
     # DEBUG: Convertir a lista para ver cuántos docs hay
     docs_list = list(docs)
@@ -498,8 +385,9 @@ retrieval_chain = None
 # --- Geolocalización por navegador ---
 def get_user_location() -> dict:
     """
-    Obtiene la ubicación del usuario usando geolocalización del navegador si está disponible.
-    Si no, usa ipinfo.io como fallback.
+    """
+    # Obtiene la ubicación del usuario usando geolocalización del navegador si está disponible.
+    # Si no, usa ipinfo.io como fallback.
     """
     # Si ya está en session_state, usarla
     if 'geo_location' in st.session_state:
@@ -547,27 +435,27 @@ def get_user_location() -> dict:
 
     # Si no hay geo en URL, inyectar JS que pide permiso y redirige con ?geo=lat,lon
     js = f"""
-    <script>
-    (function() {{
-        function redirectWithGeo(lat, lon) {{
-            const qp = new URLSearchParams(window.location.search);
-            qp.set('geo', lat + ',' + lon);
-            const newUrl = window.location.pathname + '?' + qp.toString();
-            window.location.replace(newUrl);
-        }}
-        if (navigator.geolocation) {{
-            navigator.geolocation.getCurrentPosition(function(pos) {{
-                redirectWithGeo(pos.coords.latitude, pos.coords.longitude);
-            }}, function(err) {{
-                // Usuario negó o error: no hacer nada
-                console.log('Geolocation denied or error', err);
-            }}, {{timeout:10000}});
-        }} else {{
-            console.log('Geolocation not supported');
-        }}
-    }})();
-    </script>
-    <div style="font-size:0.9em; color:#666; text-align:center;">Solicitando permiso de ubicación al navegador... si no aceptas, se usará una ubicación aproximada por IP.</div>
+    # <script>
+    # (function() {{
+    #     function redirectWithGeo(lat, lon) {{
+    #         const qp = new URLSearchParams(window.location.search);
+    #         qp.set('geo', lat + ',' + lon);
+    #         const newUrl = window.location.pathname + '?' + qp.toString();
+    #         window.location.replace(newUrl);
+    #     }}
+    #     if (navigator.geolocation) {{
+    #         navigator.geolocation.getCurrentPosition(function(pos) {{
+    #             redirectWithGeo(pos.coords.latitude, pos.coords.longitude);
+    #         }}, function(err) {{
+    #             // Usuario negó o error: no hacer nada
+    #             console.log('Geolocation denied or error', err);
+    #         }}, {{timeout:10000}});
+    #     }} else {{
+    #         console.log('Geolocation not supported');
+    #     }}
+    # }})();
+    # </script>
+    # <div style="font-size:0.9em; color:#666; text-align:center;">Solicitando permiso de ubicación al navegador... si no aceptas, se usará una ubicación aproximada por IP.</div>
     """
     st.components.v1.html(js, height=0)
 
@@ -603,1559 +491,3178 @@ def get_user_location() -> dict:
             'timezone': ''
         }
 
+# --- Funciones de logging y prompt recuperadas del backup ---
+def init_logger():
+
+    # Inicializa el sistema de logging con detección de dispositivo y geolocalización.
+    return None  # Logging desactivado para modo local
+
+@st.cache_resource
+def init_sheets_logger():
+
+    # Inicializa el logger de Google Sheets si está configurado.
+    return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+
+from langchain.prompts import ChatPromptTemplate
+prompt = ChatPromptTemplate.from_template(
+    "GERARD v3.01 - Sistema de Análisis Investigativo Avanzado\nIDENTIDAD DEL SISTEMA\n"
+)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
 def fix_utf8_encoding(text: str) -> str:
-    """Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud."""
+    """
+    # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+    """
     if not isinstance(text, str):
         return text
-        
     import unicodedata
-    
-    # Normalizar Unicode
     text = unicodedata.normalize('NFC', text)
-    
-    # Diccionario de reemplazos para caracteres mal codificados
     replacements = {
-        # Caracteres básicos problemáticos
         'â€™': "'",
         'â€œ': '"',
         'â€': '"',
         'â€"': '–',
-        'â€"': '—',
         'â€¦': '...',
-        
-        # Vocales acentuadas
         'Ã¡': 'á',
-        'Ã©': 'é', 
+        'Ã©': 'é',
         'Ã­': 'í',
         'Ã³': 'ó',
         'Ãº': 'ú',
         'Ã±': 'ñ',
-        'Ã¼': 'ü',
-        'Ã': 'Á',
+        'Ã': 'í',
         'Ã‰': 'É',
-        'Ãœ': 'Ü',
-        
-        # Caracteres especiales
-        'â‚¬': '€',
-        'â„¢': '™',
-        'Â®': '®',
-        'Â©': '©',
-        'Â°': '°',
-        'Â¿': '¿',
-        'Â¡': '¡',
-        'Â ': ' ',
-        
-        # Casos específicos observados
-        'ConversaciÃ³n': 'Conversación',
-        'ExportaciÃ³n': 'Exportación', 
-        'exportaciÃ³n': 'exportación',
-        'conversaciÃ³n': 'conversación',
-        'aquÃ­': 'aquí',
-        'aparecerÃ¡n': 'aparecerán',
-        'automÃ¡ticamente': 'automáticamente',
-        'despuÃ©s': 'después',
-        'CÃ³mo': 'Cómo',
-        'CATEGORÃAS': 'CATEGORÍAS',
-        'BÃšSQUEDA': 'BÚSQUEDA',
-        'EspecÃ­fico': 'Específico',
-        'EvacuaciÃ³n': 'Evacuación',
-        'sanaciÃ³n': 'sanación',
-        'profecÃ­as': 'profecías',
-        'enseÃ±anzas': 'enseñanzas',
-        'evacuaciÃ³n': 'evacuación',
-        'QuÃ©': 'Qué',
-        'tÃºneles': 'túneles',
-        'ExplÃ­came': 'Explícame',
-        'NÃºmero': 'Número',
-        'MeditaciÃ³n': 'Meditación',
-        'quÃ©': 'qué',
-        'RÃ¡pidos': 'Rápidos',
-        'especÃ­fico': 'específico',
-        'ObtendrÃ¡s': 'Obtendrás',
-        'enseÃ±anza': 'enseñanza',
+        'Ãš': 'Ú',
     }
-    
-    for wrong, correct in replacements.items():
-        text = text.replace(wrong, correct)
-    
+    for bad, good in replacements.items():
+        text = text.replace(bad, good)
     return text
 
-def force_streamlit_utf8():
-    """Elimina TODOS los emojis y caracteres problemáticos."""
-    import streamlit as st
-    
-    # JavaScript RADICAL para eliminar caracteres problemáticos
-    st.components.v1.html("""
-        <script>
-            function cleanAllText() {
-                // Encontrar TODOS los elementos con texto
-                const allElements = document.querySelectorAll('*');
-                
-                allElements.forEach(element => {
-                    // Solo procesar nodos de texto
-                    const walker = document.createTreeWalker(
-                        element,
-                        NodeFilter.SHOW_TEXT,
-                        null,
-                        false
-                    );
-                    
-                    const textNodes = [];
-                    let node;
-                    while (node = walker.nextNode()) {
-                        textNodes.push(node);
-                    }
-                    
-                    textNodes.forEach(textNode => {
-                        let text = textNode.textContent;
-                        
-                        // REMOVER caracteres problemáticos específicos
-                        text = text.replace(/ðŸ/g, '');
-                        text = text.replace(/â/g, '');
-                        text = text.replace(/1ï¸âƒ£/g, '1');
-                        text = text.replace(/2ï¸âƒ£/g, '2');
-                        text = text.replace(/3ï¸âƒ£/g, '3');
-                        text = text.replace(/4ï¸âƒ£/g, '4');
-                        text = text.replace(/âœ/g, '');
-                        text = text.replace(/ï¿½/g, '');
-                        
-                        // CORREGIR caracteres con tildes
-                        text = text.replace(/Ã³/g, 'O');
-                        text = text.replace(/Ã­/g, 'I');
-                        text = text.replace(/Ã¡/g, 'A');
-                        text = text.replace(/Ã©/g, 'E');
-                        text = text.replace(/Ãº/g, 'U');
-                        text = text.replace(/Ã±/g, 'N');
-                        text = text.replace(/Ã/g, 'A');
-                        text = text.replace(/Ã‰/g, 'E');
-                        text = text.replace(/Ãš/g, 'U');
-                        
-                        // REEMPLAZOS específicos completos
-                        text = text.replace(/ConversaciÃ³n/g, 'CONVERSACION');
-                        text = text.replace(/ExportaciÃ³n/g, 'EXPORTACION');
-                        text = text.replace(/conversaciÃ³n/g, 'CONVERSACION');
-                        text = text.replace(/aquÃ­/g, 'AQUI');
-                        text = text.replace(/aparecerÃ¡n/g, 'APARECERAN');
-                        text = text.replace(/automÃ¡ticamente/g, 'AUTOMATICAMENTE');
-                        text = text.replace(/despuÃ©s/g, 'DESPUES');
-                        text = text.replace(/CÃ³mo/g, 'COMO');
-                        text = text.replace(/CATEGORÃAS/g, 'CATEGORIAS');
-                        text = text.replace(/BÃšSQUEDA/g, 'BUSQUEDA');
-                        
-                        if (text !== textNode.textContent) {
-                            textNode.textContent = text;
-                        }
-                    });
-                });
-            }
-            
-            // Ejecutar múltiples veces
-            setTimeout(cleanAllText, 100);
-            setTimeout(cleanAllText, 500);
-            setTimeout(cleanAllText, 1000);
-            setTimeout(cleanAllText, 2000);
-            
-            // Observador agresivo
-            const observer = new MutationObserver(function() {
-                setTimeout(cleanAllText, 10);
-            });
-            
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true,
-                characterData: true
-            });
-            
-            console.log('RADICAL text cleaner active');
-        </script>
-    """, height=0)
-
-def get_clean_text_from_json(json_string: str) -> str:
-    try:
-        # Debug: mostrar tipo recibido
-        print(f"[DEBUG get_clean_text_from_json] Tipo recibido: {type(json_string)}")
-        
-        # Convertir a string si recibimos un dict o list
-        if isinstance(json_string, (dict, list)):
-            print(f"[DEBUG] Convirtiendo {type(json_string)} a JSON string")
-            json_string = json.dumps(json_string, ensure_ascii=False, indent=None)
-        
-        # Asegurar que el texto esté en UTF-8 correcto
-        if isinstance(json_string, str):
-            # Limpiar caracteres de control y normalizar
-            json_string = ''.join(char for char in json_string if ord(char) >= 32 or char in '\n\t')
-            # Normalizar Unicode
-            import unicodedata
-            json_string = unicodedata.normalize('NFC', json_string)
-        
-        # Remover backticks de markdown si existen
-        json_string = re.sub(r'^```json\s*', '', json_string.strip())
-        json_string = re.sub(r'\s*```$', '', json_string.strip())
-        
-        match = re.search(r'\[.*\]', json_string, re.DOTALL)
-        if not match:
-            print(f"[DEBUG get_clean_text_from_json] No se encontró array JSON")
-            return json_string
-
-        data = json.loads(match.group(0))
-        # Concatenar todo el contenido de los items
-        clean_text = " ".join([item.get("content", "") for item in data])
-        
-        # Limpiar y normalizar el texto final
-        if clean_text:
-            clean_text = unicodedata.normalize('NFC', clean_text)
-            # Reemplazar caracteres problemáticos comunes
-            clean_text = clean_text.replace('â€™', "'")
-            clean_text = clean_text.replace('â€œ', '"')
-            clean_text = clean_text.replace('â€', '"')
-            clean_text = clean_text.replace('â€"', '–')
-            clean_text = clean_text.replace('â€"', '—')
-            
-        print(f"[DEBUG get_clean_text_from_json] Texto limpio extraído: {clean_text[:100]}...")
-        return clean_text
-    except Exception as ex:
-        print(f"[DEBUG get_clean_text_from_json] ERROR: {ex}")
-        import traceback
-        traceback.print_exc()
-        return json_string
+# --- Funciones de logging y sheets desactivadas para modo local ---
 
 
-def detect_gender_from_name(name: str) -> str:
-    """Heurística simple para detectar género a partir del primer nombre.
-    Regla principal: termina en 'a' -> Femenino, termina en 'o' -> Masculino.
-    Usa listas de excepciones comunes para mejorar la precisión.
-    Devuelve: 'Masculino', 'Femenino' o 'No especificar'.
-    """
-    if not name or not name.strip():
-        return 'No especificar'
-    # Normalizar y tomar primer token
-    first = name.strip().split()[0].lower()
-    # Quitar caracteres no alfabéticos (mantener acentos y ñ)
-    first = re.sub(r"[^a-záéíóúüñ]", "", first)
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-    # Listas de nombres comunes (no exhaustivas)
-    male_names = {"juan","carlos","pedro","jose","luis","miguel","axel","alan","adriel","adiel","alaniso","aladio","adolfo"}
-    female_names = {"maria","ana","laura","mariana","isabela","isabella","sofia","sofia"}
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-    if first in male_names:
-        return 'Masculino'
-    if first in female_names:
-        return 'Femenino'
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-    # Regla por terminación (heurística fuerte en español)
-    if first.endswith(('a','á')):
-        return 'Femenino'
-    if first.endswith(('o','ó')):
-        return 'Masculino'
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-    # Nombres neutros o no detectables
-    return 'No especificar'
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-def save_to_log(user: str, question: str, answer_json: str, location: str) -> None:
-    # Debug: mostrar tipo recibido
-    print(f"[DEBUG save_to_log] Tipo de answer_json recibido: {type(answer_json)}")
-    
-    # Convertir answer_json a string si es dict/list
-    if isinstance(answer_json, (dict, list)):
-        print(f"[DEBUG save_to_log] Convirtiendo {type(answer_json)} a JSON string")
-        answer_json = json.dumps(answer_json, ensure_ascii=False)
-    
-    clean_answer = get_clean_text_from_json(answer_json)
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    with open("gerard_log.txt", "a", encoding="utf-8") as f:
-        f.write(f"--- Conversación del {timestamp} ---\n")
-        f.write(f"Usuario: {user}\n")
-        f.write(f"Ubicación: {location}\n")
-        f.write(f"PREGUNTA: {question.upper()}\n")
-        f.write(f"Respuesta de GERARD: {clean_answer}\n")
-        f.write("="*40 + "\n\n")
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-def get_conversation_text() -> str:
-    conversation = []
-    for message in st.session_state.get('messages', []):
-        content_html = message["content"]
-        # Extraer texto plano de la forma más simple posible
-        text_content = re.sub(r'<[^>]+>', '', content_html).strip()
-        
-        if message["role"] == "user":
-            # Para el usuario, el texto relevante está en el span uppercase
-            match = re.search(r'<span style="text-transform: uppercase;.*?">(.*?)</span>', content_html)
-            if match:
-                text_content = match.group(1).strip()
-            conversation.append(f"Usuario: {text_content}")
-        else:
-            # Para el asistente, quitar el nombre de usuario que se añade al principio
-            user_name_placeholder = f"{st.session_state.get('user_name', '')}:"
-            if text_content.startswith(user_name_placeholder):
-                 text_content = text_content[len(user_name_placeholder):].strip()
-            conversation.append(f"GERARD: {text_content}")
-            
-    return "\n\n".join(conversation)
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-def generate_download_filename() -> str:
-    user_questions = []
-    for message in st.session_state.get('messages', []):
-        if message["role"] == "user":
-            match = re.search(r'<span style="text-transform: uppercase;.*?">(.*?)</span>', message['content'])
-            if match:
-                user_questions.append(match.group(1).strip())
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-    if not user_questions:
-        questions_text = "conversacion"
-    else:
-        # Unir preguntas con símbolo de interrogación como separador visible
-        questions_text = "?_".join(user_questions)
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-    # Sanitizar SOLO caracteres inválidos para nombres de archivo (NO truncar)
-    # Mantener espacios y permitir cualquier longitud
-    sanitized_name = re.sub(r'[\\/:*"<>|]', '', questions_text)  # Eliminado ? del regex
-    # NO truncar - permitir todo el texto completo
-    full_questions = sanitized_name.strip()
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-    user_name = st.session_state.get('user_name', 'usuario').upper()
-    
-    # Obtener fecha y hora actual
-    now = datetime.now()
-    date_str = now.strftime('%Y%m%d')
-    time_str = now.strftime('%H%M')  # Solo hora y minuto
-    
-    # Formato final: CONSULTA_DE_NOMBREUSUARIO_pregunta1?_pregunta2?_pregunta3_20251009_2109.txt
-    return f"CONSULTA_DE_{user_name}_{full_questions}_{date_str}_{time_str}.txt"
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-def _escape_ampersand(text: str) -> str:
-    return text.replace('&', '&amp;')
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-def _convert_spans_to_font_tags(html: str) -> str:
-    """Reemplaza <span style="color:...">texto</span> por <font color="...">texto</font> para que reportlab Paragraph lo soporte.
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-    No soportamos estilos complejos; se intenta preservar el color de fuente.
-    """
-    # Normalizar algunos cierres y saltos
-    s = html
-    # Formatear citas de fuente en negrita magenta
-    fuente_pattern = r'\((Fuente:[^)]+)\)'
-    s = re.sub(fuente_pattern, r'<b><font color="#FF00FF">(\1)</font></b>', s)
-    # Reemplazar span color (hex o nombre)
-    s = re.sub(r'<span\s+style="[^"]*color\s*:\s*([^;\"]+)[^\"]*">(.*?)</span>', lambda m: f"<font color=\"{m.group(1).strip()}\">{m.group(2)}</font>", s, flags=re.DOTALL)
-    # Reemplazar any remaining <span> without color -> remove span
-    s = re.sub(r'<span[^>]*>(.*?)</span>', r'\1', s, flags=re.DOTALL)
-    # Asegurar que los saltos de línea HTML sean <br/> para Paragraph
-    s = s.replace('\n', '<br/>')
-    s = s.replace('<br>', '<br/>')
-    # Evitar caracteres & que rompan XML interno
-    s = _escape_ampersand(s)
-    return s
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-def _format_header(title_base: str, user_name: str | None, max_len: int = 220):
-    """Construye un encabezado que contiene el título, el nombre en negrita y la fecha, limitado a max_len caracteres.
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-    Devuelve una tupla (header_html, header_plain).
-    """
-    date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    user_name = (user_name or 'usuario').strip()
-    plain = f"{title_base} - {user_name} {date_str}"
-    if len(plain) > max_len:
-        plain = plain[: max_len - 3].rstrip() + '...'
-    # Para HTML, ponemos el nombre en negrita
-    # Intentar reemplazar first occurrence of user_name in plain with bold; si truncado puede no contener name
-    if user_name and user_name in plain:
-        html = plain.replace(user_name, f"<b>{user_name}</b>", 1)
-    else:
-        html = plain
-    return html, plain
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-def generate_pdf_from_html(html_content: str, title_base: str = "Conversacion GERARD", user_name: str | None = None) -> bytes:
-    """Genera un PDF en memoria a partir de HTML simple (etiquetas básicas) preservando colores de fuente.
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-    Usa reportlab Platypus Paragraph con tags <font color="...">.
-    """
-    if not REPORTLAB_AVAILABLE:
-        raise RuntimeError("La librería 'reportlab' no está instalada. Instálala con: pip install reportlab")
-    if not REPORTLAB_PLATYPUS:
-        # Si platypus no está disponible, caer al generador de texto plano
-        return generate_pdf_bytes_text(_strip_html_tags(html_content), title_base=title_base, user_name=user_name)
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-    buffer = io.BytesIO()
-    doc = SimpleDocTemplate(buffer, pagesize=A4, rightMargin=20, leftMargin=20, topMargin=30, bottomMargin=20)
-    styles = getSampleStyleSheet()
-    normal = styles['Normal']
-    normal.fontName = 'Helvetica'
-    normal.fontSize = 10
-    normal.leading = 12
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-    story = []
-    # Header (título + nombre en negrita + fecha) limitado a 220 chars
-    header_html, header_plain = _format_header(title_base, user_name, max_len=220)
-    title_style = styles.get('Heading2', normal)
-    story.append(Paragraph(header_html, title_style))
-    story.append(Spacer(1, 6))
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-    body = _convert_spans_to_font_tags(html_content)
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-    # Paragraph acepta un fragmento con tags limitados (<b>, <i>, <u>, <font color="...">, <br/>)
-    try:
-        story.append(Paragraph(body, normal))
-    except Exception:
-        # Fallback: limpiar HTML y usar texto simple
-        plain = re.sub(r'<[^>]+>', '', html_content)
-        story.append(Paragraph(plain.replace('&', '&amp;'), normal))
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-    doc.build(story)
-    buffer.seek(0)
-    return buffer.read()
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-def generate_pdf_bytes_text(text: str, title_base: str = "Conversacion GERARD", user_name: str | None = None) -> bytes:
-    """Fallback simple: genera PDF plano a partir de texto sin formato (mantener función previa)."""
-    buffer = io.BytesIO()
-    page_width, page_height = A4
-    c = canvas.Canvas(buffer, pagesize=A4)
-    left_margin = 40
-    right_margin = 40
-    top_margin = 40
-    bottom_margin = 40
-    # Header: título + nombre en negrita + fecha (limitado a 220 chars)
-    header_html, header_plain = _format_header(title_base, user_name, max_len=220)
-    # Dibujar parte inicial (título y nombre en negrita separado por un guion)
-    # Si header_plain contiene el user_name, dibujamos antes del nombre en normal y luego el nombre en negrita
-    if user_name and user_name in header_plain:
-        prefix, _, suffix = header_plain.partition(user_name)
-        c.setFont("Helvetica-Bold", 14)
-        # Dibujar prefijo + (usaremos fuente normal para prefijo) -> ajustar: dibujar prefix en normal
-        c.setFont("Helvetica", 12)
-        c.drawString(left_margin, page_height - top_margin, prefix.strip())
-        # dibujar nombre en negrita seguido de fecha/suffix
-        x = left_margin + stringWidth(prefix.strip() + ' ', "Helvetica", 12)
-        c.setFont("Helvetica-Bold", 12)
-        c.drawString(x, page_height - top_margin, user_name)
-        x += stringWidth(user_name + ' ', "Helvetica-Bold", 12)
-        c.setFont("Helvetica", 12)
-        c.drawString(x, page_height - top_margin, suffix.strip())
-    else:
-        c.setFont("Helvetica-Bold", 14)
-        c.drawString(left_margin, page_height - top_margin, header_plain)
-    c.setFont("Helvetica", 10)
-    max_width = page_width - left_margin - right_margin
-    from reportlab.pdfbase.pdfmetrics import stringWidth
-    y = page_height - top_margin - 20
-    line_height = 12
-    for paragraph in text.split('\n'):
-        if not paragraph:
-            y -= line_height
-            if y < bottom_margin:
-                c.showPage()
-                c.setFont("Helvetica", 10)
-                y = page_height - top_margin
-            continue
-        words = paragraph.split(' ')
-        line = ''
-        for w in words:
-            candidate = (line + ' ' + w).strip() if line else w
-            if stringWidth(candidate, "Helvetica", 10) <= max_width:
-                line = candidate
-            else:
-                c.drawString(left_margin, y, line)
-                y -= line_height
-                if y < bottom_margin:
-                    c.showPage()
-                    c.setFont("Helvetica", 10)
-                    y = page_height - top_margin
-                line = w
-        if line:
-            c.drawString(left_margin, y, line)
-            y -= line_height
-            if y < bottom_margin:
-                c.showPage()
-                c.setFont("Helvetica", 10)
-                y = page_height - top_margin
-    c.save()
-    buffer.seek(0)
-    return buffer.read()
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-def _strip_html_tags(html: str) -> str:
-    return re.sub(r'<[^>]+>', '', html)
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-# --- Interfaz de Usuario con Streamlit ---
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+# --- INTERFAZ STREAMLIT PRINCIPAL ---
+
 st.set_page_config(
-    page_title="GERARD",
-    layout="centered",
-    initial_sidebar_state="expanded"  # Sidebar expandido por defecto
+    page_title="GERARD - Consultor Investigativo",
+    page_icon="🔬",
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# Ocultar elementos de la interfaz de Streamlit
-hide_streamlit_style = """
-    <style>
-    /* NO ocultar nada del header para mantener el botón del sidebar visible */
-    
-    /* Ocultar solo el footer "Made with Streamlit" */
-    footer {visibility: hidden !important;}
-    .viewerBadge_container__1QSob {display: none !important;}
-    .styles_viewerBadge__1yB5_ {display: none !important;}
-    
-    /* Ocultar botón de Deploy */
-    .stDeployButton {display: none !important;}
-    
-    /* Ajustar padding superior para que no corte el título */
-    .block-container {
-        padding-top: 3rem;
-    }
-    </style>
-    
-    <script>
-    // Función para ocultar iconos del footer inferior derecho
-    function hideFooterIcons() {
-        // Ocultar todos los elementos en la esquina inferior derecha
-        const selectors = [
-            'footer',
-            '[data-testid="stStatusWidget"]',
-            '[class*="viewerBadge"]',
-            '[class*="styles_viewerBadge"]',
-            'button[title*="Manage"]',
-            'button[title*="manage"]',
-            '.stApp footer',
-            '.main footer'
-        ];
-        
-        selectors.forEach(selector => {
-            const elements = document.querySelectorAll(selector);
-            elements.forEach(el => {
-                el.style.display = 'none';
-                el.style.visibility = 'hidden';
-            });
-        });
-    }
-    
-    // Ejecutar cuando la página cargue
-    document.addEventListener('DOMContentLoaded', hideFooterIcons);
-    
-    // Ejecutar repetidamente para capturar elementos cargados dinámicamente
-    setInterval(hideFooterIcons, 500);
-    
-    // Ejecutar inmediatamente
-    hideFooterIcons();
-    </script>
-"""
-
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-
-# --- Avatares personalizados ---
-user_avatar = "https://api.iconify.design/line-md/question-circle.svg?color=%2358ACFA"
-assistant_avatar = "https://api.iconify.design/mdi/ufo-outline.svg?color=%238A2BE2"
-
-
-# --- CSS Simplificado y Título ---
+# Configurar tema oscuro
 st.markdown("""
 <style>
-/* FONDO NEGRO GLOBAL */
-[data-testid="stAppViewContainer"] {
-    background-color: #000000 !important;
-}
-[data-testid="stHeader"] {
-    background-color: #000000 !important;
-}
-[data-testid="stToolbar"] {
-    background-color: #000000 !important;
-}
-.main {
-    background-color: #000000 !important;
-}
-.stApp {
-    background-color: #000000 !important;
-}
-
-/* TITULO PRINCIPAL - RESPONSIVE */
-.title-style {
-    font-family: sans-serif;
-    font-size: clamp(3em, 8vw, 6em) !important;
-    text-align: center;
-    color: #00FF00 !important;
-    padding: 20px 10px !important;
-    margin: 10px 0 !important;
-    animation: pulse-green 2s infinite;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    hyphens: auto;
-    max-width: 100%;
-    box-sizing: border-box;
-}
-@keyframes pulse-green {
-    0% { opacity: 1; }
-    50% { opacity: 0.5; }
-    100% { opacity: 1; }
-}
-
-/* ESTILOS BASICOS SOLAMENTE */
-.intro-text {
-    text-align: center;
-    color: #58ACFA;
-    font-size: 1.5em;
-    padding: 10px;
-}
-.stChatInput textarea {
-    background-color: #7FFFD4 !important;
-    color: black !important;
-    padding: 10px 15px !important;
-    border-radius: 15px !important;
-}
-.stChatInput textarea::placeholder {
-    font-weight: bold !important;
-    font-size: 1.2em !important;
-    color: #FF0000 !important;
-}
-.stTextInput input {
-    background-color: #4169E1 !important;
-    color: white !important;
-}
-
-/* RESPONSIVE PARA MÓVILES */
-@media (max-width: 768px) {
-    .title-style {
-        font-size: 4em !important;
-        padding: 15px 5px !important;
+    * {
+        color: #E0E0E0;
+        background-color: #121212;
     }
-}
-@media (max-width: 480px) {
-    .title-style {
-        font-size: 3em !important;
-        padding: 10px 5px !important;
+    .stApp {
+        background-color: #121212;
     }
-}
-
-/* ESTILOS PARA MENSAJE DE BIENVENIDA */
-.welcome-text {
-    text-align: center !important;
-    color: #00FF00 !important;
-    font-size: 2.2em !important;
-    font-weight: bold !important;
-    margin: 20px 0 10px 0 !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-.sub-welcome-text {
-    text-align: center !important;
-    color: #00FF00 !important;
-    font-size: 1.4em !important;
-    font-weight: bold !important;
-    margin: 10px 0 30px 0 !important;
-    line-height: 1.4 !important;
-    word-wrap: break-word !important;
-    overflow-wrap: break-word !important;
-    max-width: 100% !important;
-    box-sizing: border-box !important;
-}
-
-/* RESPONSIVE PARA MENSAJE DE BIENVENIDA EN MÓVILES */
-@media (max-width: 768px) {
-    .welcome-text {
-        font-size: 1.8em !important;
-        margin: 15px 0 8px 0 !important;
-    }
-    .sub-welcome-text {
-        font-size: 1.2em !important;
-        margin: 8px 0 20px 0 !important;
-    }
-}
-@media (max-width: 480px) {
-    .welcome-text {
-        font-size: 1.5em !important;
-        margin: 10px 0 5px 0 !important;
-    }
-    .sub-welcome-text {
-        font-size: 1.0em !important;
-        margin: 5px 0 15px 0 !important;
-    }
-}
 </style>
-<div class="title-style">GERARD</div>
 """, unsafe_allow_html=True)
 
-# JavaScript específico para sidebar solamente
-st.components.v1.html("""
-<script>
-function fixSidebarOnly() {
-    const sidebar = document.querySelector('[data-testid="stSidebar"]');
-    if (sidebar) {
-        // Solo corregir texto específico del sidebar, no CSS
-        const textElements = sidebar.querySelectorAll('h2, h3, div, p, span');
-        textElements.forEach(element => {
-            if (element.textContent && !element.innerHTML.includes('<style')) {
-                let text = element.textContent;
-                
-                // Correcciones específicas solo para texto visible
-                text = text.replace(/ðŸ/g, '');
-                text = text.replace(/â/g, '');
-                text = text.replace(/ConversaciÃ³n/g, 'CONVERSACION');
-                text = text.replace(/ExportaciÃ³n/g, 'EXPORTACION');
-                text = text.replace(/aquÃ­/g, 'AQUI');
-                text = text.replace(/CÃ³mo/g, 'COMO');
-                text = text.replace(/CATEGORÃAS/g, 'CATEGORIAS');
-                text = text.replace(/BÃšSQUEDA/g, 'BUSQUEDA');
-                
-                if (text !== element.textContent) {
-                    element.textContent = text;
-                }
-            }
-        });
-    }
-}
+st.title("🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado")
 
-// Ejecutar solo en el sidebar
-setTimeout(fixSidebarOnly, 1000);
-setInterval(fixSidebarOnly, 2000);
+# Cargar recursos
+llm, faiss_vs = load_resources()
 
-console.log('Sidebar-specific cleaner active');
-</script>
-""", height=0)
+# Interfaz de consulta
+st.subheader("Realiza una consulta")
+query = st.text_input("Ingresa tu pregunta:", placeholder="¿Qué deseas saber?")
 
-# Aplicar wrapper UTF-8 a todas las funciones de Streamlit
-def create_utf8_wrapper():
-    """Crea un wrapper para todas las funciones de Streamlit que muestran texto."""
-    import streamlit as st
+if query:
+    st.info("Procesando tu consulta... (Usando DeepSeek R1 8B local)")
     
-    # Solo aplicar si no se ha aplicado antes
-    if hasattr(st, '_utf8_wrapped'):
-        return
+    # Búsqueda híbrida
+    docs = hybrid_retrieval(faiss_vs, query, k_vector=100, k_keyword=20)
+    context = "\n\n".join([doc.page_content for doc in docs[:5]])
+    
+    # Enviar a Ollama
+    try:
+        import requests
+        import json
         
-    # Guardar funciones originales
-    original_write = st.write
-    original_markdown = st.markdown
-    original_text = st.text
-    original_caption = st.caption
-    original_info = st.info
-    original_success = st.success
-    original_warning = st.warning
-    original_error = st.error
-    
-    def safe_write(*args, **kwargs):
-        processed_args = []
-        for arg in args:
-            if isinstance(arg, str):
-                processed_args.append(fix_utf8_encoding(arg))
-            else:
-                processed_args.append(arg)
-        return original_write(*processed_args, **kwargs)
-    
-    def safe_markdown(text, **kwargs):
-        if isinstance(text, str):
-            text = fix_utf8_encoding(text)
-        return original_markdown(text, **kwargs)
-    
-    def safe_text(text, **kwargs):
-        if isinstance(text, str):
-            text = fix_utf8_encoding(text)
-        return original_text(text, **kwargs)
-    
-    def safe_caption(text, **kwargs):
-        if isinstance(text, str):
-            text = fix_utf8_encoding(text)
-        return original_caption(text, **kwargs)
-    
-    def safe_info(text, **kwargs):
-        if isinstance(text, str):
-            text = fix_utf8_encoding(text)
-        return original_info(text, **kwargs)
-    
-    def safe_success(text, **kwargs):
-        if isinstance(text, str):
-            text = fix_utf8_encoding(text)
-        return original_success(text, **kwargs)
-    
-    def safe_warning(text, **kwargs):
-        if isinstance(text, str):
-            text = fix_utf8_encoding(text)
-        return original_warning(text, **kwargs)
-    
-    def safe_error(text, **kwargs):
-        if isinstance(text, str):
-            text = fix_utf8_encoding(text)
-        return original_error(text, **kwargs)
-    
-    # Reemplazar funciones
-    st.write = safe_write
-    st.markdown = safe_markdown
-    st.text = safe_text
-    st.caption = safe_caption
-    st.info = safe_info
-    st.success = safe_success
-    st.warning = safe_warning
-    st.error = safe_error
-    
-    # Marcar como aplicado
-    st._utf8_wrapped = True
+        prompt = f"""Contexto disponible:
+{context}
 
-# Aplicar wrapper UTF-8
-create_utf8_wrapper()
+Consulta del usuario: {query}
 
-# (UI refinements removed; restored original behavior)
-
-location = get_user_location()
-
-if 'user_name' not in st.session_state:
-    st.session_state.user_name = ''
-if 'user_gender' not in st.session_state:
-    st.session_state.user_gender = 'No especificar'
-if 'messages' not in st.session_state:
-    st.session_state.messages = []
-
-# ==================== SIDEBAR CON BOTONES DE EXPORTACIÓN ====================
-with st.sidebar:
-    # Boton de salida a Radio Voz del Amor
-    st.markdown("""
-        <a href="https://radio3lavozdelamor.online/radio3lavozdelamor/" target="_blank" 
-           style="display: block; text-align: center; background: linear-gradient(135deg, #DC143C 0%, #B22222 100%); 
-                  color: white; padding: 12px 20px; border-radius: 25px; text-decoration: none; 
-                  font-weight: bold; font-size: 1.1em; margin-bottom: 20px;
-                  box-shadow: 0 4px 15px rgba(220, 20, 60, 0.4); transition: all 0.3s ease;">
-            SALIR
-        </a>
-    """, unsafe_allow_html=True)
-    
-    # Logo/Titulo del sidebar  
-    st.markdown("## GERARD")
-    st.markdown("---")
-    
-    # SECCION 1: EXPORTAR CONVERSACION
-    st.markdown("### EXPORTAR CONVERSACION")
-    
-    # Debug: verificar estado de los mensajes
-    num_messages = len(st.session_state.get('messages', []))
-    
-    # Mostrar contador para debug
-    if num_messages > 0:
-        st.caption(f"🔍 Debug: {num_messages} mensajes detectados")
-    
-    if num_messages > 0:
-        conversation_text = get_conversation_text()
-        file_name = generate_download_filename()
+Basándote estrictamente en el contenido disponible arriba, responde la consulta en formato JSON con citas obligatorias."""
         
-        # Botón TXT
-        st.download_button(
-            label="📥 Descargar TXT",
-            data=conversation_text,
-            file_name=file_name,
-            mime="text/plain",
-            key="download_txt_sidebar",
-            use_container_width=True,
-            help="Descarga la conversación en formato texto"
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={
+                "model": "deepseek-r1:8b",
+                "prompt": prompt,
+                "stream": False
+            },
+            timeout=300
         )
         
-        # Botón PDF - Versión compatible con iframes
-        pdf_filename = file_name.rsplit('.', 1)[0] + '.pdf'
-        if REPORTLAB_AVAILABLE:
-            try:
-                user_name_for_file = st.session_state.get('user_name', 'usuario')
-                html_parts = []
-
-                for msg in st.session_state.messages:
-                    role = msg.get('role')
-                    content_html = msg.get('content', '')
-
-                    if role == 'user':
-                        # Extraer el texto de la pregunta del span (sin el HTML)
-                        import re
-                        match = re.search(r'<span style="[^"]*">([^<]+)</span>', content_html)
-                        question_text = match.group(1) if match else content_html
-                        html_parts.append(f'<p style="color: #00008B; font-weight: bold; text-transform: uppercase; font-size: 1.2em;">PREGUNTA:</p>')
-                        html_parts.append(f'<p style="color: #00008B; font-weight: bold; text-transform: uppercase; font-size: 1.2em;">{question_text}</p>')
-                    else:
-                        html_parts.append(f'<p style="color: #000000; font-weight: bold;">Respuesta:</p>')
-                        html_parts.append(f'<p>{content_html}</p>')
-                    html_parts.append('<br/>')
-
-                html_parts.append(f'<br/><p style="color: #28a745;">Usuario: {user_name_for_file}</p>')
-                html_full = ''.join(html_parts)
-
-                pdf_bytes = generate_pdf_from_html(html_full, title_base=f"Consulta - {user_name_for_file}", user_name=user_name_for_file)
-
-                # Convertir bytes a base64 para JavaScript
-                import base64
-                pdf_b64 = base64.b64encode(pdf_bytes).decode()
-
-                # JavaScript para descarga compatible con iframes
-                download_js = f"""
-                <script>
-                function downloadPDF() {{
-                    try {{
-                        // Crear blob desde base64
-                        const byteCharacters = atob('{pdf_b64}');
-                        const byteNumbers = new Array(byteCharacters.length);
-                        for (let i = 0; i < byteCharacters.length; i++) {{
-                            byteNumbers[i] = byteCharacters.charCodeAt(i);
-                        }}
-                        const byteArray = new Uint8Array(byteNumbers);
-                        const blob = new Blob([byteArray], {{type: 'application/pdf'}});
-
-                        // Crear enlace de descarga
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = '{pdf_filename}';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }} catch (e) {{
-                        console.error('Error en descarga:', e);
-                        alert('Error al descargar PDF. Intente desde la aplicación directa.');
-                    }}
-                }}
-                </script>
-                <button onclick="downloadPDF()" style="
-                    background-color: #ff4b4b;
-                    color: white;
-                    border: none;
-                    padding: 10px 20px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-size: 14px;
-                    width: 100%;
-                    margin: 5px 0;
-                ">
-                    📄 Exportar PDF
-                </button>
-                """
-
-                st.components.v1.html(download_js, height=50)
-
-            except Exception as e:
-                st.error(f"Error generando PDF: {e}")
+        if response.status_code == 200:
+            result = response.json()
+            answer = result.get("response", "No se pudo generar respuesta")
+            st.markdown("### Respuesta:")
+            st.write(answer)
         else:
-            st.info("⚠️ PDF no disponible")
-        
-        st.markdown("---")
-        st.success(f"{num_messages} PREGUNTAS CONTESTADAS")
-    else:
-        st.info("INICIA UNA CONVERSACION PARA VER LOS BOTONES DE EXPORTACION AQUI")
-        st.caption(f"LOS BOTONES APARECERAN AUTOMATICAMENTE DESPUES DE TU PRIMERA PREGUNTA (MENSAJES ACTUALES: {num_messages})")
-    
-    # SECCION 2: COMO HACER PREGUNTAS
-    st.markdown("---")
-    with st.expander("COMO HACER PREGUNTAS", expanded=True):
-        help_text = """
-        ### CATEGORIAS DE BUSQUEDA
-        
-        **POR TEMA ESPECIFICO**
-        - EVACUACION, NAVES, SANACION, PROFECIAS
-        - EJEMPLO: QUE ENSENANZAS HAY SOBRE LA EVACUACION?
-        
-        **POR MAESTRO**
-        - ALANISO, AXEL, ADIEL, AZEN, AVIATAR, ETC.
-        - EJEMPLO: QUE MENSAJES DIO EL MAESTRO ALANISO?
-        
-        **POR CONCEPTO**
-        - GRAN MADRE, EJERCITO DE LUZ, TUNELES DIMENSIONALES
-        - EJEMPLO: EXPLICAME EL CONCEPTO DE LA GRAN MADRE
-        
-        **POR NUMERO**
-        - MEDITACIONES (36-1044), MENSAJES (606-1010)
-        - EJEMPLO: DE QUE TRATA LA MEDITACION 107?
-        
-        ### TIPS RAPIDOS
-        
-        SE ESPECIFICO - MENCIONA MAESTRO O TEMA CONCRETO
-        USA PALABRAS CLAVE - EVACUACION, SANACION, NAVES
-        COMBINA ELEMENTOS - MAESTRO ALANISO + EVACUACION
-        HAZ SEGUIMIENTO - GERARD RECUERDA LA CONVERSACION
-        
-        ### OBTENDRAS
-        
-        FUENTE EXACTA DEL ARCHIVO .SRT
-        TIMESTAMP PRECISO (HH:MM:SS)
-        CONTEXTO COMPLETO DE LA ENSENANZA
-        
-        ---
-        """
-        st.markdown(help_text)
-        
-        # Botón de descarga del PDF de la guía - Versión compatible con iframes
-        try:
-            with open("assets/Guia_GERARD.pdf", "rb") as pdf_file:
-                pdf_bytes = pdf_file.read()
+            st.error(f"Error en Ollama: {response.status_code}")
+    except Exception as e:
+        st.error(f"Error al procesar: {str(e)}")
 
-                # Convertir bytes a base64 para JavaScript
-                import base64
-                pdf_b64 = base64.b64encode(pdf_bytes).decode()
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-                # JavaScript para descarga compatible con iframes
-                download_js = f"""
-                <script>
-                function downloadGuiaPDF() {{
-                    try {{
-                        // Crear blob desde base64
-                        const byteCharacters = atob('{pdf_b64}');
-                        const byteNumbers = new Array(byteCharacters.length);
-                        for (let i = 0; i < byteCharacters.length; i++) {{
-                            byteNumbers[i] = byteCharacters.charCodeAt(i);
-                        }}
-                        const byteArray = new Uint8Array(byteNumbers);
-                        const blob = new Blob([byteArray], {{type: 'application/pdf'}});
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-                        // Crear enlace de descarga
-                        const url = URL.createObjectURL(blob);
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = 'Guia_Completa_GERARD.pdf';
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                    }} catch (e) {{
-                        console.error('Error en descarga:', e);
-                        alert('Error al descargar PDF. Intente desde la aplicación directa.');
-                    }}
-                }}
-                </script>
-                <button onclick="downloadGuiaPDF()" style="
-                    background-color: #28a745;
-                    color: white;
-                    border: none;
-                    padding: 12px 24px;
-                    border-radius: 5px;
-                    cursor: pointer;
-                    font-size: 16px;
-                    font-weight: bold;
-                    width: 100%;
-                    margin: 10px 0;
-                ">
-                    📚 DESCARGAR GUÍA COMPLETA (PDF)
-                </button>
-                """
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-                st.components.v1.html(download_js, height=60)
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-        except FileNotFoundError:
-            st.markdown("[VER GUIA EN LINEA](https://github.com/arguellosolanogerardo-cloud/consultor-gerard-v2/blob/main/GUIA_MODELOS_PREGUNTA_GERARD.md)")
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-# ============================================================================
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-if not st.session_state.user_name:
-    intro_html = """
-    <p class="intro-text" style="font-size:1.8em; line-height:1.05;">
-    ASISTENTE ESPECIALIZADO EN LOS MENSAJES Y MEDITACIONES DE LOS 9 MAESTROS: <strong>ALANISO, AXEL, ALAN, AZEN, AVIATAR, ALADIM, ADIEL, AZOES Y ALIESTRO</strong> JUNTO A
-    <br>
-    LAS TRES GRANDES ENERGIAS: <strong>EL PADRE AMOR, LA GRAN MADRE Y EL GRAN MAESTRO JESUS.</strong>
-    </p>
-    <p style="text-align:center; margin-top:12px; font-size:1.25em; text-transform:uppercase; font-weight:bold;">
-    TE AYUDARE A ENCONTRAR CON PRECISION EL MINUTO Y SEGUNDO EXACTO EN CADA AUDIO O ENSENANZAS QUE YA HAYAS ESCUCHADO ANTERIORMENTE PERO QUE EN EL MOMENTO NO RECUERDAS EXACTAMENTE.
-    </p>
-    """
-    st.markdown(intro_html, unsafe_allow_html=True)
-    
-    # Auto-scroll lento tipo teleprompter solo en la primera página
-    components.html(
-        """
-        <script>
-            // Auto-scroll lento tipo teleprompter
-            (function() {
-                const mainSection = window.parent.document.querySelector('section.main');
-                if (!mainSection) return;
-                
-                let currentPosition = 0;
-                const scrollHeight = mainSection.scrollHeight;
-                const viewportHeight = mainSection.clientHeight;
-                const maxScroll = scrollHeight - viewportHeight;
-                
-                // Duración total del scroll en milisegundos (60 segundos para lectura muy lenta tipo teleprompter)
-                const duration = 60000;
-                const fps = 60;
-                const frameTime = 1000 / fps;
-                const totalFrames = duration / frameTime;
-                const pixelsPerFrame = maxScroll / totalFrames;
-                
-                let frameCount = 0;
-                
-                const scrollInterval = setInterval(function() {
-                    if (frameCount >= totalFrames || currentPosition >= maxScroll) {
-                        clearInterval(scrollInterval);
-                        return;
-                    }
-                    
-                    currentPosition += pixelsPerFrame;
-                    mainSection.scrollTo({
-                        top: currentPosition,
-                        behavior: 'auto'  // Sin smooth para control preciso
-                    });
-                    
-                    frameCount++;
-                }, frameTime);
-                
-                // Detener el scroll si el usuario interactúa con la página
-                mainSection.addEventListener('wheel', function() {
-                    clearInterval(scrollInterval);
-                }, { once: true });
-                
-                mainSection.addEventListener('touchstart', function() {
-                    clearInterval(scrollInterval);
-                }, { once: true });
-            })();
-        </script>
-        """,
-        height=0,
-    )
-    
-    st.markdown('<div style="text-align:center; margin-top:8px;"><span style="color:#8B4513; font-weight:bold; font-size:2.5em;">TU NOMBRE</span></div>', unsafe_allow_html=True)
-    user_name_input = st.text_input("Tu Nombre", key="name_inputter", label_visibility="collapsed")
-    if user_name_input:
-        st.session_state.user_name = user_name_input.upper()
-        # Detección automática del género desde el nombre (sin confirmación)
-        detected = detect_gender_from_name(user_name_input)
-        # Asignar género automáticamente
-        st.session_state.user_gender = detected
-        # Siempre hacer rerun al ingresar el nombre para mostrar bienvenida
-        st.rerun()
-else:
-    # Construir bienvenida según género detectado
-    gender = st.session_state.get('user_gender', 'No especificar')
-    if gender == 'Femenino':
-        bienvenida = 'BIENVENIDA'
-    elif gender == 'Masculino':
-        bienvenida = 'BIENVENIDO'
-    else:
-        bienvenida = 'BIENVENID@'
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-    st.markdown(f"""
-    <div class="welcome-text">{bienvenida} {st.session_state.user_name}</div>
-    <p class="sub-welcome-text">AHORA YA PUEDES REALIZAR TUS PREGUNTAS EN LA PARTE INFERIOR</p>
-    """, unsafe_allow_html=True)
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-# --- Mostrar historial con avatares personalizados ---
-for message in st.session_state.messages:
-    avatar = user_avatar if message["role"] == "user" else assistant_avatar
-    with st.chat_message(message["role"], avatar=avatar):
-        st.markdown(message["content"], unsafe_allow_html=True)
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-# --- Botones movidos al sidebar para mejor accesibilidad ---
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-# --- Mostrar GIF de pregunta CASI PEGADO al input (parte inferior) ---
-# Centrar el GIF y dejarlo en tamaño natural para que se anime
-col1, col2, col3 = st.columns([2, 1, 2])
-with col2:
-    st.image("assets/pregunta.gif")  # SIN width para mantener animación
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-# Margen negativo MUY agresivo para pegarlo casi a la casilla
-st.markdown('<div style="margin-top: -50px; margin-bottom: -20px;"></div>', unsafe_allow_html=True)
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-# Texto "PREGUNTA¡..." animado encima de la casilla (solo si el usuario ya ingresó su nombre)
-if st.session_state.user_name:
-    st.markdown("""
-    <div id="pregunta-prompt" style="text-align: left; margin-left: 15px; margin-bottom: 5px;">
-        <span style="color: #CC0000; font-weight: bold; font-size: 3.3em; animation: blink-slow 2s infinite;">PREGUNTA¡...</span>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Script para agregar el placeholder dinámicamente solo cuando PREGUNTA está visible
-    components.html(
-        """
-        <script>
-            setTimeout(function() {
-                const chatInput = window.parent.document.querySelector('.stChatInput textarea');
-                if (chatInput && !chatInput.hasAttribute('data-placeholder-set')) {
-                    chatInput.setAttribute('placeholder', 'AQUI¡... ➪');
-                    chatInput.setAttribute('data-placeholder-set', 'true');
-                }
-            }, 100);
-        </script>
-        """,
-        height=0,
-    )
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-# --- Input del usuario con avatares personalizados ---
-if prompt_input := st.chat_input(""):
-    pass  # Procesar después
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-if prompt_input:
-    if not st.session_state.user_name:
-        st.markdown("""
-        <div style="text-align: center; margin: 20px 0;">
-            <p style="color: red; font-size: 1.3em; font-weight: bold; animation: pulse 1.5s infinite;">
-                INGRESA primero TU NOMBRE<br>
-                en la casilla verde de arriba.
-            </p>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        # --- ¡AQUÍ ESTÁ EL CAMBIO! ---
-        # Se reemplaza la imagen por un texto animado con CSS
-        styled_prompt = f"""
-        <div style="display: flex; align-items: center; justify-content: flex-start;">
-            <span style="text-transform: uppercase; color: #7FFFD4; margin-right: 8px; font-weight: bold; font-size: 1.2em;">{prompt_input}</span>
-            <span class="pulsing-q">?</span>
-        </div>
-        """
-        
-        st.session_state.messages.append({"role": "user", "content": styled_prompt})
-        
-        with st.chat_message("user", avatar=user_avatar):
-            st.markdown(styled_prompt, unsafe_allow_html=True)
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-        with st.chat_message("assistant", avatar=assistant_avatar):
-            response_placeholder = st.empty()
-            
-            # Auto-scroll hacia abajo usando components.html (más confiable que st.markdown)
-            components.html(
-                """
-                <script>
-                    window.parent.document.querySelector('section.main').scrollTo({
-                        top: window.parent.document.querySelector('section.main').scrollHeight,
-                        behavior: 'smooth'
-                    });
-                </script>
-                """,
-                height=0,
-            )
-            
-            # Contenedor temporal para mostrar GIF + texto de carga
-            with response_placeholder.container():
-                # GIF ovni centrado (SIN width para mantener animación)
-                col1, col2, col3 = st.columns([1.5, 1, 1.5])
-                with col2:
-                    st.image("assets/ovni.gif")  # SIN width parameter
-                
-                # Texto "Buscando..." con puntos animados debajo del GIF
-                loader_html = """
-                <div class="loader-container" style="text-align: center; margin-top: -15px;">
-                    <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-                    <span style='margin-left: 10px; font-style: italic; color: #FF00FF; font-size: 1.8em; font-weight: bold; text-transform: uppercase;'>BUSCANDO...</span>
-                </div>
-                <script>
-                    // Ocultar el texto "PREGUNTA¡..." y el placeholder mientras se muestra "BUSCANDO..."
-                    (function hideElements() {
-                        const preguntaPrompt = window.parent.document.getElementById('pregunta-prompt');
-                        if (preguntaPrompt) {
-                            preguntaPrompt.classList.add('pregunta-hidden');
-                        }
-                        
-                        // Ocultar el placeholder agregando clase Y borrando el atributo
-                        const chatInput = window.parent.document.querySelector('.stChatInput');
-                        const chatTextarea = window.parent.document.querySelector('.stChatInput textarea');
-                        if (chatInput) {
-                            chatInput.classList.add('hide-placeholder');
-                        }
-                        if (chatTextarea) {
-                            chatTextarea.setAttribute('placeholder', '');
-                            chatTextarea.removeAttribute('data-placeholder-set');
-                        }
-                    })();
-                </script>
-                """
-                st.markdown(loader_html, unsafe_allow_html=True)
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-            try:
-                # Obtener ubicación del usuario
-                location = get_user_location()
-                
-                # Inicializar el logger
-                interaction_logger = init_logger()
-                
-                # Inicializar Google Sheets Logger (REACTIVADO)
-                sheets_logger = init_sheets_logger()
-                
-                # Debug: imprimir estado en logs (no en UI para no molestar)
-                print(f"[DEBUG UI] Google Sheets Logger enabled: {sheets_logger is not None and sheets_logger.enabled if sheets_logger else False}")
-                
-                # Obtener información del dispositivo y ubicación
-                # Obtener user agent del navegador
-                user_agent = st.context.headers.get("User-Agent", "Unknown") if hasattr(st, 'context') and hasattr(st.context, 'headers') else "Unknown"
-                
-                # Iniciar el registro de la interacción
-                interaction_id = interaction_logger.start_interaction(
-                    user=st.session_state.user_name,
-                    question=prompt_input,
-                    request_info={"user_agent": user_agent}
-                )
-                
-                # Construir retrieval_chain a demanda si no existe
-                if retrieval_chain is None:
-                    # Intentar cargar recursos reales; esto validará la API key y el índice
-                    # La descarga de FAISS ahora se hace dentro de load_resources()
-                    try:
-                        llm_loaded, vs = load_resources()
-                        print(f"[DEBUG] load_resources completado - LLM: {type(llm_loaded)}, VS: {type(vs)}")
-                    except Exception as e:
-                        print(f"[ERROR] load_resources falló: {e}")
-                        response_placeholder.error(f"No fue posible inicializar los recursos: {e}")
-                        raise
-                    
-                    # BÚSQUEDA HÍBRIDA: vectorial + keyword fallback
-                    # Usar lambda para pasar el vectorstore a hybrid_retrieval
-                    def hybrid_retriever_func(query: str):
-                        return hybrid_retrieval(vs, query, k_vector=100, k_keyword=30)
-                    
-                    print(f"[DEBUG] Retriever híbrido creado (k_vector=100, k_keyword=30)")
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-                    # Si el LLM no se pudo inicializar, usamos un FakeChain que sólo regresa documentos
-                    if llm_loaded is None:
-                        class FakeChain:
-                            def __init__(self, retriever_func):
-                                self.retriever_func = retriever_func
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-                            def invoke(self, payload):
-                                query = payload if isinstance(payload, str) else payload.get('input', '')
-                                # obtener documentos relevantes usando búsqueda híbrida
-                                docs = self.retriever_func(query)
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-                                items = []
-                                for d in list(docs)[:3]:
-                                    src = os.path.basename(d.metadata.get('source', 'desconocido'))
-                                    snippet = re.sub(r'\s+', ' ', d.page_content)[:300]
-                                    items.append({"type": "normal", "content": f"Fuente: {src} - {snippet}"})
-                                if not items:
-                                    items = [{"type": "normal", "content": "No se encontraron documentos relevantes en el índice."}]
-                                return json.dumps(items, ensure_ascii=False)
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-                        retrieval_chain = FakeChain(hybrid_retriever_func)
-                    else:
-                        # Reconstruir retrieval_chain con búsqueda híbrida
-                        retrieval_chain = (
-                            {
-                                "context": (lambda x: x["input"]) | RunnableLambda(hybrid_retriever_func) | format_docs_with_metadata,
-                                "input": lambda x: x["input"],
-                                "date": lambda x: x.get("date", ""),
-                                "session_hash": lambda x: x.get("session_hash", "")
-                            }
-                            | prompt
-                            | llm_loaded
-                            | StrOutputParser()
-                        )
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-                # Preparar variables requeridas por el prompt (date y session_hash)
-                ts = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                session_hash = str(uuid.uuid4())
-                payload = {"input": prompt_input, "date": ts, "session_hash": session_hash}
-                
-                print(f"[DEBUG] Antes de invoke - retrieval_chain type: {type(retrieval_chain)}")
-                answer_raw = retrieval_chain.invoke(payload)
-                print(f"[DEBUG] Después de invoke - answer_raw type: {type(answer_raw)}, valor: {str(answer_raw)[:200]}")
-                
-                # Asegurar que answer_json sea siempre un string JSON
-                if isinstance(answer_raw, dict):
-                    print(f"[DEBUG] answer_raw es dict, convirtiendo a JSON string")
-                    answer_json = json.dumps(answer_raw, ensure_ascii=False)
-                else:
-                    answer_json = answer_raw if isinstance(answer_raw, str) else str(answer_raw)
-                
-                print(f"[DEBUG] answer_json type final: {type(answer_json)}")
-                
-                # Debug: verificar tipo antes de save_to_log
-                if not isinstance(answer_json, str):
-                    st.error(f"❌ DEBUG: answer_json es tipo {type(answer_json)}, convirtiendo a string...")
-                    answer_json = json.dumps(answer_json, ensure_ascii=False) if isinstance(answer_json, (dict, list)) else str(answer_json)
-                
-                # Registro antiguo (mantener por compatibilidad)
-                location_str = st.session_state.get('geo_location_str', f"{location.get('city', 'Desconocida')}, {location.get('country', 'Desconocido')}")
-                save_to_log(st.session_state.user_name, prompt_input, answer_json, location_str)
-                
-                # Finalizar el registro de la interacción con el logger completo
-                interaction_logger.end_interaction(
-                    session_id=interaction_id,
-                    status="success"
-                )
-                
-                # Registrar en Google Sheets si está disponible
-                if sheets_logger:
-                    try:
-                        # Usar información del dispositivo y ubicación ya obtenidos
-                        device_detector = DeviceDetector()
-                        device_raw = device_detector.detect_from_web(user_agent)
-                        
-                        # Mapear las claves correctamente
-                        device_info = {
-                            "device_type": device_raw.get("tipo", "Desconocido"),
-                            "browser": device_raw.get("navegador", "Desconocido"),
-                            "os": device_raw.get("os", "Desconocido")
-                        }
-                        print(f"[DEBUG] Device Info: {device_info}")
-                        
-                        # Usar la ubicación ya obtenida al inicio
-                        location_info = {
-                            "city": location.get("city", "Desconocida") if location else "Desconocida",
-                            "country": location.get("country", "Desconocido") if location else "Desconocido",
-                            "ip": location.get("ip", "No disponible") if location else "No disponible",
-                            "latitude": location.get("latitude", 0) if location else 0,
-                            "longitude": location.get("longitude", 0) if location else 0
-                        }
-                        print(f"[DEBUG] Location Info: {location_info}")
-                        
-                        # Calcular tiempo de respuesta
-                        timing_info = {
-                            "total_time": (datetime.now() - datetime.fromisoformat(ts.replace(' ', 'T'))).total_seconds()
-                        }
-                        print(f"[DEBUG] Timing Info: {timing_info}")
-                        
-                        # Convertir answer_json a texto limpio para Google Sheets
-                        try:
-                            # Intentar extraer el texto limpio del JSON
-                            answer_for_sheets = get_clean_text_from_json(answer_json)
-                        except:
-                            # Si falla, usar el JSON como string
-                            answer_for_sheets = str(answer_json)
-                        
-                        print(f"[DEBUG] Enviando a Google Sheets - User: {st.session_state.user_name}, Question: {prompt_input[:50]}...")
-                        
-                        sheets_logger.log_interaction(
-                            interaction_id=interaction_id,
-                            user=st.session_state.user_name,
-                            question=prompt_input,
-                            answer=answer_for_sheets,  # Texto limpio en lugar de JSON
-                            device_info=device_info,
-                            location_info=location_info,
-                            timing=timing_info,
-                            success=True
-                        )
-                        
-                        print(f"[OK] Registro enviado a Google Sheets exitosamente")
-                        
-                    except Exception as e:
-                        print(f"[ERROR] Error al registrar en Google Sheets: {e}")
-                        import traceback
-                        traceback.print_exc()
-                else:
-                    print(f"[INFO] Google Sheets Logger no está disponible o no está habilitado")
-                
-                # Asegurar que answer_json esté en UTF-8 correcto
-                import unicodedata
-                if isinstance(answer_json, str):
-                    answer_json = unicodedata.normalize('NFC', answer_json)
-                    # Corregir caracteres comunes mal codificados
-                    answer_json = answer_json.replace('â€™', "'")
-                    answer_json = answer_json.replace('â€œ', '"')
-                    answer_json = answer_json.replace('â€', '"')
-                    answer_json = answer_json.replace('â€"', '–')
-                    answer_json = answer_json.replace('â€"', '—')
-                    answer_json = answer_json.replace('Ã¡', 'á')
-                    answer_json = answer_json.replace('Ã©', 'é')
-                    answer_json = answer_json.replace('Ã­', 'í')
-                    answer_json = answer_json.replace('Ã³', 'ó')
-                    answer_json = answer_json.replace('Ãº', 'ú')
-                    answer_json = answer_json.replace('Ã±', 'ñ')
-                    answer_json = answer_json.replace('Ã¼', 'ü')
-                    
-                    # Aplicar limpieza de textos no deseados (incluyendo Spanish_auto_generated)
-                    answer_json = cleaning_pattern.sub('', answer_json)
-                
-                match = re.search(r'\[.*\]', answer_json, re.DOTALL)
-                if not match:
-                    st.error("La respuesta del modelo no fue un JSON válido.")
-                    response_html = f'<p style="color:red;">{answer_json}</p>'
-                else:
-                    data = json.loads(match.group(0))
-                    response_html = f'<strong style="color:#28a745;">{st.session_state.user_name}:</strong> '
-                    for item in data:
-                        content_type = item.get("type", "normal")
-                        content = item.get("content", "")
-                        
-                        # Normalizar el contenido UTF-8
-                        if content:
-                            content = unicodedata.normalize('NFC', content)
-                            # Corregir caracteres mal codificados
-                            content = content.replace('â€™', "'")
-                            content = content.replace('â€œ', '"')
-                            content = content.replace('â€', '"')
-                            content = content.replace('Ã¡', 'á')
-                            content = content.replace('Ã©', 'é')
-                            content = content.replace('Ã­', 'í')
-                            content = content.replace('Ã³', 'ó')
-                            content = content.replace('Ãº', 'ú')
-                            content = content.replace('Ã±', 'ñ')
-                        
-                        if content_type == "emphasis":
-                            # Resalta en magenta el texto entre paréntesis, el resto amarillo
-                            def magenta_parentheses(text):
-                                return re.sub(r'(\(.*?\))', r'<span style="color:#FF00FF; font-weight: bold;">\1</span>', text)
-                            content_colored = magenta_parentheses(content)
-                            response_html += f'<span style="color:yellow; background-color: #333; border-radius: 4px; padding: 2px 4px;">{content_colored}</span>'
-                        else:
-                            # Cambiar color de fuentes (texto entre paréntesis) a MAGENTA
-                            content_html = re.sub(r'(\(.*?\))', r'<span style="color:#FF00FF; font-weight: bold;">\1</span>', content)
-                            response_html += content_html
-                
-                # Asegurar que el HTML final esté correctamente codificado
-                import html
-                response_html_safe = html.unescape(response_html)
-                response_html_safe = unicodedata.normalize('NFC', response_html_safe)
-                
-                response_placeholder.markdown(response_html_safe, unsafe_allow_html=True)
-                st.session_state.messages.append({"role": "assistant", "content": response_html_safe})
-                
-                # Marcar que se agregó un mensaje nuevo para actualizar el sidebar
-                st.session_state['_new_message_added'] = True
-                
-                # Auto-scroll después de mostrar la respuesta completa (más confiable con components.html)
-                components.html(
-                    """
-                    <script>
-                        setTimeout(function() {
-                            // Auto-scroll
-                            window.parent.document.querySelector('section.main').scrollTo({
-                                top: window.parent.document.querySelector('section.main').scrollHeight,
-                                behavior: 'smooth'
-                            });
-                            
-                            // Restaurar el texto "PREGUNTA¡..." y el placeholder después de mostrar la respuesta
-                            const preguntaPrompt = window.parent.document.getElementById('pregunta-prompt');
-                            if (preguntaPrompt) {
-                                preguntaPrompt.classList.remove('pregunta-hidden');
-                            }
-                            
-                            // Restaurar el placeholder removiendo clase Y restaurando el atributo
-                            const chatInput = window.parent.document.querySelector('.stChatInput');
-                            const chatTextarea = window.parent.document.querySelector('.stChatInput textarea');
-                            if (chatInput) {
-                                chatInput.classList.remove('hide-placeholder');
-                            }
-                            if (chatTextarea) {
-                                chatTextarea.setAttribute('placeholder', 'AQUI¡... ➪');
-                                chatTextarea.setAttribute('data-placeholder-set', 'true');
-                            }
-                        }, 300);
-                    </script>
-                    """,
-                    height=0,
-                )
-                
-                # NOTA: st.rerun() aquí causaba que los botones de descarga no aparecieran
-                # porque recargaba la página antes de llegar a renderizar los botones
-                # st.rerun()
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-                # --- Ofrecer descarga del último intercambio (pregunta + respuesta) ---
-                try:
-                    # Texto plano para el archivo
-                    def html_to_text(html: str) -> str:
-                        return re.sub(r'<[^>]+>', '', html).strip()
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
 
-                    user_text = prompt_input.strip()
-                    assistant_text = html_to_text(response_html)
-                    single_qa_text = f"Pregunta: {user_text}\n\nRespuesta:\n{assistant_text}\n"
-                except Exception:
-                    # No queremos que una falla aquí rompa la experiencia principal
-                    pass
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
 
-            except Exception as e:
-                # Registrar el error en el logger
-                try:
-                    interaction_logger.end_interaction(
-                        session_id=interaction_id,
-                        status="error",
-                        error=str(e)
-                    )
-                except:
-                    pass  # Si el logger falla, no queremos romper la app
-                
-                response_placeholder.error(f"Ocurrió un error al procesar tu pregunta: {e}")
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
 
-# Actualizar sidebar si se agregó un mensaje nuevo
-if st.session_state.get('_new_message_added', False):
-    st.session_state['_new_message_added'] = False
-    st.rerun()
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
 
-# EJECUTAR LIMPIADOR DE CARACTERES AL FINAL (DESACTIVADO TEMPORALMENTE)
-# force_streamlit_utf8()
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
+#         'Ã': 'í',
+#         'Ã‰': 'É',
+#         'Ãš': 'Ú',
+#     }
+#     for bad, good in replacements.items():
+#         text = text.replace(bad, good)
+#     return text
+
+# --- Funciones de logging y sheets desactivadas para modo local ---
+# def init_logger():
+#     """Inicializa el sistema de logging con detección de dispositivo y geolocalización."""
+#     return None  # Logging desactivado para modo local
+
+# @st.cache_resource
+# def init_sheets_logger():
+#     """Inicializa el logger de Google Sheets si está configurado."""
+#     return None  # Sheets logging desactivado para modo local
+
+# --- Prompt de Gerard v3.01 ---
+# from langchain.prompts import ChatPromptTemplate
+# prompt = ChatPromptTemplate.from_template(r"""
+# 🔬 GERARD v3.01 - Sistema de Análisis Investigativo Avanzado
+# IDENTIDAD DEL SISTEMA
+# """)
+
+# --- Función de codificación UTF-8 recuperada del backup ---
+# def fix_utf8_encoding(text: str) -> str:
+#     """
+#     # Corrige problemas de codificación UTF-8 comunes en Streamlit Cloud.
+#     """
+#     if not isinstance(text, str):
+#         return text
+#     import unicodedata
+#     text = unicodedata.normalize('NFC', text)
+#     replacements = {
+#         'â€™': "'",
+#         'â€œ': '"',
+#         'â€': '"',
+#         'â€"': '–',
+#         'â€¦': '...',
+#         'Ã¡': 'á',
+#         'Ã©': 'é',
+#         'Ã­': 'í',
+#         'Ã³': 'ó',
+#         'Ãº': 'ú',
+#         'Ã±': 'ñ',
