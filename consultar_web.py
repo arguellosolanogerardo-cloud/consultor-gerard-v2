@@ -150,18 +150,14 @@ def load_resources():
         except Exception:
             # si keyring falla, seguimos el flujo normal y mostraremos el error abajo
             pass
-    if not api_key:
-        st.error(
-            "Error: La variable de entorno GOOGLE_API_KEY no está configurada. Añade la clave a las variables de entorno o a Streamlit Secrets."
-        )
-        st.stop()
-
-    # Pasar la API key explícitamente evita que la librería intente usar ADC
-    # Intentar inicializar el LLM y embeddings de forma perezosa; si falla, devolver llm=None
+    # Configurar credenciales de servicio de Google
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "credencial json/midyear-node-436821-t3-525a146e96a0.json"
+    
+    # Intentar inicializar el LLM y embeddings
     llm = None
     embeddings = None
 
-    with st.spinner('Inicializando LLM y embeddings (de forma perezosa)...'):
+    with st.spinner('Inicializando LLM y embeddings usando credenciales de servicio...'):
         # Importar las clases de Google solo cuando las necesitemos, y capturar errores
         try:
             from langchain_google_genai import GoogleGenerativeAI
@@ -179,8 +175,7 @@ def load_resources():
         if GoogleGenerativeAI is not None:
             try:
                 llm = GoogleGenerativeAI(
-                    model="models/gemini-2.5-pro", 
-                    google_api_key=api_key,
+                    model="models/gemini-2.5-pro",
                     temperature=0.4,  # Precisión quirúrgica según prompt GERARD
                     top_p=0.90,
                     top_k=25
@@ -188,21 +183,14 @@ def load_resources():
             except Exception as e:
                 st.warning(f"No se pudo inicializar el LLM (GoogleGenerativeAI): {e}. La aplicación usará un modo de recuperación local sin LLM.")
 
-    # Inicializar embeddings con Google o usar fallback
+    # Usar embeddings de Google
     if GoogleGenerativeAIEmbeddings is not None:
         try:
-            embeddings = GoogleGenerativeAIEmbeddings(
-                model="models/embedding-001",
-                google_api_key=api_key,
-            )
+            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
         except Exception as e:
-            st.warning(f"No se pudo inicializar embeddings de Google: {e}")
-            embeddings = None
-    
-    # Si no se pudieron inicializar los embeddings de Google, usar fallback local
-    if embeddings is None:
-        from langchain_core.embeddings import FakeEmbeddings
-        embeddings = FakeEmbeddings(size=768)  # Dimensión compatible con el índice
+            st.warning(f"No se pudo inicializar embeddings de Google: {e}, usando fallback local")
+            from langchain_core.embeddings import FakeEmbeddings
+            embeddings = FakeEmbeddings(size=768)  # Dimensión compatible con el índice
     
     # Descargar FAISS antes de cargar
     download_faiss_if_needed()
@@ -1841,12 +1829,27 @@ query = st.text_input("Ingresa tu pregunta:", placeholder="¿Qué deseas saber?"
 if query:
     st.info("Procesando tu consulta con Gemini Pro 2.5...")
     
-    # Búsqueda híbrida
-    docs = hybrid_retrieval(faiss_vs, query, k_vector=100, k_keyword=20)
-    context = "\n\n".join([doc.page_content for doc in docs[:5]])
-    
-    # Procesar con Gemini Pro 2.5
     try:
+        # Búsqueda híbrida
+        docs = hybrid_retrieval(faiss_vs, query, k_vector=100, k_keyword=20)
+        context = "\n\n".join([doc.page_content for doc in docs[:5]])
+        
+        # Configurar el prompt
+        prompt = ChatPromptTemplate.from_template("""
+        Basándote en el siguiente contexto, responde la pregunta del usuario.
+        Usa un formato claro y estructurado.
+        Si la información no está en el contexto, indica que no tienes suficiente información.
+
+        Contexto:
+        {context}
+
+        Pregunta:
+        {query}
+
+        Respuesta:
+        """)
+        
+        # Procesar con Gemini Pro 2.5
         chain = (
             {"context": context, "query": query} 
             | prompt 
@@ -1859,13 +1862,9 @@ if query:
             "query": query
         })
         
-        if response.status_code == 200:
-            result = response.json()
-            answer = result.get("response", "No se pudo generar respuesta")
-            st.markdown("### Respuesta:")
-            st.write(answer)
-        else:
-            st.error(f"Error en Ollama: {response.status_code}")
+        st.markdown("### Respuesta:")
+        st.write(answer)
+        
     except Exception as e:
         st.error(f"Error al procesar: {str(e)}")
 
