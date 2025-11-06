@@ -209,13 +209,18 @@ def load_resources():
 
     # Inicialización del vector store
     import hashlib
+    
+    # Definir dimensión del embedding por defecto
+    target_dim = 768  # Dimensión estándar para embeddings
+    
     try:
         import faiss
         idx_path = os.path.join('faiss_index', 'index.faiss')
         if os.path.exists(idx_path):
             idx = faiss.read_index(idx_path)
             target_dim = getattr(idx, 'd', target_dim)
-    except Exception:
+    except Exception as e:
+        print(f"[DEBUG] No se pudo leer dimensión de FAISS: {e}, usando {target_dim}")
         pass
 
     class FakeEmbeddings:
@@ -238,7 +243,7 @@ def load_resources():
         def embed_query(self, text: str) -> List[float]:
             return self._text_to_vector(text)
 
-    embeddings = FakeEmbeddings()
+    # Usar los embeddings ya configurados anteriormente
     faiss_vs = FAISS.load_local(folder_path="faiss_index", embeddings=embeddings, allow_dangerous_deserialization=True)
     doc_count = faiss_vs.index.ntotal if hasattr(faiss_vs, 'index') else 'unknown'
     print(f"[DEBUG load_resources] FAISS cargado exitosamente con {doc_count} documentos")
@@ -246,7 +251,7 @@ def load_resources():
         f'<p style="color: rgba(128, 128, 128, 0.5); font-size: 0.85em; margin: 5px 0;">✅ Base vectorial cargada: {doc_count} BLOQUES CHUNKS disponibles</p>',
         unsafe_allow_html=True
     )
-    return None, faiss_vs
+    return llm, faiss_vs
 
 # Contexto disponible:
 # {context}
