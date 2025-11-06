@@ -188,14 +188,27 @@ def load_resources():
             except Exception as e:
                 st.warning(f"No se pudo inicializar el LLM (GoogleGenerativeAI): {e}. La aplicación usará un modo de recuperación local sin LLM.")
 
-    # Inicializar embeddings (o usar fallback) y cargar FAISS
-    # Descargar FAISS antes de cargar (solo se ejecutará una vez debido al caché)
+    # Inicializar embeddings con Google o usar fallback
+    if GoogleGenerativeAIEmbeddings is not None:
+        try:
+            embeddings = GoogleGenerativeAIEmbeddings(
+                model="models/embedding-001",
+                google_api_key=api_key,
+            )
+        except Exception as e:
+            st.warning(f"No se pudo inicializar embeddings de Google: {e}")
+            embeddings = None
+    
+    # Si no se pudieron inicializar los embeddings de Google, usar fallback local
+    if embeddings is None:
+        from langchain_core.embeddings import FakeEmbeddings
+        embeddings = FakeEmbeddings(size=768)  # Dimensión compatible con el índice
+    
+    # Descargar FAISS antes de cargar
     download_faiss_if_needed()
 
-    # Inicialización 100% local, sin dependencias de Google ni API keys
+    # Inicialización del vector store
     import hashlib
-    # Intentar deducir la dimensión del índice FAISS para generar vectores compatibles
-    target_dim = 768
     try:
         import faiss
         idx_path = os.path.join('faiss_index', 'index.faiss')
