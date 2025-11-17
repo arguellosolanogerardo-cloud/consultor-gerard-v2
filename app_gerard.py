@@ -41,6 +41,15 @@ except Exception:
     GOOGLE_SHEETS_AVAILABLE = False
     print("[INFO] Google Sheets logging no disponible")
 
+# Auto-generar índice BM25 si no existe (para Streamlit Cloud)
+if not os.path.exists("bm25_index.pkl"):
+    print("[INFO] Detectado entorno cloud sin bm25_index.pkl, generando...")
+    try:
+        from init_bm25 import init_bm25_index
+        init_bm25_index()
+    except Exception as e:
+        print(f"[WARNING] No se pudo auto-generar BM25: {e}")
+
 # Importar retrievers para búsqueda
 try:
     from hybrid_retriever import HybridRetriever
