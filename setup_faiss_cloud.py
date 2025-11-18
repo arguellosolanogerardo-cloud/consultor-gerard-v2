@@ -65,27 +65,82 @@ def check_faiss_exists():
     
     return False
 
-def generate_faiss_from_scratch():
-    """Genera índice FAISS desde documentos SRT (fallback)"""
-    print("[INFO] Generando índice FAISS desde cero...")
-    print("[WARNING] Esto puede tomar 10-15 minutos en Streamlit Cloud")
+def create_empty_faiss_placeholder():
+    """Crea un índice FAISS vacío como placeholder"""
+    print("[INFO] Creando índice FAISS placeholder...")
     
     try:
-        # Importar el script de generación
-        import ingestar
+        from langchain_google_vertexai import VertexAIEmbeddings
+        from langchain_community.vectorstores import FAISS
+        from langchain.schema import Document
+        from pathlib import Path
         
-        print("[INFO] Ejecutando ingestar.py...")
-        ingestar.main()
+        # Crear embeddings
+        embeddings = VertexAIEmbeddings(
+            model_name="text-multilingual-embedding-002",
+            project="midyear-node-436821-t3"
+        )
         
-        if check_faiss_exists():
-            print("[SUCCESS] ✅ Índice FAISS generado exitosamente")
-            return True
-        else:
-            print("[ERROR] ❌ Falló la generación del índice")
-            return False
+        # Crear un documento placeholder
+        placeholder_doc = Document(
+            page_content="ÍNDICE FAISS NO DISPONIBLE - Los documentos fuente no están en Streamlit Cloud. Para usar la app completa, descarga el índice desde GitHub Release o ejecútala localmente.",
+            metadata={"source": "placeholder", "timestamp": "00:00:00,000 --> 00:00:00,000"}
+        )
+        
+        # Crear índice FAISS con el placeholder
+        faiss_vs = FAISS.from_documents([placeholder_doc], embeddings)
+        
+        # Guardar
+        faiss_dir = Path("faiss_index")
+        faiss_dir.mkdir(exist_ok=True)
+        faiss_vs.save_local(str(faiss_dir))
+        
+        print("[SUCCESS] ✅ Índice FAISS placeholder creado")
+        print("[WARNING] ⚠️  Este índice está VACÍO - no contiene documentos reales")
+        return True
     
     except Exception as e:
-        print(f"[ERROR] Error generando índice FAISS: {e}")
+        print(f"[ERROR] Error creando placeholder: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+def create_empty_faiss_placeholder():
+    """Crea un índice FAISS vacío como placeholder"""
+    print("[INFO] Creando índice FAISS placeholder...")
+    
+    try:
+        from langchain_google_vertexai import VertexAIEmbeddings
+        from langchain_community.vectorstores import FAISS
+        from langchain_core.documents import Document
+        from pathlib import Path
+        
+        # Crear embeddings
+        embeddings = VertexAIEmbeddings(
+            model_name="text-multilingual-embedding-002",
+            project="midyear-node-436821-t3"
+        )
+        
+        # Crear un documento placeholder
+        placeholder_doc = Document(
+            page_content="ÍNDICE FAISS NO DISPONIBLE - Los documentos fuente no están en Streamlit Cloud. Para usar la app completa, descarga el índice desde GitHub Release o ejecútala localmente.",
+            metadata={"source": "placeholder", "timestamp": "00:00:00,000 --> 00:00:00,000"}
+        )
+        
+        # Crear índice FAISS con el placeholder
+        faiss_vs = FAISS.from_documents([placeholder_doc], embeddings)
+        
+        # Guardar
+        faiss_dir = Path("faiss_index")
+        faiss_dir.mkdir(exist_ok=True)
+        faiss_vs.save_local(str(faiss_dir))
+        
+        print("[SUCCESS] ✅ Índice FAISS placeholder creado")
+        print("[WARNING] ⚠️  Este índice está VACÍO - no contiene documentos reales")
+        return True
+    
+    except Exception as e:
+        print(f"[ERROR] Error creando placeholder: {e}")
         import traceback
         traceback.print_exc()
         return False
@@ -107,9 +162,12 @@ def setup_faiss():
     if download_faiss_from_release():
         return True
     
-    # 3. Generar desde cero (último recurso)
-    print("\n[PASO 2] Descarga falló, generando desde cero...")
-    if generate_faiss_from_scratch():
+    # 3. Crear placeholder (ya que no hay documentos SRT en la nube)
+    print("\n[PASO 2] Descarga falló, creando índice placeholder...")
+    print("[INFO] Los documentos SRT no están disponibles en Streamlit Cloud")
+    print("[INFO] Se creará un índice vacío para evitar errores")
+    
+    if create_empty_faiss_placeholder():
         return True
     
     # 4. Error crítico

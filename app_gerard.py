@@ -612,9 +612,24 @@ st.markdown(
 # Cargar recursos
 try:
     llm, faiss_vs = load_resources()
-    doc_count = faiss_vs.index.ntotal if hasattr(faiss_vs, 'index') else 'unknown'
+    doc_count = faiss_vs.index.ntotal if hasattr(faiss_vs, 'index') else 0
+    
+    # Detectar si es un índice placeholder vacío
+    if doc_count <= 1:
+        st.error("⚠️ **ÍNDICE FAISS NO DISPONIBLE**")
+        st.warning("""
+        Esta instancia de Streamlit Cloud no tiene acceso a los documentos fuente.
+        
+        **Para usar la app completa:**
+        - Ejecuta localmente desde tu computadora
+        - O espera a que se publique el índice completo en GitHub Release
+        
+        **Archivos faltantes:** 3,442 archivos SRT (~2GB)
+        """)
+        st.stop()
+    
     st.markdown(
-        f'<div class="stats">✅ SISTEMA OPERATIVO</div>',
+        f'<div class="stats">✅ SISTEMA OPERATIVO | {doc_count:,} fragmentos</div>',
         unsafe_allow_html=True
     )
 except Exception as e:
