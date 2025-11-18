@@ -469,6 +469,21 @@ def init_sheets_logger():
 def load_resources():
     """Carga LLM, embeddings y FAISS index"""
     with st.spinner("🔄 Inicializando GERARD..."):
+        # Verificar si existe el índice FAISS
+        import os
+        from pathlib import Path
+        
+        faiss_path = Path("faiss_index/index.faiss")
+        if not faiss_path.exists():
+            st.warning("⚙️ Primera ejecución: Configurando índice FAISS...")
+            try:
+                from setup_faiss_cloud import setup_faiss
+                if not setup_faiss():
+                    raise RuntimeError("No se pudo configurar el índice FAISS")
+                st.success("✅ Índice FAISS configurado correctamente")
+            except Exception as e:
+                raise RuntimeError(f"Error configurando FAISS: {e}")
+        
         # LLM
         llm = ChatVertexAI(
             model="gemini-2.5-pro",
