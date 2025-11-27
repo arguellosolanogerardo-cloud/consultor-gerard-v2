@@ -1,0 +1,58 @@
+﻿# Byte-compiled / cached
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+*.swp
+
+# Data and large artifacts
+chroma_db/
+chroma_db_backup_*/
+faiss_index_backup_*/
+
+# FAISS index - INCLUIDO en repo para Streamlit Cloud (317 MB)
+# Índice actualizado: chunk_size=800, overlap=150, 84,266 docs
+# faiss_index/index.faiss
+# faiss_index/index.pkl
+
+# BM25 index - demasiado grande para GitHub (143MB)
+# Se regenera en cloud con crear_indice_bm25.py
+bm25_index.pkl
+
+# Backups and caches
+*_backup_*/
+faiss_index_backup*/
+
+# SQLite databases
+*.sqlite3
+
+# Ignorar secretos y entornos virtuales
+.streamlit/secrets.toml
+venv/
+.venv/
+.venv_clean/
+.pytest_cache/
+.env
+
+# Logs
+gerard_log.txt
+gerard_web_log.txt
+
+# Índice FAISS (se construye automáticamente)
+faiss_index/
+faiss_index*.zip
+*.zip
+
+# Archivos grandes que exceden límite de GitHub (100MB)
+OllamaSetup.exe
+
+# Secrets
+client_secret.json
+credentials.json
+google_credentials.json
