@@ -1806,11 +1806,9 @@ if user_name:
                     timestamp_str = datetime.now().strftime("%Y%m%d_%H%M")
                     safe_username = "".join(c for c in user_name if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
                     
-                    # Construir nombre con fragmentos de preguntas (máximo 2 preguntas, 30 chars cada una)
+                    # Construir nombre con TODAS las preguntas (sin límite)
                     question_parts = []
-                    for i, entry in enumerate(st.session_state.conversation_history):
-                        if i >= 2:  # Máximo 2 preguntas en el nombre
-                            break
+                    for entry in st.session_state.conversation_history:
                         # Limpiar pregunta (SIN truncar - mostrar pregunta completa)
                         clean_q = "".join(c for c in entry["query"] if c.isalnum() or c in (' ', '_', '-', '?')).strip()
                         clean_q = clean_q.replace(' ', '_')
@@ -1818,7 +1816,7 @@ if user_name:
                         if clean_q:
                             question_parts.append(clean_q)
                     
-                    # Formato: CONSULTA_DE_[USUARIO]_[pregunta1]?_[pregunta2]?_[FECHA]_[HORA].pdf
+                    # Formato: CONSULTA_DE_[USUARIO]_[pregunta1]?_[pregunta2]?_[pregunta3]?_..._[FECHA]_[HORA].pdf
                     if question_parts:
                         questions_str = "_".join(f"{q}?" for q in question_parts)
                         pdf_filename = f"CONSULTA_DE_{safe_username}_{questions_str}_{timestamp_str}.pdf"
