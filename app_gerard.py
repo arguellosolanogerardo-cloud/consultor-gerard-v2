@@ -1277,8 +1277,10 @@ if 'clear_query' not in st.session_state:
 if user_name:
     # Mensaje de bienvenida personalizado
     st.markdown(
-        f'<div style="text-align: center; font-size: 1.3em; color: #00d4ff; font-weight: bold; margin: 20px 0;">'
-        f'👋 HOLA {user_name.upper()}, YA PUEDES PREGUNTAR'
+        f'<div style="text-align: center; font-weight: bold; margin: 20px 0;">'
+        f'<span style="font-size: 1.3em; color: #00ff41;">👋 HOLA </span>'
+        f'<span style="font-size: 2em; color: #00d4ff;">{user_name.upper()}</span>'
+        f'<span style="font-size: 1.3em; color: #00ff41;">, YA PUEDES PREGUNTAR</span>'
         f'</div>',
         unsafe_allow_html=True
     )
