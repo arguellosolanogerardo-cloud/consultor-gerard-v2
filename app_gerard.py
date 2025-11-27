@@ -1478,7 +1478,22 @@ if user_name:
                 # Streamlit Cloud define esta variable en secrets
                 st.session_state.running_in_cloud = bool(os.getenv("STREAMLIT_RUNTIME", "")) or bool(os.getenv("STREAMLIT_CLOUD", ""))
 
-            with st.spinner("🧠 GERARD V3.69 está buscando la Respuesta..."):
+            # Mensaje de búsqueda grande en verde neón
+            status_placeholder = st.empty()
+            status_placeholder.markdown(
+                '<div style="text-align: center; font-size: 3em; color: #00ff41; font-weight: bold; margin: 30px 0; animation: pulse 1.5s ease-in-out infinite;">'
+                '🧠 GERARD V3.69 está buscando la Respuesta...'
+                '</div>'
+                '<style>'
+                '@keyframes pulse {'
+                '  0%, 100% { opacity: 1; }'
+                '  50% { opacity: 0.6; }'
+                '}'
+                '</style>',
+                unsafe_allow_html=True
+            )
+            
+            with st.spinner(""):  # Spinner vacío para mantener el estado de carga
                 chain = (
                     {
                         "context": lambda x: format_docs(docs),
@@ -1491,6 +1506,9 @@ if user_name:
                 
                 # Ejecutar
                 response = chain.invoke({"input": query})
+            
+            # Limpiar mensaje de estado
+            status_placeholder.empty()
             
             # ═══════════════════════════════════════════════════════════════
             # 🎉 NOTIFICACIONES DE RESPUESTA LISTA
