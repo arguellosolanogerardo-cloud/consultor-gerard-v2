@@ -1029,7 +1029,9 @@ def colorize_citations(text: str) -> str:
 
 
 # Header con logo
-st.markdown('<div class="main-title">GERARD</div>', unsafe_allow_html=True)
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
+    st.image("assets/gerardfull.jpg", use_container_width=True)
 st.markdown('<div class="subtitle">v3.69 | ASISTENTE</div>', unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════
