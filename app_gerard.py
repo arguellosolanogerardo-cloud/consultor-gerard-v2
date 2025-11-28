@@ -1173,21 +1173,58 @@ if not st.session_state.user_name:
         # --- OPCIÓN 2: NOMBRE MANUAL ---
         st.markdown("### ✍️ Ingreso Manual")
         
+        # Lista de países más comunes (puede expandirse)
+        PAISES = [
+            "", "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", 
+            "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", 
+            "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", 
+            "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde", 
+            "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", 
+            "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", 
+            "Dominican Republic", "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", 
+            "Eritrea", "España", "Estonia", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", 
+            "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", 
+            "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", 
+            "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", 
+            "Kenya", "Kiribati", "North Korea", "South Korea", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", 
+            "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", 
+            "Macedonia", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", 
+            "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", 
+            "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", 
+            "Nicaragua", "Niger", "Nigeria", "Norway", "Oman", "Pakistan", "Palau", "Panama", 
+            "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", 
+            "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", 
+            "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", 
+            "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", 
+            "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", 
+            "Sudan", "Suriname", "Swaziland", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", 
+            "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", 
+            "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", 
+            "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", 
+            "Yemen", "Zambia", "Zimbabwe"
+        ]
+        
         with st.form("manual_login_form"):
             temp_name = st.text_input(
                 "👤 Nombre completo:",
                 placeholder="Ej: Juan Pérez",
-                key="temp_user_name"
+                key="temp_user_name",
+                help="Escribe tu nombre completo"
             )
+            
             temp_city = st.text_input(
                 "🏙️ Ciudad:",
-                placeholder="Ej: Madrid",
-                key="temp_user_city"
+                placeholder="Ej: Madrid, Barcelona, Bogotá, Lima...",
+                key="temp_user_city",
+                help="Escribe el nombre de tu ciudad (sin números ni caracteres especiales)"
             )
-            temp_country = st.text_input(
+            
+            temp_country = st.selectbox(
                 "🌍 País:",
-                placeholder="Ej: España",
-                key="temp_user_country"
+                options=PAISES,
+                index=0,
+                key="temp_user_country",
+                help="Selecciona tu país de la lista"
             )
             
             submit_button = st.form_submit_button("🚀 Continuar", use_container_width=True)
@@ -1198,12 +1235,17 @@ if not st.session_state.user_name:
                     st.error("❌ Por favor ingresa tu nombre")
                 elif not temp_city or not temp_city.strip():
                     st.error("❌ Por favor ingresa tu ciudad")
-                elif not temp_country or not temp_country.strip():
-                    st.error("❌ Por favor ingresa tu país")
+                elif not temp_country or temp_country == "":
+                    st.error("❌ Por favor selecciona tu país de la lista")
+                # Validar que la ciudad sea un nombre válido (sin números)
+                elif not temp_city.replace(" ", "").replace("-", "").isalpha():
+                    st.error("❌ El nombre de la ciudad no es válido. Solo debe contener letras, espacios y guiones")
+                elif len(temp_city.strip()) < 2:
+                    st.error("❌ El nombre de la ciudad es demasiado corto")
                 else:
                     # Guardar datos en session_state
                     st.session_state.user_name = temp_name.strip()
-                    st.session_state.user_city = temp_city.strip()
+                    st.session_state.user_city = temp_city.strip().title()  # Capitalizar correctamente
                     st.session_state.user_country = temp_country.strip()
                     st.success(f"✅ ¡Bienvenido, {temp_name.strip()}!")
                     st.rerun()
