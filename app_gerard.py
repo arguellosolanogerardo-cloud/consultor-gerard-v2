@@ -3,6 +3,19 @@ GERARD v3.69 - Interfaz Web Streamlit
 Sistema de Análisis Investigativo Avanzado
 Usa Vertex AI con credenciales JSON
 """
+import os
+import streamlit as st
+from datetime import datetime
+import time
+import re
+import io
+import base64
+import uuid
+from langchain_google_vertexai import ChatVertexAI, VertexAIEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+from cities_data import get_cities_for_country
 import streamlit.components.v1 as components
 
 # Intentar importar auth_google (opcional - solo para login con Google)
