@@ -27,9 +27,18 @@ except ImportError:
     print("[WARNING] Google Auth no disponible - falta google-api-python-client")
 
 
-# ===== FUNCIONES DE GENERACIÓN DE PDF (INCLUIDAS DIRECTAMENTE) =====
-# Verificar disponibilidad de reportlab
+# ===== FUNCIONES DE GENERACIÓN DE PDF (CON WEASYPRINT) =====
+# Verificar disponibilidad de weasyprint (prioridad) y reportlab (fallback)
+WEASYPRINT_AVAILABLE = False
 REPORTLAB_AVAILABLE = False
+# Intentar importar weasyprint
+try:
+    from weasyprint import HTML, CSS
+    WEASYPRINT_AVAILABLE = True
+    print("[INFO] Weasyprint disponible para generación de PDF")
+except ImportError:
+    print("[WARNING] Weasyprint no disponible")
+# Intentar importar reportlab SIEMPRE (no solo si weasyprint falla)
 try:
     from reportlab.pdfgen import canvas
     from reportlab.lib.pagesizes import A4
@@ -37,8 +46,9 @@ try:
     from reportlab.lib.styles import getSampleStyleSheet
     from reportlab.pdfbase.pdfmetrics import stringWidth
     REPORTLAB_AVAILABLE = True
+    print("[INFO] Reportlab disponible para generación de PDF")
 except ImportError:
-    pass
+    print("[ERROR] Reportlab no disponible - instala con: pip install reportlab")
 
 def _escape_ampersand_pdf(text: str) -> str:
     """Escapa el símbolo & para XML"""
@@ -765,7 +775,103 @@ def generate_download_filename(conversation_history: list, user_name: str) -> st
     
     # Formato final: CONSULTA_DE_NOMBREUSUARIO_pregunta1?_pregunta2?_pregunta3_20251117_1530.pdf
     return f"CONSULTA_DE_{user_name_upper}_{full_questions}_{date_str}_{time_str}.pdf"
-
+def get_optimal_k(query: str, force_exhaustive: bool = False) -> dict:
+    """
+    Determina el número óptimo de documentos (K) a recuperar basándose en la complejidad de la pregunta.
+    
+    Args:
+        query: Pregunta del usuario
+        force_exhaustive: Si True, fuerza búsqueda exhaustiva (K=200)
+    
+    Returns:
+        dict con:
+            - k: número de documentos a recuperar
+            - level: nivel de complejidad ('simple', 'media', 'compleja', 'exhaustiva')
+            - reason: razón de la decisión
+            - indicators: dict con indicadores de complejidad detectados
+    """
+    
+    # Si el usuario fuerza búsqueda exhaustiva
+    if force_exhaustive:
+        return {
+            'k': 200,
+            'level': 'exhaustiva',
+            'reason': 'Búsqueda exhaustiva activada manualmente',
+            'indicators': {'manual_override': True}
+        }
+    
+    # Análisis de complejidad
+    words = query.split()
+    word_count = len(words)
+    
+    # Indicadores de complejidad
+    indicators = {
+        'word_count': word_count,
+        'multiple_questions': query.count('?') > 1,
+        'has_conjunctions': any(conj in query.lower() for conj in [
+            ' y ', ' o ', ' además', ' también', ' asimismo', ' igualmente',
+            ' por otro lado', ' en relación', ' respecto a'
+        ]),
+        'has_complex_keywords': any(kw in query.lower() for kw in [
+            'compara', 'contrasta', 'analiza', 'profundiza', 'explica detalladamente',
+            'todos los', 'todas las', 'exhaustivamente', 'completamente',
+            'en profundidad', 'detallado', 'extenso', 'amplio'
+        ]),
+        'has_multiple_subjects': query.count(',') >= 2,
+        'asks_for_listing': any(pattern in query.lower() for pattern in [
+            'lista', 'enumera', 'cuáles son', 'qué son', 'menciona todos',
+            'dame todos', 'dame todas', 'todos los nombres', 'todas las'
+        ])
+    }
+    
+    # Lógica de decisión basada en indicadores
+    complexity_score = 0
+    
+    # Peso por longitud de pregunta
+    if word_count > 40:
+        complexity_score += 3
+    elif word_count > 25:
+        complexity_score += 2
+    elif word_count > 15:
+        complexity_score += 1
+    
+    # Peso por otros indicadores
+    if indicators['multiple_questions']:
+        complexity_score += 2
+    if indicators['has_conjunctions']:
+        complexity_score += 1
+    if indicators['has_complex_keywords']:
+        complexity_score += 2
+    if indicators['has_multiple_subjects']:
+        complexity_score += 1
+    if indicators['asks_for_listing']:
+        complexity_score += 2
+    
+    # Determinar K basado en score de complejidad
+    if complexity_score >= 5:
+        # Pregunta COMPLEJA
+        return {
+            'k': 180,
+            'level': 'compleja',
+            'reason': f'Pregunta compleja (score: {complexity_score})',
+            'indicators': indicators
+        }
+    elif complexity_score >= 2:
+        # Pregunta MEDIA
+        return {
+            'k': 165,
+            'level': 'media',
+            'reason': f'Pregunta de complejidad media (score: {complexity_score})',
+            'indicators': indicators
+        }
+    else:
+        # Pregunta SIMPLE
+        return {
+            'k': 150,
+            'level': 'simple',
+            'reason': f'Pregunta simple (score: {complexity_score})',
+            'indicators': indicators
+        }
 # Inicialización de Google Sheets Logger con Caché Global
 @st.cache_resource(show_spinner=False)
 def get_shared_sheets_logger():
@@ -1308,7 +1414,7 @@ with st.spinner("🚀 Iniciando sistemas neuronales..."):
             st.stop()
         
         st.markdown(
-            f'<div class="stats">✅ SISTEMA OPERATIVO | {doc_count:,} fragmentos</div>',
+            f'<div class="stats">✅ SISTEMA OPERATIVO | {doc_count:,} fragmentos <span style="color: #bf40ff; font-weight: bold;">EN LINEA</span></div>',
             unsafe_allow_html=True
         )
     except Exception as e:
@@ -1385,7 +1491,25 @@ if user_name:
         placeholder="FAVOR DIGITA TU NUEVA CONSULTA" if st.session_state.clear_query or len(st.session_state.conversation_history) > 0 else "¿Qué información necesitas?",
         height=120,
         key="query_input"
-    )
+   )
+    
+    # Checkbox de búsqueda exhaustiva
+    col_checkbox, col_info = st.columns([1, 3])
+    with col_checkbox:
+        exhaustive_search = st.checkbox(
+            "🔬 Exhaustiva", 
+            value=st.session_state.get('exhaustive_search', False),
+            help="Activa búsqueda exhaustiva (recupera hasta 200 documentos en lugar del modo adaptativo)"
+        )
+        # Guardar estado
+        st.session_state.exhaustive_search = exhaustive_search
+    
+    with col_info:
+        if exhaustive_search:
+            st.markdown(
+                '<div style="color: #00ff41; font-size: 0.9em; padding: 5px;">⚡ Modo exhaustivo: se recuperarán 200 documentos (~+2s tiempo)</div>',
+                unsafe_allow_html=True
+            )
     
     # Resetear flag de limpieza
     if st.session_state.clear_query:
@@ -1460,12 +1584,24 @@ if user_name:
         )
         
         try:
-            # Recuperar documentos usando búsqueda híbrida (BM25 + FAISS)
-            # K=150 optimizado para Gemini 3.0 Pro (Contexto masivo + Chunks pequeños de 500 chars)
-            k_docs = 150
+           # Recuperar documentos usando búsqueda híbrida (BM25 + FAISS)
+            # SISTEMA ADAPTATIVO: K se ajusta según complejidad de la pregunta
+            k_info = get_optimal_k(query, force_exhaustive=exhaustive_search)
+            k_docs = k_info['k']
             
-            with st.spinner("🔍 Buscando con algoritmo híbrido (semántica + léxica)..."):
+            # Mostrar información de búsqueda
+            st.markdown(
+                f'<div style="background: rgba(97, 175, 239, 0.1); border-left: 4px solid #61AFEF; padding: 12px; border-radius: 6px; margin: 10px 0;">'
+                f'<span style="color: #61AFEF; font-weight: bold;">📊 Búsqueda {k_info["level"].upper()}</span> '
+                f'<span style="color: #98C379;">• {k_docs} documentos</span> '
+                f'<span style="color: #E5C07B; font-size: 0.85em;">• {k_info["reason"]}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
+            
+            with st.spinner(f"🔍 Buscando con algoritmo híbrido (recuperando {k_docs} docs)..."):
                 search_method = "unknown"
+                search_start_time = time.time()  # Iniciar cronómetro de búsqueda
                 
                 # ESTRATEGIA 1: Intentar búsqueda híbrida (BM25 + FAISS)
                 if RETRIEVERS_AVAILABLE:
@@ -1524,10 +1660,31 @@ if user_name:
                     docs = faiss_retriever.invoke(query)
                     search_method = "faiss"
             
-            # Mostrar estadísticas de recuperación
+          # Calcular tiempo de búsqueda
+            search_time = time.time() - search_start_time
+            
+            # Mostrar estadísticas de recuperación mejoradas
             query_lower = query.lower()
             relevant_docs = [d for d in docs if any(term in d.page_content.lower() for term in query_lower.split())]
-            st.info(f"📊 Recuperados: {len(docs)} docs | Relevantes: {len(relevant_docs)} docs con términos de búsqueda")
+            
+            # Badge de método según el utilizado
+            method_badges = {
+                'hybrid': '🎯 Híbrido',
+                'faiss': '🔍 FAISS',
+                'bm25': '📝 BM25'
+            }
+            method_badge = method_badges.get(search_method, '❓ Desconocido')
+            
+            st.markdown(
+                f'<div style="background: rgba(152, 195, 121, 0.1); border-left: 4px solid #98C379; padding: 12px; border-radius: 6px; margin: 10px 0;">'
+                f'<span style="color: #98C379; font-weight: bold;">✅ BÚSQUEDA COMPLETADA</span><br/>'
+                f'<span style="color: #E5C07B;">📊 Recuperados: {len(docs)} docs</span> • '
+                f'<span style="color: #61AFEF;">⚡ Relevantes: {len(relevant_docs)} docs</span> • '
+                f'<span style="color: #C678DD;">⏱️ Tiempo: {search_time:.2f}s</span> • '
+                f'<span style="color: #56B6C2;">{method_badge}</span>'
+                f'</div>',
+                unsafe_allow_html=True
+            )
             
             # Mostrar GIF de procesamiento animado
             if os.path.exists("assets/pregunta.gif"):
