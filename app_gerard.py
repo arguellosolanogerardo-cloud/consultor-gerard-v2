@@ -36,9 +36,13 @@ REPORTLAB_AVAILABLE = False
 try:
     from weasyprint import HTML, CSS
     WEASYPRINT_AVAILABLE = True
-    print("[INFO] Weasyprint disponible para generación de PDF")
-except ImportError:
-    print("[WARNING] Weasyprint no disponible")
+    print("[INFO] ✅ Weasyprint disponible para generación de PDF con colores")
+except ImportError as e:
+    print(f"[WARNING] Weasyprint no disponible (ImportError): {e}")
+    WEASYPRINT_AVAILABLE = False
+except Exception as e:
+    print(f"[WARNING] Error al importar Weasyprint: {type(e).__name__}: {e}")
+    WEASYPRINT_AVAILABLE = False
 
 # Intentar importar reportlab SIEMPRE (no solo si weasyprint falla)
 try:
@@ -77,7 +81,7 @@ def generate_pdf_from_html_local(
                         margin: 2cm;
                     }
                     body {
-                        font-family: 'Helvetica', 'Arial', sans-serif;
+                        font-family: 'Merriweather', 'Georgia', 'Times New Roman', serif;
                         font-size: 10pt;
                         line-height: 1.6;
                         color: #000;
@@ -88,22 +92,76 @@ def generate_pdf_from_html_local(
                         text-align: center;
                         margin: 20px 0;
                         page-break-after: avoid;
+                        color: #000;
                     }
                     h2 {
                         font-size: 14pt;
                         font-weight: bold;
                         margin: 15px 0 10px 0;
                         page-break-after: avoid;
+                        color: #000;
                     }
                     h3 {
                         font-size: 12pt;
                         font-weight: bold;
                         margin: 12px 0 8px 0;
                         page-break-after: avoid;
+                        color: #000;
                     }
-                    /* Preservar TODOS los colores del HTML */
-                    span, font {
+                    p {
+                        margin: 10px 0;
+                        line-height: 1.8;
+                    }
+                    /* Preservar TODOS los colores inline de los spans */
+                    span[style*="color"] {
                         /* Los colores inline se preservan automáticamente */
+                    }
+                    /* Citas de texto en AZUL - #61AFEF */
+                    span[style*="#61AFEF"] {
+                        color: #61AFEF !important;
+                        font-family: 'Merriweather', serif;
+                        font-size: 12pt;
+                        font-style: italic;
+                    }
+                    /* Referencias de documentos en VERDE OSCURO - #2E7D32 */
+                    span[style*="#2E7D32"] {
+                        color: #2E7D32 !important;
+                        font-family: 'Merriweather', serif;
+                        font-size: 13pt;
+                        font-weight: bold;
+                    }
+                    /* Mantener compatibilidad con color antiguo por si acaso */
+                    span[style*="#98C379"] {
+                        color: #2E7D32 !important;
+                        font-family: 'Merriweather', serif;
+                        font-size: 13pt;
+                        font-weight: bold;
+                    }
+                    /* Timestamps en ROJO - #FF0000 */
+                    span[style*="#FF0000"] {
+                        color: #FF0000 !important;
+                        font-family: 'Merriweather', serif;
+                        font-size: 11pt;
+                        font-weight: bold;
+                    }
+                    /* Encabezados especiales en AMARILLO - #E5C07B */
+                    span[style*="#E5C07B"] {
+                        color: #E5C07B !important;
+                        font-family: 'Merriweather', serif;
+                        font-size: 14pt;
+                        font-weight: bold;
+                    }
+                    /* Encabezados ####** en AMARILLO INTENSO - #FFD700 */
+                    .header-level-4 {
+                        color: #FFD700 !important;
+                        font-family: 'Merriweather', serif;
+                        font-size: 18pt;
+                        font-weight: bold;
+                        text-transform: uppercase;
+                        text-align: center;
+                        margin: 20px 0;
+                        padding: 10px 0;
+                        letter-spacing: 1px;
                     }
                     hr {
                         border: none;
@@ -112,6 +170,11 @@ def generate_pdf_from_html_local(
                     }
                     /* Evitar que las citas se partan entre páginas */
                     .citation-block {
+                        page-break-inside: avoid;
+                    }
+                    /* Espaciado entre preguntas y respuestas */
+                    .question-block {
+                        margin-top: 30px;
                         page-break-inside: avoid;
                     }
                 </style>
@@ -245,6 +308,20 @@ st.markdown("""
     /* Importar fuentes */
     @import url('https://fonts.googleapis.com/css2?family=Merriweather:ital,wght@0,400;0,700;1,400;1,700&display=swap');
     
+    /* Estilo para encabezados de nivel 4 (####**texto**) - NUEVO */
+    .header-level-4 {
+        color: #FFD700 !important; /* Amarillo Intenso (Gold) */
+        font-family: 'Merriweather', serif !important;
+        font-size: 26px !important;
+        font-weight: bold !important;
+        text-transform: uppercase !important;
+        text-align: center !important;
+        margin: 30px 0 !important;
+        padding: 15px 0 !important;
+        letter-spacing: 1px !important;
+        line-height: 1.4 !important;
+    }
+    
     /* ONE DARK PRO - Tema Global */
     .stApp {
         background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
@@ -312,6 +389,16 @@ st.markdown("""
     .stButton > button:hover {
         box-shadow: 0 6px 25px rgba(97, 175, 239, 0.5) !important;
         transform: translateY(-2px) !important;
+    }
+    
+    /* Estilo para botón en estado EJECUTADO (Rojo) - Activado por marcador adyacente */
+    /* Busca un div que contenga .executed-marker y afecta al SIGUIENTE div (el del botón) */
+    div:has(.executed-marker) + div .stButton > button {
+        background: linear-gradient(135deg, #FF4B4B, #CC0000) !important;
+        border: 2px solid #FF0000 !important;
+        box-shadow: 0 0 20px rgba(255, 0, 0, 0.6) !important;
+        transform: scale(0.98) !important; /* Ligeramente presionado */
+        content: "🔴 PREGUNTA EJECUTADA"; /* Fallback visual */
     }
     
     /* Contenedor de respuestas */
@@ -1147,7 +1234,7 @@ def colorize_citations(text: str) -> str:
     Colorea las citas bibliográficas con la paleta One Dark Pro y
     mejora el formato visual con estructura de reporte forense:
     - "texto citado" en AZUL #61AFEF con fuente Merriweather 18px
-    - [Documento: ... | Timestamp: ...] en VERDE #98C379 con fuente Merriweather 17px
+    - [Documento: ... | Timestamp: ...] en VERDE OSCURO #2E7D32 con fuente Merriweather 19px NEGRITA
     - Timestamp: HH:MM:SS --> HH:MM:SS en ROJO #FF0000 con fuente Merriweather 17px
     - Encabezados de sección en AMARILLO #E5C07B
     - Agrega separadores visuales y cajas de evidencia
@@ -1159,6 +1246,26 @@ def colorize_citations(text: str) -> str:
     # PRIMERO: Eliminar milisegundos de todos los timestamps en el texto
     # Patrón: HH:MM:SS,mmm -> HH:MM:SS
     text = re.sub(r'(\d{2}:\d{2}:\d{2}),\d{3}', r'\1', text)
+    
+    # NUEVO: Procesar encabezados ####**texto**
+    # Convertir a MAYÚSCULAS, NEGRILLA y AZUL con espacio antes y después
+    # Patrón: ####**cualquier texto**
+    header_level4_pattern = r'####\s*\*\*(.+?)\*\*'
+    
+    def format_header_level4(match):
+        content = match.group(1).strip()
+        # Convertir a MAYÚSCULAS
+        content_upper = content.upper()
+        # Usar clase CSS global .header-level-4 (Amarillo Intenso #FFD700, 26px)
+        # IMPORTANTE: Usar comillas SIMPLES para la clase para evitar conflicto con el regex de citas que busca comillas dobles
+        return f"\n\n<div class='header-level-4'>{content_upper}</div>\n\n"
+    
+    text = re.sub(
+        header_level4_pattern,
+        format_header_level4,
+        text,
+        flags=re.MULTILINE
+    )
     
     # 1. Primero colorear texto entre comillas (antes de introducir HTML de los documentos)
     # AZUL ONE DARK PRO: #61AFEF con fuente Merriweather 18px
@@ -1207,21 +1314,21 @@ def colorize_citations(text: str) -> str:
     )
     
     # 3. LUEGO colorear la parte del documento (hasta el |, sin incluir timestamp)
-    # VERDE ONE DARK PRO: #98C379
+    # VERDE OSCURO INTENSO: #2E7D32 (Material Design Dark Green)
     citation_pattern = r'(\*\*\[Documento:[^\|]+\|)'
     
     text = re.sub(
         citation_pattern,
-        lambda m: f'<span style="color: #98C379 !important; font-family: \'Merriweather\', serif !important; font-size: 17px !important; line-height: 1.2 !important; font-style: italic !important;">{m.group(1)}</span>',
+        lambda m: f'<span style="color: #2E7D32 !important; font-family: \'Merriweather\', serif !important; font-size: 19px !important; line-height: 1.3 !important; font-weight: bold !important;">{m.group(1)}</span>',
         text
     )
     
-    # 4. Colorear el cierre ]** en verde
+    # 4. Colorear el cierre ]** en verde oscuro
     closing_pattern = r'(\]\*\*)(?=\s|$|\n)'
     
     text = re.sub(
         closing_pattern,
-        lambda m: f'<span style="color: #98C379 !important;">{m.group(1)}</span>',
+        lambda m: f'<span style="color: #2E7D32 !important; font-weight: bold !important;">{m.group(1)}</span>',
         text
     )
     
@@ -1321,8 +1428,32 @@ if not st.session_state.user_name:
             st.markdown("### 🔐 Acceso Seguro")
             
             # Botón de Login con Google
-            # Detectar URL base para redirect
-            redirect_uri = "https://consultor-gerard-v3-bczzmyukdsww2clof4srcz.streamlit.app/"
+            # Detectar URL base para redirect (detectar automáticamente local vs cloud)
+            # En local usamos localhost:8501, en cloud usamos la URL de Streamlit Cloud
+            try:
+                # Intentar obtener la URL actual desde Streamlit (solo funciona en Cloud)
+                from streamlit.web import cli as stcli
+                import sys
+                
+                # Verificar si estamos en desarrollo local
+                if '--server.port' in sys.argv or 'localhost' in str(st.get_option('browser.serverAddress')):
+                    redirect_uri = "http://localhost:8501/"
+                else:
+                    # En producción (Streamlit Cloud)
+                    redirect_uri = "https://consultor-gerard-v3-bczzmyukdsww2clof4srcz.streamlit.app/"
+            except:
+                # Fallback: Detectar por variables de entorno
+                import socket
+                hostname = socket.gethostname()
+                
+                # Si el hostname contiene 'streamlit' o estamos en un entorno cloud
+                if 'streamlit' in hostname.lower() or os.getenv('STREAMLIT_SHARING_MODE'):
+                    redirect_uri = "https://consultor-gerard-v3-bczzmyukdsww2clof4srcz.streamlit.app/"
+                else:
+                    # Entorno local
+                    redirect_uri = "http://localhost:8501/"
+            
+            print(f"[INFO] Usando redirect_uri: {redirect_uri}")
             login_url = auth_google.get_login_url(redirect_uri) 
             
             # Verificar si volvemos de un redirect de Google
@@ -1576,6 +1707,211 @@ with st.sidebar.expander("📚 Guía de Uso", expanded=False):
 
 
 # Inicializar flag para limpiar campo de pregunta
+# ═══════════════════════════════════════════════════════════════
+# FUNCIÓN DE VISUALIZACIÓN DE RESULTADOS (Refactorizada para persistencia)
+# ═══════════════════════════════════════════════════════════════
+def display_analysis_result(response, docs, search_time, search_method, relevant_docs_count, user_name):
+    # Mostrar respuesta
+    st.success("✅ Análisis completado")
+    
+    # Animación de globos lenta
+    st.balloons()
+    st.markdown("""
+    <style>
+        /* Ralentizar animación de globos (clase interna de Streamlit) */
+        div[data-testid="stBalloons"] > div > div {
+            animation-duration: 24s !important; /* 9X más lento (Muy lento) */
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    st.markdown("### 🔬 Resultado del Análisis:")
+    # Colorear las citas antes de mostrar
+    colored_response = colorize_citations(response)
+    # IMPORTANTE: Usar st.html() para renderizar HTML sin escapar (preserva todos los estilos)
+    st.html(f'<div class="response-container" id="respuesta-gerard">{colored_response}</div>')
+    
+    # Badge de método según el utilizado
+    method_badges = {
+        'hybrid': '🎯 Híbrido',
+        'faiss': '🔍 FAISS',
+        'bm25': '📝 BM25'
+    }
+    method_badge = method_badges.get(search_method, '❓ Desconocido')
+    
+    # Estadísticas
+    st.markdown(
+        f'<div class="stats">'
+        f'📊 Documentos analizados: {len(docs)} | '
+        f'👤 Usuario: {user_name.upper()} | '
+        f'🕐 Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")} | '
+        f'⚡ Método: {method_badge}'
+        f'</div>',
+        unsafe_allow_html=True
+    )
+    
+    # SEGUNDO SCROLL: Automático hacia el final de la respuesta
+    scroll_placeholder_2 = st.empty()
+    scroll_placeholder_2.markdown(
+        """
+        <script>
+        (function() {
+            function forceScrollToBottom() {
+                try {
+                    window.scrollTo({
+                        top: document.body.scrollHeight,
+                        behavior: 'smooth'
+                    });
+                } catch(e) {
+                    console.error("Error en scroll final:", e);
+                }
+            }
+            setTimeout(forceScrollToBottom, 300);
+            setTimeout(forceScrollToBottom, 1000);
+        })();
+        </script>
+        """,
+        unsafe_allow_html=True
+    )
+    
+    # Botón de descarga PDF
+    if REPORTLAB_AVAILABLE and len(st.session_state.conversation_history) > 0:
+        st.markdown("---")
+        st.markdown("### 📥 Exportar Conversación")
+        
+        try:
+            # Construir HTML de toda la conversación
+            html_parts = []
+            for entry in st.session_state.conversation_history:
+                html_parts.append(f'<p style="color: #000000; font-weight: bold;">Pregunta ({entry["timestamp"]}):</p>')
+                html_parts.append(f'<p style="color: #000000;">{entry["query"]}</p>')
+                html_parts.append(f'<p style="color: #000000; font-weight: bold;">Respuesta:</p>')
+                # Aplicar colorización a la respuesta antes de exportar
+                colored_response = colorize_citations(entry["response"])
+                html_parts.append(f'<p>{colored_response}</p>')
+                html_parts.append('<br/>')
+            
+            html_parts.append(f'<br/><p style="color: #28a745;">Usuario: {user_name.upper()}</p>')
+            html_full = ''.join(html_parts)
+            
+            # Generar PDF
+            pdf_bytes = generate_pdf_from_html_local(
+                html_full,
+                title_base=f"Consulta GERARD - {user_name.upper()}",
+                user_name=user_name.upper()
+            )
+            
+            # Nombre del archivo PDF
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M")
+            safe_username = "".join(c for c in user_name if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+            
+            # Construir nombre con TODAS las preguntas
+            question_parts = []
+            for entry in st.session_state.conversation_history:
+                clean_q = "".join(c for c in entry["query"] if c.isalnum() or c in (' ', '_', '-', '?')).strip()
+                clean_q = clean_q.replace(' ', '_')
+                if clean_q:
+                    question_parts.append(clean_q)
+            
+            if question_parts:
+                questions_str = "_".join(f"{q}?" for q in question_parts)
+                pdf_filename = f"CONSULTA_DE_{safe_username}_{questions_str}_{timestamp_str}.pdf"
+            else:
+                pdf_filename = f"CONSULTA_DE_{safe_username}_{timestamp_str}.pdf"
+            
+            # Convertir bytes a base64 para JavaScript
+            pdf_b64 = base64.b64encode(pdf_bytes).decode()
+            
+            # JavaScript para descarga
+            download_js_template = """
+            <script>
+            var pdfDownloaded = false;
+            window.addEventListener('DOMContentLoaded', function() {
+                const btn = document.getElementById('pdf-download-btn');
+                if (sessionStorage.getItem('pdfDownloaded_NUM_CONSULTAS') === 'true') {
+                    if (btn) {
+                        btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
+                        btn.style.borderColor = '#00FF41';
+                        btn.innerHTML = '✅ ¡Descargado Exitosamente!';
+                        pdfDownloaded = true;
+                    }
+                }
+            });
+            function downloadPDF() {
+                if (pdfDownloaded) return;
+                try {
+                    const byteCharacters = atob('PDF_B64_PLACEHOLDER');
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], {type: 'application/pdf'});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'PDF_FILENAME_PLACEHOLDER';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    const btn = document.getElementById('pdf-download-btn');
+                    if (btn) {
+                        btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
+                        btn.style.borderColor = '#00FF41';
+                        btn.innerHTML = '✅ ¡Descargado Exitosamente!';
+                        pdfDownloaded = true;
+                        sessionStorage.setItem('pdfDownloaded_NUM_CONSULTAS', 'true');
+                    }
+                    alert('✅ PDF descargado exitosamente.');
+                } catch (e) {
+                    console.error('Error en descarga:', e);
+                    alert('❌ Error al descargar PDF.');
+                }
+            }
+            </script>
+            <button id="pdf-download-btn" onclick="downloadPDF()" style="
+                background: linear-gradient(45deg, #ff4b4b, #ff8080);
+                color: white;
+                border: 2px solid #ff4b4b;
+                padding: 12px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                width: 100%;
+                margin: 10px 0;
+            ">📥 DESCARGAR CONVERSACIÓN COMPLETA (PDF)</button>
+            """
+            
+            # Reemplazar placeholders
+            download_html = download_js_template.replace('PDF_B64_PLACEHOLDER', pdf_b64).replace('PDF_FILENAME_PLACEHOLDER', pdf_filename).replace('NUM_CONSULTAS', str(len(st.session_state.conversation_history)))
+            st.components.v1.html(download_html, height=100)
+            
+        except Exception as e:
+            st.error(f"Error generando PDF: {e}")
+
+    # Botón Nueva Consulta
+    st.markdown("<br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("➕ NUEVA CONSULTA", key="new_query_btn_result", use_container_width=True):
+            # Resetear estados para nueva consulta (Limpieza TOTAL)
+            st.session_state.question_executed = False
+            st.session_state.trigger_search = False
+            st.session_state.last_executed_query = ""
+            st.session_state.clear_query = True
+            st.session_state.last_query = ""
+            
+            # Scroll to top
+            st.components.v1.html("""
+                <script>
+                window.parent.document.querySelector('.main').scrollTo({top: 0, behavior: 'smooth'});
+                </script>
+            """, height=0)
+            st.rerun()
+
 if 'clear_query' not in st.session_state:
     st.session_state.clear_query = False
 
@@ -1644,14 +1980,49 @@ if user_name:
     if st.session_state.clear_query:
         st.session_state.clear_query = False
     
+    # Inicializar estado de ejecución si no existe
+    if 'question_executed' not in st.session_state:
+        st.session_state.question_executed = False
+        st.session_state.last_executed_query = ""
+
+    # Inicializar trigger de búsqueda diferida (para permitir rerun inmediato)
+    if 'trigger_search' not in st.session_state:
+        st.session_state.trigger_search = False
+    
+    # RESET AUTOMÁTICO: Si la consulta cambia, volver a estado normal
+    # Comparamos la consulta actual con la última ejecutada
+    if query != st.session_state.last_executed_query:
+        st.session_state.question_executed = False
+        st.session_state.trigger_search = False # Cancelar búsqueda pendiente si cambia query
+    
+    # Determinar texto y marcador del botón
+    button_label = "🚀 EJECUTAR PREGUNTA"
+    
     # Botón de consulta centrado
     # Usamos columnas vacías a los lados para centrar el botón
     col_left, col_center, col_right = st.columns([1, 2, 1])
     with col_center:
-        search_button = st.button("🚀 EJECUTAR PREGUNTA", use_container_width=True)
+        # Si ya se ejecutó, inyectamos el marcador invisible que activa el CSS rojo
+        if st.session_state.question_executed:
+            st.markdown('<div class="executed-marker" style="display:none;"></div>', unsafe_allow_html=True)
+            button_label = "🔴 PREGUNTA EJECUTADA"
+            
+        search_button = st.button(button_label, use_container_width=True)
+        
+        # Si se presiona el botón:
+        # 1. Cambiar estado visual a ROJO inmediatamente
+        # 2. Activar trigger de búsqueda para la siguiente recarga
+        # 3. Recargar la página (RERUN) para mostrar el botón rojo ANTES de procesar
+        if search_button:
+            st.session_state.question_executed = True
+            st.session_state.last_executed_query = query
+            st.session_state.trigger_search = True
+            st.rerun()
     
-    # Procesar consulta
-    if search_button and query:
+    # Procesar consulta (Si se activó el trigger en la recarga anterior)
+    if st.session_state.trigger_search and query:
+        # Desactivar trigger para evitar bucles, pero mantenemos question_executed
+        st.session_state.trigger_search = False
         # Mostrar GIF de búsqueda
         st.markdown('<div class="gif-container">', unsafe_allow_html=True)
         if os.path.exists("assets/ovni.gif"):
@@ -1661,48 +2032,16 @@ if user_name:
         st.info(f"🔄 Procesando consulta de **{user_name.upper()}**...")
         
         # PRIMER SCROLL: Hacia el spinner (30% de la página)
-        # PRIMER SCROLL: Hacia el spinner para mostrar actividad
-        # SOLUCIÓN RADICAL: Inyectar script directamente en el DOM usando st.markdown
-        # Esto evita el problema del iframe aislado de components.html
-        
         scroll_placeholder_1 = st.empty()
         scroll_placeholder_1.markdown(
             """
             <script>
             (function() {
-                // Ejecutar inmediatamente sin timeout para asegurar que se ejecuta
                 try {
-                    // Lista de posibles contenedores scrollables en Streamlit
-                    const scrollTargets = [
-                        document.querySelector('.main'),
-                        document.querySelector('[data-testid="stAppViewContainer"]'),
-                        document.querySelector('.stApp'),
-                        document.documentElement, // html
-                        document.body
-                    ];
-
-                    // Intentar scroll en todos los contenedores posibles
-                    scrollTargets.forEach(target => {
-                        if (target) {
-                            try {
-                                // Bajar 300px desde la posición actual
-                                const currentScroll = target.scrollTop;
-                                target.scrollTo({
-                                    top: currentScroll + 300,
-                                    behavior: 'smooth'
-                                });
-                            } catch(e) {
-                                console.log("Error scrolling target:", e);
-                            }
-                        }
-                    });
-                    
-                    // Fallback global window scroll
                     window.scrollBy({
                         top: 300,
                         behavior: 'smooth'
                     });
-                    
                 } catch(e) {
                     console.error("Error en primer scroll:", e);
                 }
@@ -1712,98 +2051,50 @@ if user_name:
             unsafe_allow_html=True
         )
         
+        # Contenedor para descripción dinámica
+        description_placeholder = st.empty()
+        
+        # Variables para métricas
+        search_start_time = datetime.now()
+        
         try:
-            # Recuperar documentos usando búsqueda híbrida (BM25 + FAISS)
-            # SISTEMA ADAPTATIVO: K se ajusta según complejidad de la pregunta
-            k_info = get_optimal_k(query, force_exhaustive=exhaustive_search)
-            k_docs = k_info['k']
-            
-            # Mostrar información de búsqueda
-            st.markdown(
-                f'<div style="background: rgba(97, 175, 239, 0.1); border-left: 4px solid #61AFEF; padding: 12px; border-radius: 6px; margin: 10px 0;">'
-                f'<span style="color: #61AFEF; font-weight: bold;">📊 Búsqueda {k_info["level"].upper()}</span> '
-                f'<span style="color: #98C379;">• {k_docs} documentos</span> '
-                f'<span style="color: #E5C07B; font-size: 0.85em;">• {k_info["reason"]}</span>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-            
-            with st.spinner(f"🔍 Buscando con algoritmo híbrido (recuperando {k_docs} docs)..."):
-                search_method = "unknown"
-                search_start_time = time.time()  # Iniciar cronómetro de búsqueda
+            # 1. Búsqueda de documentos
+            with st.spinner("🔍 Buscando información relevante..."):
+                # Determinar método de búsqueda
+                search_method = 'hybrid'
                 
-                # ESTRATEGIA 1: Intentar búsqueda híbrida (BM25 + FAISS)
-                if RETRIEVERS_AVAILABLE:
-                    try:
-                        faiss_retriever = faiss_vs.as_retriever(search_kwargs={"k": k_docs})
-                        hybrid_retriever = HybridRetriever(
-                            faiss_retriever=faiss_retriever,
-                            bm25_path="bm25_index.pkl",
-                            k=k_docs,
-                            alpha=0.7  # 70% semántica, 30% léxica
-                        )
-                        docs = hybrid_retriever.invoke(query)
-                        search_method = "hybrid"
-                        
-                        # Verificar si usó BM25 puro (por nombres propios o palabras clave)
-                        query_lower = query.lower()
-                        asks_for_names = any(pattern in query_lower for pattern in [
-                            'nombre', 'nombres', 'quien', 'quienes', 'guardianes', 'maestros'
-                        ])
-                        query_words = query.split()
-                        has_proper_nouns = any(word[0].isupper() for word in query_words if len(word) > 2)
-                        proper_noun_keywords = [
-                            'maria', 'magdalena', 'jesus', 'cristo', 'jose', 'juan', 'pedro', 'pablo',
-                            'azoes', 'azen', 'aviatar', 'alaniso', 'axel', 'adiel', 'aladim', 'aliestro',
-                            'maestro', 'maestros', 'guardianes', 'guardian'
-                        ]
-                        has_name_keywords = any(word.lower() in proper_noun_keywords for word in query_words)
-                        
-                        if has_proper_nouns or has_name_keywords or asks_for_names:
-                            st.success("✅ Búsqueda de nombres/identidades → BM25 prioritario (coincidencias exactas)")
-                        else:
-                            st.success("✅ Búsqueda híbrida activada (BM25 + Embeddings)")
-                    
-                    # ESTRATEGIA 2: Si falla híbrida, usar BM25 puro (mejor para nombres propios)
-                    except Exception as e:
-                        st.warning(f"⚠️ Híbrida no disponible, usando BM25 puro (óptimo para nombres exactos)...")
-                        try:
-                            bm25_retriever = BM25Retriever(
-                                bm25_path="bm25_index.pkl",
-                                k=k_docs
-                            )
-                            docs = bm25_retriever.invoke(query)
-                            search_method = "bm25"
-                            st.info("✅ Búsqueda léxica BM25 (mejor para nombres propios y coincidencias exactas)")
-                        
-                        # ESTRATEGIA 3: Último recurso - FAISS solo
-                        except Exception as e2:
-                            st.error(f"⚠️ BM25 falló, usando FAISS básico...")
-                            faiss_retriever = faiss_vs.as_retriever(search_kwargs={"k": k_docs})
-                            docs = faiss_retriever.invoke(query)
-                            search_method = "faiss"
+                # Obtener retriever
+                if exhaustive_search:
+                    # Modo exhaustivo: Solo FAISS con más documentos
+                    retriever = faiss_vs.as_retriever(search_kwargs={"k": 200})
+                    search_method = 'faiss_exhaustive'
                 else:
-                    # Si no hay retrievers, usar FAISS directamente
-                    st.info("ℹ️ Usando búsqueda FAISS (semántica)...")
-                    faiss_retriever = faiss_vs.as_retriever(search_kwargs={"k": k_docs})
-                    docs = faiss_retriever.invoke(query)
-                    search_method = "faiss"
-            
-            # Calcular tiempo de búsqueda
-            search_time = time.time() - search_start_time
-            
-            # Mostrar estadísticas de recuperación mejoradas
-            query_lower = query.lower()
-            relevant_docs = [d for d in docs if any(term in d.page_content.lower() for term in query_lower.split())]
+                    # Modo normal: Híbrido
+                    retriever = HybridRetriever(
+                        vector_retriever=faiss_vs.as_retriever(search_kwargs={"k": 100}),
+                        bm25_retriever=BM25Retriever.from_documents(st.session_state.all_docs) if 'all_docs' in st.session_state else None,
+                        k=100
+                    )
+                
+                # Ejecutar búsqueda
+                docs = retriever.invoke(query)
+                
+                # Filtrar por umbral de relevancia (simulado)
+                relevant_docs = docs 
+                
+                search_end_time = datetime.now()
+                search_time = (search_end_time - search_start_time).total_seconds()
             
             # Badge de método según el utilizado
             method_badges = {
                 'hybrid': '🎯 Híbrido',
                 'faiss': '🔍 FAISS',
+                'faiss_exhaustive': '🚀 FAISS (Exhaustivo)',
                 'bm25': '📝 BM25'
             }
             method_badge = method_badges.get(search_method, '❓ Desconocido')
             
+            # Mostrar métricas de búsqueda
             st.markdown(
                 f'<div style="background: rgba(152, 195, 121, 0.1); border-left: 4px solid #98C379; padding: 12px; border-radius: 6px; margin: 10px 0;">'
                 f'<span style="color: #98C379; font-weight: bold;">✅ BÚSQUEDA COMPLETADA</span><br/>'
@@ -1817,7 +2108,6 @@ if user_name:
             
             # Mostrar GIF de procesamiento animado
             if os.path.exists("assets/pregunta.gif"):
-                # Usar HTML directo para que el GIF se anime correctamente
                 st.markdown(
                     '''<div class="gif-container" style="text-align: center;">
                         <img src="data:image/gif;base64,{}" width="300">
@@ -1832,7 +2122,6 @@ if user_name:
 
             # Crear banderas para saber si estamos en Streamlit Cloud
             if "running_in_cloud" not in st.session_state:
-                # Streamlit Cloud define esta variable en secrets
                 st.session_state.running_in_cloud = bool(os.getenv("STREAMLIT_RUNTIME", "")) or bool(os.getenv("STREAMLIT_CLOUD", ""))
 
             # Mensaje de búsqueda grande en verde neón
@@ -1850,7 +2139,7 @@ if user_name:
                 unsafe_allow_html=True
             )
             
-            with st.spinner(""):  # Spinner vacío para mantener el estado de carga
+            with st.spinner(""):
                 chain = (
                     {
                         "context": lambda x: format_docs(docs),
@@ -1868,46 +2157,10 @@ if user_name:
             status_placeholder.empty()
             
             # ═══════════════════════════════════════════════════════════════
-            # 🎉 NOTIFICACIONES DE RESPUESTA LISTA
+            # PROCESAMIENTO FINAL Y PERSISTENCIA
             # ═══════════════════════════════════════════════════════════════
             
-            # 1. Toast notification (esquina superior derecha)
-            st.toast('✨ ¡Respuesta lista! Desplázate hacia arriba para leerla.', icon='✅')
-            
-            # 2. Animación de globos
-            st.balloons()
-            
-            # 3. Sonido de aviso (campana)
-            st.markdown("""
-                <audio autoplay>
-                    <source src="data:audio/mp3;base64,SUQzBAAAAAAAI1RTU0UAAAAPAAADTGF2ZjU4Ljc2LjEwMAAAAAAAAAAAAAAA//tQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWGluZwAAAA8AAAACAAADhAC7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7u7/////////////////////////////////////////////////////////////////wAAAABMYXZmNTguNzYuMTAwAAAAAAAAAAAAAAAAJAAAAAAAAAAAA4TjGlKMAAAAAAAAAAAAAAAAAAAA//sQZAAP8AAAaQAAAAgAAA0gAAABAAABpAAAACAAADSAAAAETEFNRTMuMTAwVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV" type="audio/mpeg">
-                </audio>
-                <script>
-                    // Sonido de campana corto y agradable
-                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                    const oscillator = audioContext.createOscillator();
-                    const gainNode = audioContext.createGain();
-                    
-                    oscillator.connect(gainNode);
-                    gainNode.connect(audioContext.destination);
-                    
-                    // Sonido tipo "ding" (campana)
-                    oscillator.frequency.value = 880; // A5 (nota aguda)
-                    oscillator.type = 'sine';
-                    
-                    // Envelope: ataque rápido, decay suave
-                    gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-                    gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01);
-                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-                    
-                    oscillator.start(audioContext.currentTime);
-                    oscillator.stop(audioContext.currentTime + 0.5);
-                </script>
-            """, unsafe_allow_html=True)
-            
-            # ═══════════════════════════════════════════════════════════════
-            
-            # Calcular tiempo total de respuesta
+            # Calcular tiempo total
             query_end_time = datetime.now()
             total_time = (query_end_time - query_start_time).total_seconds()
             
@@ -1919,35 +2172,27 @@ if user_name:
                 'response': response
             })
             
-            # Limpiar descripción inmediatamente si era la primera pregunta
+            # Limpiar descripción inmediatamente
             description_placeholder.empty()
             
-            # Marcar para limpiar campo en siguiente render
+            # Marcar para limpiar campo
             st.session_state.clear_query = True
             st.session_state.last_query = ""
             
-            # Logging a Google Sheets
+            # LOGGING A GOOGLE SHEETS
             if st.session_state.sheets_logger:
                 try:
-                    # Generar ID único para esta interacción
                     interaction_id = str(uuid.uuid4())
                     
-                    # Detectar dispositivo y ubicación
+                    # Detectar dispositivo y ubicación (Simplificado)
                     device_info = {"device_type": "PC", "browser": "Local", "os": "Windows"}
+                    location_info = {"city": st.session_state.get('user_city', 'Local'), "country": st.session_state.get('user_country', 'Colombia'), "ip": "127.0.0.1"}
                     
-                    # Usar ciudad y país del usuario si están disponibles (ingreso manual)
-                    user_city = st.session_state.get('user_city', 'Local')
-                    user_country = st.session_state.get('user_country', 'Colombia')
-                    location_info = {"city": user_city, "country": user_country, "ip": "127.0.0.1"}
-                    
-                    # Detectar dispositivo y ubicación SOLO en Streamlit Cloud
+                    # Intentar detección avanzada si está disponible
                     if GOOGLE_SHEETS_AVAILABLE:
                         try:
-                            # Intentar obtener User-Agent (solo disponible en Cloud)
                             if hasattr(st, "context") and hasattr(st.context, "headers"):
                                 user_agent = st.context.headers.get("User-Agent", "Unknown")
-                                
-                                # Detectar dispositivo
                                 device_detector = DeviceDetector()
                                 device_info_full = device_detector.detect_from_web(user_agent)
                                 device_info = {
@@ -1956,82 +2201,21 @@ if user_name:
                                     "os": device_info_full.get("os", "Windows")
                                 }
                                 
-                                
-                                # ═══════════════════════════════════════════════════════════════
-                                # GEOLOCALIZACIÓN CON IP REAL DEL USUARIO
-                                # La IP se obtiene del JavaScript que se ejecuta AL INICIO de la app
-                                # ═══════════════════════════════════════════════════════════════
-                                
-                                geo_locator = GeoLocator()
-                                
-                                # Obtener IP (probablemente será del servidor en Streamlit Cloud)
-                                location_data = geo_locator.get_location()
-                                detected_ip = location_data.get('ip', '')
-                                
-                                # ═══════════════════════════════════════════════════════════════
-                                # DETECCIÓN DE SERVIDORES CLOUD (Streamlit, Google Cloud, AWS, etc.)
-                                # ═══════════════════════════════════════════════════════════════
-                                cloud_ip_ranges = [
-                                    "35.203.",   # Streamlit Cloud - The Dalles, Oregon
-                                    "35.245.",   # Google Cloud
-                                    "35.247.",   # Google Cloud
-                                    "34.86.",    # Google Cloud
-                                    "34.87.",    # Google Cloud
-                                    "34.105.",   # Google Cloud
-                                    "35.184.",   # Google Cloud
-                                    "35.188.",   # Google Cloud
-                                ]
-                                
-                                is_cloud_server = any(detected_ip.startswith(prefix) for prefix in cloud_ip_ranges)
-                                
-                                if is_cloud_server:
-                                    # SOBRESCRIBIR datos con información genérica
-                                    location_data = {
-                                        "ciudad": "🌐 Usuario Web",
-                                        "pais": "Acceso Remoto",
-                                        "ip": "Protegido",
-                                        "region": "N/A",
-                                        "codigo_pais": "N/A",
-                                        "timezone": "N/A",
-                                        "org": "Streamlit Cloud",
-                                        "fuente": "cloud_detection"
-                                    }
-                                    print(f"")
-                                    print(f"{'='*60}")
-                                    print(f"🌐 SERVIDOR CLOUD DETECTADO (IP: {detected_ip})")
-                                    print(f"✓ Mostrando: Usuario Web / Acceso Remoto")
-                                    print(f"{'='*60}")
-                                    print(f"")
-                                else:
-                                    # IP real del usuario (ejecución local)
-                                    print(f"")
-                                    print(f"{'='*60}")
-                                    print(f"✓✓✓ IP DEL USUARIO: {detected_ip}")
-                                    print(f"✓✓✓ Ciudad: {location_data.get('ciudad', 'N/A')}")
-                                    print(f"✓✓✓ País: {location_data.get('pais', 'N/A')}")
-                                    print(f"✓✓✓ Fuente API: {location_data.get('fuente', 'N/A')}")
-                                    print(f"{'='*60}")
-                                    print(f"")
+                            geo_locator = GeoLocator()
+                            location_data = geo_locator.get_location()
+                            if location_data:
+                                location_info = {
+                                    "city": location_data.get("ciudad", "Desconocido"),
+                                    "country": location_data.get("pais", "Desconocido"),
+                                    "ip": location_data.get("ip", "Desconocido")
+                                }
+                        except Exception:
+                            pass
 
-                                
-                                if location_data:
-                                    location_info = {
-                                        "city": location_data.get("ciudad", "Desconocido"),
-                                        "country": location_data.get("pais", "Desconocido"),
-                                        "ip": location_data.get("ip", "Desconocido")
-                                    }
-                                    print(f"[INFO] Geolocalización FINAL: {location_info['city']}, {location_info['country']} - IP: {location_info['ip']}")
-
-
-                        except Exception as e:
-                            print(f"[WARNING] Error detectando dispositivo/ubicación (usando valores por defecto): {e}")
-                    
-                    # Limpiar respuesta (quitar HTML)
+                    # Limpiar respuesta
                     answer_clean = _strip_html_tags(response)
                     
-                    # Registrar en Google Sheets (solo si el logger está habilitado)
-                    if st.session_state.sheets_logger and st.session_state.sheets_logger.enabled:
-                        print(f"[DEBUG] Intentando registrar interacción: {user_name.upper()} - {query[:50]}...")
+                    if st.session_state.sheets_logger.enabled:
                         st.session_state.sheets_logger.log_interaction(
                             interaction_id=interaction_id,
                             user=user_name.upper(),
@@ -2042,282 +2226,37 @@ if user_name:
                             timing={"total_time": total_time},
                             success=True
                         )
-                        print(f"[OK] Interacción registrada exitosamente")
-                    else:
-                        print("[WARNING] Google Sheets Logger no está habilitado - interacción no registrada")
-                except Exception as e:
-                    print(f"[ERROR] Error logging a Google Sheets: {e}")
-                    import traceback
-                    traceback.print_exc()
-            
-            # Mostrar respuesta
-            st.success("✅ Análisis completado")
-            
-            st.markdown("### 🔬 Resultado del Análisis:")
-            # Colorear las citas antes de mostrar
-            colored_response = colorize_citations(response)
-            # IMPORTANTE: Usar st.html() en vez de st.markdown() para preservar los estilos inline
-            st.html(f'<div class="response-container" id="respuesta-gerard">{colored_response}</div>')
-            
-            # Estadísticas
-            st.markdown(
-                f'<div class="stats">'
-                f'📊 Documentos analizados: {len(docs)} | '
-                f'👤 Usuario: {user_name.upper()} | '
-                f'🕐 Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}'
-                f'</div>',
-                unsafe_allow_html=True
-            )
-            
-            # SEGUNDO SCROLL: Automático hacia el final de la respuesta
-            # SOLUCIÓN RADICAL: Inyectar script directamente en el DOM usando st.markdown
-            # Esto evita el problema del iframe aislado de components.html
-            
-            scroll_placeholder_2 = st.empty()
-            scroll_placeholder_2.markdown(
-                """
-                <script>
-                (function() {
-                    function forceScrollToBottom() {
-                        try {
-                            // Identificar todos los posibles contenedores de scroll
-                            const targets = [
-                                document.querySelector('[data-testid="stAppViewContainer"]'), // Principal en versiones nuevas
-                                document.querySelector('.main'), // Principal en versiones viejas
-                                document.querySelector('.stApp'),
-                                document.documentElement,
-                                document.body
-                            ];
+                except Exception as e_log:
+                    print(f"Error logging: {e_log}")
 
-                            targets.forEach(target => {
-                                if (target) {
-                                    try {
-                                        // Calcular el máximo scroll posible
-                                        const maxScroll = target.scrollHeight - target.clientHeight;
-                                        
-                                        if (maxScroll > 0 && maxScroll > target.scrollTop) {
-                                            // Usar scrollTo nativo con behavior smooth
-                                            target.scrollTo({
-                                                top: maxScroll,
-                                                behavior: 'smooth'
-                                            });
-                                        }
-                                    } catch(e) {
-                                        console.log("Error scrolling target:", e);
-                                    }
-                                }
-                            });
-                            
-                            // Intento global en window
-                            window.scrollTo({
-                                top: document.body.scrollHeight,
-                                behavior: 'smooth'
-                            });
-                            
-                        } catch(e) {
-                            console.error("Error en scroll final:", e);
-                        }
-                    }
-                    
-                    // Ejecutar múltiples veces para asegurar que carga todo el contenido dinámico
-                    // Tiempos escalonados para capturar diferentes velocidades de renderizado
-                    setTimeout(forceScrollToBottom, 300);
-                    setTimeout(forceScrollToBottom, 1000);
-                    setTimeout(forceScrollToBottom, 2500);
-                    setTimeout(forceScrollToBottom, 5000); // Último intento tardío para móviles lentos
-                    
-                })();
-                </script>
-                """,
-                unsafe_allow_html=True
-            )
+            # GUARDAR RESULTADOS PARA VISUALIZACIÓN PERSISTENTE
+            st.session_state.last_results = {
+                'response': response,
+                'docs': docs,
+                'search_time': search_time,
+                'search_method': search_method,
+                'relevant_docs_count': len(relevant_docs)
+            }
             
-            # Botón de descarga PDF (compatible con iframes, PC y móviles)
-            if REPORTLAB_AVAILABLE and len(st.session_state.conversation_history) > 0:
-                st.markdown("---")
-                st.markdown("### 📥 Exportar Conversación")
-                
-                try:
-                    # Construir HTML de toda la conversación
-                    html_parts = []
-                    for entry in st.session_state.conversation_history:
-                        html_parts.append(f'<p style="color: #000000; font-weight: bold;">Pregunta ({entry["timestamp"]}):</p>')
-                        html_parts.append(f'<p style="color: #000000;">{entry["query"]}</p>')
-                        html_parts.append(f'<p style="color: #000000; font-weight: bold;">Respuesta:</p>')
-                        # Aplicar colorización a la respuesta antes de exportar
-                        colored_response = colorize_citations(entry["response"])
-                        html_parts.append(f'<p>{colored_response}</p>')
-                        html_parts.append('<br/>')
-                    
-                    html_parts.append(f'<br/><p style="color: #28a745;">Usuario: {user_name.upper()}</p>')
-                    html_full = ''.join(html_parts)
-                    
-                    # Generar PDF con título completo y sin cortes
-                    pdf_bytes = generate_pdf_from_html_local(
-                        html_full,
-                        title_base=f"Consulta GERARD - {user_name.upper()}",
-                        user_name=user_name.upper()
-                    )
-                    
-                    # Nombre del archivo PDF usando formato original con preguntas
-                    timestamp_str = datetime.now().strftime("%Y%m%d_%H%M")
-                    safe_username = "".join(c for c in user_name if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
-                    
-                    # Construir nombre con TODAS las preguntas (sin límite)
-                    question_parts = []
-                    for entry in st.session_state.conversation_history:
-                        # Limpiar pregunta (SIN truncar - mostrar pregunta completa)
-                        clean_q = "".join(c for c in entry["query"] if c.isalnum() or c in (' ', '_', '-', '?')).strip()
-                        clean_q = clean_q.replace(' ', '_')
-                        # SIN límite de longitud - pregunta completa
-                        if clean_q:
-                            question_parts.append(clean_q)
-                    
-                    # Formato: CONSULTA_DE_[USUARIO]_[pregunta1]?_[pregunta2]?_[pregunta3]?_..._[FECHA]_[HORA].pdf
-                    if question_parts:
-                        questions_str = "_".join(f"{q}?" for q in question_parts)
-                        pdf_filename = f"CONSULTA_DE_{safe_username}_{questions_str}_{timestamp_str}.pdf"
-                    else:
-                        # Fallback si no hay preguntas
-                        pdf_filename = f"CONSULTA_DE_{safe_username}_{timestamp_str}.pdf"
-                    
-                    # Convertir bytes a base64 para JavaScript
-                    pdf_b64 = base64.b64encode(pdf_bytes).decode()
-                    
-                    # JavaScript para descarga compatible con iframes, PC y móviles
-                    # Usamos string normal y .replace() para evitar conflictos con f-strings y llaves
-                    download_js_template = """
-                    <script>
-                    var pdfDownloaded = false;
-                    
-                    // Verificar si ya se descargó este PDF al cargar la página
-                    window.addEventListener('DOMContentLoaded', function() {
-                        const btn = document.getElementById('pdf-download-btn');
-                        if (sessionStorage.getItem('pdfDownloaded_NUM_CONSULTAS') === 'true') {
-                            if (btn) {
-                                btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
-                                btn.style.borderColor = '#00FF41';
-                                btn.style.boxShadow = '0 0 20px rgba(0, 255, 65, 0.6)';
-                                btn.innerHTML = '✅ ¡Descargado Exitosamente!';
-                                pdfDownloaded = true;
-                            }
-                        }
-                    });
-                    
-                    function downloadPDF() {
-                        if (pdfDownloaded) return; // Evitar descargas múltiples
-                        
-                        try {
-                            // Crear blob desde base64
-                            const byteCharacters = atob('PDF_B64_PLACEHOLDER');
-                            const byteNumbers = new Array(byteCharacters.length);
-                            for (let i = 0; i < byteCharacters.length; i++) {
-                                byteNumbers[i] = byteCharacters.charCodeAt(i);
-                            }
-                            const byteArray = new Uint8Array(byteNumbers);
-                            const blob = new Blob([byteArray], {type: 'application/pdf'});
-
-                            // Crear enlace de descarga
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'PDF_FILENAME_PLACEHOLDER';
-                            document.body.appendChild(a);
-                            a.click();
-                            document.body.removeChild(a);
-                            URL.revokeObjectURL(url);
-                            
-                            // Cambiar botón a VERDE NEÓN y mostrar éxito
-                            const btn = document.getElementById('pdf-download-btn');
-                            if (btn) {
-                                btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
-                                btn.style.borderColor = '#00FF41';
-                                btn.style.boxShadow = '0 0 20px rgba(0, 255, 65, 0.6)';
-                                btn.innerHTML = '✅ ¡Descargado Exitosamente!';
-                                pdfDownloaded = true;
-                                
-                                // Guardar estado en sessionStorage para persistir
-                                sessionStorage.setItem('pdfDownloaded_NUM_CONSULTAS', 'true');
-                            }
-                            
-                            // Mostrar alerta nativa de éxito
-                            alert('✅ PDF descargado exitosamente. Revisa tu carpeta de descargas.');
-                            
-                        } catch (e) {
-                            console.error('Error en descarga:', e);
-                            alert('❌ Error al descargar PDF. Intente nuevamente.');
-                        }
-                    }
-                    </script>
-                    <button id="pdf-download-btn" onclick="downloadPDF()" style="
-                        background: linear-gradient(45deg, #ff4b4b, #ff8080);
-                        color: white;
-                        border: 2px solid #ff4b4b;
-                        padding: 12px 20px;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        font-size: 16px;
-                        font-weight: bold;
-                        width: 100%;
-                        margin: 10px 0;
-                        transition: all 0.3s ease;
-                        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                    " onmouseover="if(!pdfDownloaded) this.style.transform='scale(1.02)'" 
-                       onmouseout="if(!pdfDownloaded) this.style.transform='scale(1)'">
-                        📄 Descargar PDF (NUM_CONSULTAS consultaPLURAL_SUFFIX)
-                    </button>
-                    """
-                    
-                    num_consultas = len(st.session_state.conversation_history)
-                    plural_suffix = "s" if num_consultas > 1 else ""
-                    
-                    download_js = download_js_template.replace('NUM_CONSULTAS', str(num_consultas))
-                    download_js = download_js.replace('PDF_B64_PLACEHOLDER', pdf_b64)
-                    download_js = download_js.replace('PDF_FILENAME_PLACEHOLDER', pdf_filename)
-                    download_js = download_js.replace('PLURAL_SUFFIX', plural_suffix)
-                    
-                    st.components.v1.html(download_js, height=80)
-                    
-                except Exception as e:
-                    st.error(f"❌ Error generando PDF: {e}")
-            elif not REPORTLAB_AVAILABLE:
-                st.info("ℹ️ Descarga PDF no disponible (instala reportlab: pip install reportlab)")
-            
-            # Historial de consultas anteriores
-            if len(st.session_state.conversation_history) > 1:
-                st.markdown("---")
-                with st.expander(f"📚 Historial de consultas ({len(st.session_state.conversation_history) - 1} anterior{'es' if len(st.session_state.conversation_history) > 2 else ''})"):
-                    for i, entry in enumerate(st.session_state.conversation_history[:-1]):
-                        st.markdown(f"**🔍 Consulta #{i+1}** — _{entry['timestamp']}_")
-                        st.markdown(f"**Pregunta:** {entry['query']}")
-                        if st.button(f"👁️ Ver respuesta completa", key=f"view_resp_{i}"):
-                            st.markdown(entry['response'], unsafe_allow_html=True)
-                        st.markdown("---")
-            
-            # Botón Nueva Consulta
-            st.markdown("<br>", unsafe_allow_html=True)
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col2:
-                if st.button("➕ NUEVA CONSULTA", key="new_query_btn", use_container_width=True):
-                    # Scroll to top
-                    components.html("""
-                        <script>
-                        window.parent.document.querySelector('.main').scrollTo({top: 0, behavior: 'smooth'});
-                        </script>
-                    """, height=0)
-                    st.rerun()
-            
-            # Guardar en log
-            with open("gerard_web_log.txt", "a", encoding="utf-8") as f:
-                f.write(f"\n{'='*80}\n")
-                f.write(f"Timestamp: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write(f"Usuario: {user_name.upper()}\n")
-                f.write(f"Consulta: {query}\n")
-                f.write(f"Respuesta:\n{response}\n")
-                f.write(f"{'='*80}\n")
+            # MARCAR COMO EJECUTADO Y RECARGAR
+            st.session_state.question_executed = True
+            st.session_state.last_executed_query = query
+            st.rerun()
             
         except Exception as e:
             st.error(f"❌ Error durante el análisis: {str(e)}")
+
+    # MOSTRAR RESULTADOS PERSISTENTES (Fuera del if search_button)
+    if st.session_state.question_executed and query and query == st.session_state.last_executed_query and 'last_results' in st.session_state:
+        res = st.session_state.last_results
+        display_analysis_result(
+            res['response'], 
+            res['docs'], 
+            res['search_time'], 
+            res['search_method'], 
+            res['relevant_docs_count'], 
+            user_name
+        )
 
 # Pie de página
 # Pie de página fijo y estilizado
