@@ -1,152 +1,151 @@
 
-import re
 import io
+import re
 from datetime import datetime
+
+# Intentar importar WeasyPrint
+try:
+    from weasyprint import HTML, CSS
+    WEASYPRINT_AVAILABLE = True
+except ImportError:
+    WEASYPRINT_AVAILABLE = False
+    print("[WARNING] WeasyPrint no encontrado. Se usará ReportLab como fallback.")
+
+# Importar ReportLab (Fallback)
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.enums import TA_JUSTIFY, TA_LEFT, TA_CENTER
-
-def _clean_html_for_pdf(text):
-    """
-    Convierte HTML básico y estilos CSS inline a tags XML de ReportLab.
-    Soporta:
-    - Negritas (** o <b>)
-    - Colores (span style="color:...")
-    - Saltos de línea
-    """
-    if not text:
-        return ""
-    
-    # 1. Reemplazar saltos de línea
-    text = text.replace('\n', '<br/>')
-    
-    # 2. Reemplazar negritas markdown
-    text = re.sub(r'\*\*(.*?)\*\*', r'<b>\1</b>', text)
-    
-    # 3. Convertir colores hexadecimales a tags <font color="...">
-    # Mapeo de colores comunes en la app
-    # Verde (Citas/Usuario)
-    text = re.sub(r'<span[^>]*style="[^"]*color:\s*#28a745[^"]*"[^>]*>(.*?)</span>', r'<font color="#28a745">\1</font>', text, flags=re.IGNORECASE)
-    # Azul (Enlaces/Títulos)
-    text = re.sub(r'<span[^>]*style="[^"]*color:\s*#007bff[^"]*"[^>]*>(.*?)</span>', r'<font color="#007bff">\1</font>', text, flags=re.IGNORECASE)
-    # Rojo (Alertas)
-    text = re.sub(r'<span[^>]*style="[^"]*color:\s*#dc3545[^"]*"[^>]*>(.*?)</span>', r'<font color="#dc3545">\1</font>', text, flags=re.IGNORECASE)
-    # Rosa/Magenta (Títulos especiales)
-    text = re.sub(r'<span[^>]*style="[^"]*color:\s*#e83e8c[^"]*"[^>]*>(.*?)</span>', r'<font color="#e83e8c">\1</font>', text, flags=re.IGNORECASE)
-    
-    # 4. Limpiar otros tags HTML no soportados pero dejar el contenido
-    # (Opcional: si hay tags que rompen el PDF, los quitamos aquí)
-    
-    return text
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
 
 def generate_pdf_from_html(html_content, title_base="Consulta GERARD", user_name="Usuario"):
     """
-    Genera un PDF profesional preservando estilos y colores.
+    Genera un PDF profesional.
+    Prioridad: WeasyPrint (CSS completo).
+    Fallback: ReportLab (Estilos básicos).
     """
+    
+    # 1. Intentar WeasyPrint (Calidad Profesional)
+    if WEASYPRINT_AVAILABLE:
+        try:
+            return _generate_weasyprint(html_content, title_base, user_name)
+        except Exception as e:
+            print(f"[ERROR] WeasyPrint falló: {e}. Intentando fallback...")
+    
+    # 2. Fallback a ReportLab
+    return _generate_reportlab(html_content, title_base, user_name)
+
+def _generate_weasyprint(html_content, title_base, user_name):
+    """Generación con WeasyPrint (Soporte CSS completo)"""
+    date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    
+    # CSS Profesional
+    css_string = """
+    @page {
+        size: A4;
+        margin: 2cm;
+        @bottom-right {
+            content: "Página " counter(page);
+            font-family: 'Helvetica', sans-serif;
+            font-size: 9pt;
+        }
+        @bottom-left {
+            content: "Generado por Consultor GERARD";
+            font-family: 'Helvetica', sans-serif;
+            font-size: 9pt;
+            color: #666;
+        }
+    }
+    body {
+        font-family: 'Helvetica', 'Arial', sans-serif;
+        font-size: 11pt;
+        line-height: 1.5;
+        color: #333;
+    }
+    h1 {
+        color: #1a237e; /* Azul oscuro */
+        text-align: center;
+        border-bottom: 2px solid #1a237e;
+        padding-bottom: 10px;
+        margin-bottom: 20px;
+    }
+    h2 {
+        color: #283593;
+        margin-top: 20px;
+        border-bottom: 1px solid #eee;
+    }
+    h3 {
+        color: #303f9f;
+        margin-top: 15px;
+    }
+    .meta-info {
+        text-align: center;
+        color: #666;
+        font-size: 10pt;
+        margin-bottom: 30px;
+        background-color: #f5f5f5;
+        padding: 10px;
+        border-radius: 5px;
+    }
+    /* Colores específicos de la app */
+    .quote-green { color: #28a745; font-weight: bold; }
+    .link-blue { color: #007bff; text-decoration: none; }
+    .alert-red { color: #dc3545; font-weight: bold; }
+    
+    /* Preservar estilos inline del HTML original */
+    span[style*="color: #28a745"] { color: #28a745 !important; font-weight: bold; }
+    span[style*="color: #007bff"] { color: #007bff !important; }
+    span[style*="color: #dc3545"] { color: #dc3545 !important; }
+    """
+    
+    # Preparar HTML completo
+    full_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <title>{title_base}</title>
+    </head>
+    <body>
+        <h1>{title_base}</h1>
+        <div class="meta-info">
+            <b>Usuario:</b> {user_name} | <b>Fecha:</b> {date_str}
+        </div>
+        <div class="content">
+            {html_content}
+        </div>
+    </body>
+    </html>
+    """
+    
+    # Generar PDF
     buffer = io.BytesIO()
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=50,
-        leftMargin=50,
-        topMargin=50,
-        bottomMargin=50,
-        title=title_base
-    )
+    html = HTML(string=full_html)
+    css = CSS(string=css_string)
+    html.write_pdf(target=buffer, stylesheets=[css])
     
+    buffer.seek(0)
+    return buffer.getvalue()
+
+def _generate_reportlab(html_content, title_base, user_name):
+    """Generación con ReportLab (Fallback)"""
+    # ... (Código ReportLab anterior como fallback) ...
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
-    
-    # Estilos Personalizados
-    style_title = ParagraphStyle(
-        'CustomTitle',
-        parent=styles['Heading1'],
-        fontSize=18,
-        textColor=colors.HexColor('#1f2937'),
-        alignment=TA_CENTER,
-        spaceAfter=20
-    )
-    
-    style_subtitle = ParagraphStyle(
-        'CustomSubtitle',
-        parent=styles['Heading2'],
-        fontSize=12,
-        textColor=colors.HexColor('#6b7280'),
-        alignment=TA_CENTER,
-        spaceAfter=30
-    )
-    
-    style_body = ParagraphStyle(
-        'CustomBody',
-        parent=styles['Normal'],
-        fontSize=10,
-        leading=14,
-        alignment=TA_JUSTIFY,
-        spaceAfter=10
-    )
-    
     story = []
     
-    # 1. Encabezado
-    date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    story.append(Paragraph(title_base, style_title))
-    story.append(Paragraph(f"Generado para: {user_name} | Fecha: {date_str}", style_subtitle))
-    story.append(Spacer(1, 10))
-    story.append(Paragraph("_" * 60, style_subtitle)) # Línea separadora
-    story.append(Spacer(1, 20))
+    story.append(Paragraph(title_base, styles['Heading1']))
+    story.append(Paragraph(f"Usuario: {user_name}", styles['Normal']))
+    story.append(Spacer(1, 12))
     
-    # 2. Procesar Contenido
-    # Dividimos por bloques para manejar mejor los párrafos
-    # Asumimos que el contenido viene con <br/> o \n
+    # Limpieza básica para ReportLab
+    clean_text = re.sub(r'<[^>]+>', '', html_content).replace('\n', '<br/>')
+    story.append(Paragraph(clean_text, styles['Normal']))
     
-    processed_html = _clean_html_for_pdf(html_content)
-    
-    # Dividir por <br/> para crear párrafos separados
-    paragraphs = processed_html.split('<br/>')
-    
-    for p_text in paragraphs:
-        if not p_text.strip():
-            continue
-            
-        # Detectar si es un título (empieza con ### o similar en markdown, o tiene estilo de título)
-        if p_text.strip().startswith('###'):
-            # Título nivel 3
-            clean_text = p_text.replace('###', '').strip()
-            story.append(Paragraph(f"<b>{clean_text}</b>", styles['Heading3']))
-        elif p_text.strip().startswith('##'):
-             # Título nivel 2
-            clean_text = p_text.replace('##', '').strip()
-            story.append(Paragraph(f"<b>{clean_text}</b>", styles['Heading2']))
-        elif p_text.strip().startswith('**') and p_text.strip().endswith('**'):
-            # Posible subtítulo en negrita
-            story.append(Paragraph(p_text, styles['Heading4']))
-        else:
-            # Párrafo normal
-            try:
-                story.append(Paragraph(p_text, style_body))
-            except Exception as e:
-                # Fallback si hay tags mal formados
-                clean_text = re.sub(r'<[^>]+>', '', p_text)
-                story.append(Paragraph(clean_text, style_body))
-        
-        story.append(Spacer(1, 6))
-
-    # 3. Construir PDF
-    try:
-        doc.build(story)
-        buffer.seek(0)
-        return buffer.getvalue()
-    except Exception as e:
-        print(f"[ERROR PDF] {e}")
-        return b""
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
 
 if __name__ == "__main__":
-    # Prueba local
-    sample_html = """
-    <h3>Título de Prueba</h3>
-    <p>Esto es un texto normal.</p>
-    <p>Esto es <span style="color: #28a745;">texto verde</span> y esto es **negrita**.</p>
-    """
-    pdf = generate_pdf_from_html(sample_html, "Prueba", "Tester")
-    print(f"PDF generado: {len(pdf)} bytes")
+    print(f"WeasyPrint disponible: {WEASYPRINT_AVAILABLE}")
