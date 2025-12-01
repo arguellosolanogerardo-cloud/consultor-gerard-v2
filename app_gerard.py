@@ -1440,7 +1440,7 @@ if not st.session_state.user_name:
                     redirect_uri = "http://localhost:8501/"
                 else:
                     # En producción (Streamlit Cloud)
-                    redirect_uri = "https://consultor-gerard-v3-bczzmyukdsww2clof4srcz.streamlit.app/"
+                    redirect_uri = "https://consultor-gerard-v3-zrg5ejmgryrttxhtxwqlxz.streamlit.app/"
             except:
                 # Fallback: Detectar por variables de entorno
                 import socket
@@ -1448,7 +1448,7 @@ if not st.session_state.user_name:
                 
                 # Si el hostname contiene 'streamlit' o estamos en un entorno cloud
                 if 'streamlit' in hostname.lower() or os.getenv('STREAMLIT_SHARING_MODE'):
-                    redirect_uri = "https://consultor-gerard-v3-bczzmyukdsww2clof4srcz.streamlit.app/"
+                    redirect_uri = "https://consultor-gerard-v3-zrg5ejmgryrttxhtxwqlxz.streamlit.app/"
                 else:
                     # Entorno local
                     redirect_uri = "http://localhost:8501/"
