@@ -1222,7 +1222,7 @@ if not st.session_state.user_name:
             # Ocultando botón de Google temporalmente
 
         # --- OPCIÓN 2: NOMBRE MANUAL ---
-        st.markdown("### ✍️ Ingreso Manual")
+        st.markdown("### 🔐 ACCESO SEGURO")
         
         # Lista de países más comunes (puede expandirse)
         PAISES = [
