@@ -5,6 +5,7 @@ Usa Vertex AI con credenciales JSON
 """
 import os
 import streamlit as st
+import pdf_generator
 from datetime import datetime
 import time
 import re
@@ -126,7 +127,7 @@ def _convert_spans_to_font_tags_pdf(html: str) -> str:
     s = _escape_ampersand_pdf(s)
     return s
 
-def generate_pdf_from_html_local(
+def pdf_generator.generate_pdf_from_html(
     html_content: str, 
     title_base: str = "Conversacion GERARD", 
     user_name: str | None = None
@@ -1969,7 +1970,7 @@ if user_name:
                     html_full = ''.join(html_parts)
                     
                     # Generar PDF con título completo y sin cortes
-                    pdf_bytes = generate_pdf_from_html_local(
+                    pdf_bytes = pdf_generator.generate_pdf_from_html(
                         html_full,
                         title_base=f"Consulta GERARD - {user_name.upper()}",
                         user_name=user_name.upper()
