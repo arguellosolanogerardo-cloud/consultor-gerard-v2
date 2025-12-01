@@ -127,7 +127,7 @@ def _convert_spans_to_font_tags_pdf(html: str) -> str:
     s = _escape_ampersand_pdf(s)
     return s
 
-def pdf_generator.generate_pdf_from_html(
+def generate_pdf_from_html_wrapper(
     html_content: str, 
     title_base: str = "Conversacion GERARD", 
     user_name: str | None = None
