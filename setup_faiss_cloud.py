@@ -1,5 +1,6 @@
+
 """
-Script para configurar índice FAISS en Streamlit Cloud
+Script para configurar índice FAISS y BM25 en Streamlit Cloud
 Descarga desde GitHub Release v3
 """
 
@@ -8,186 +9,143 @@ import sys
 import requests
 from pathlib import Path
 
+# Configuración del Repositorio
+REPO_OWNER = "arguellosolanogerardo-cloud"
+REPO_NAME = "consultor-gerard-v3"
+TAG = "faiss-index-v1"
+
+def download_file(url, filepath):
+    """Descarga un archivo individual con barra de progreso"""
+    try:
+        print(f"[INFO] Descargando {filepath.name}...")
+        print(f"[INFO] URL: {url}")
+        
+        response = requests.get(url, stream=True, timeout=600)
+        
+        if response.status_code == 200:
+            with open(filepath, 'wb') as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+            
+            size_mb = filepath.stat().st_size / (1024 * 1024)
+            print(f"[SUCCESS] ✅ Descargado: {filepath.name} ({size_mb:.2f} MB)")
+            return True
+        else:
+            print(f"[WARNING] ⚠️  No se pudo descargar {filepath.name} (HTTP {response.status_code})")
+            return False
+    except Exception as e:
+        print(f"[ERROR] Error descargando {filepath.name}: {e}")
+        return False
+
 def download_faiss_from_release():
     """Descarga índice FAISS desde GitHub Release"""
-    
-    # URL del índice FAISS en GitHub Release (NUEVO - v3)
-    REPO_OWNER = "arguellosolanogerardo-cloud"
-    REPO_NAME = "consultor-gerard-v3"
-    TAG = "faiss-index-v1"
     
     faiss_dir = Path("faiss_index")
     faiss_dir.mkdir(exist_ok=True)
     
-    # Archivos a descargar
+    # Archivos FAISS (Mandatorios)
     files = {
         "index.faiss": f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/{TAG}/index.faiss",
         "index.pkl": f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/{TAG}/index.pkl"
     }
     
     print("[INFO] Descargando índice FAISS desde GitHub Release...")
-    print(f"[INFO] Repository: {REPO_OWNER}/{REPO_NAME}")
-    print(f"[INFO] Tag: {TAG}")
     
-    try:
-        for filename, url in files.items():
-            filepath = faiss_dir / filename
-            
-            print(f"[INFO] Descargando {filename}...")
-            print(f"[INFO] URL: {url}")
-            
-            # Descargar archivo
-            response = requests.get(url, stream=True, timeout=600)
-            
-            if response.status_code == 200:
-                # Guardar archivo
-                with open(filepath, 'wb') as f:
-                    total_size = int(response.headers.get('content-length', 0))
-                    downloaded = 0
-                    
-                    for chunk in response.iter_content(chunk_size=8192):
-                        if chunk:
-                            f.write(chunk)
-                            downloaded += len(chunk)
-                
-                size_mb = filepath.stat().st_size / (1024 * 1024)
-                print(f"[SUCCESS] ✅ Descargado: {filename} ({size_mb:.2f} MB)")
-            else:
-                print(f"[ERROR] ❌ Error descargando {filename} (HTTP {response.status_code})")
-                return False
+    success = True
+    for filename, url in files.items():
+        filepath = faiss_dir / filename
+        if not download_file(url, filepath):
+            success = False
+    
+    if success:
+        # Crear marcador de descarga completa
+        with open(faiss_dir / ".faiss_ready", "w") as f:
+            f.write("downloaded_from_release")
+        print("[SUCCESS] ✅ Índice FAISS completo listo")
+        return True
+    else:
+        print("[ERROR] ❌ Faltan archivos FAISS")
+        return False
+
+def download_bm25_if_missing():
+    """Descarga BM25 si no existe (Opcional)"""
+    bm25_path = Path("bm25_index.pkl")
+    
+    if bm25_path.exists():
+        print("[INFO] ✅ Índice BM25 ya disponible")
+        return True
         
-        # Verificar que ambos archivos existen
-        if (faiss_dir / "index.faiss").exists() and (faiss_dir / "index.pkl").exists():
-            print("[SUCCESS] ✅ Índice FAISS completo descargado y listo para usar")
-            
-            # Crear marcador de descarga completa
-            with open(faiss_dir / ".faiss_ready", "w") as f:
-                f.write("downloaded_from_release")
-            
-            return True
-        else:
-            print("[ERROR] ❌ Faltan archivos después de la descarga")
-            return False
+    print("[INFO] Índice BM25 no encontrado. Intentando descargar...")
+    url = f"https://github.com/{REPO_OWNER}/{REPO_NAME}/releases/download/{TAG}/bm25_index.pkl"
     
-    except Exception as e:
-        print(f"[ERROR] Error descargando: {e}")
-        import traceback
-        traceback.print_exc()
+    if download_file(url, bm25_path):
+        print("[SUCCESS] ✅ Índice BM25 descargado y listo")
+        return True
+    else:
+        print("[WARNING] ⚠️  BM25 no disponible en Release. La búsqueda híbrida estará desactivada.")
         return False
 
 def check_faiss_exists():
-    """Verifica si ya existe el índice FAISS COMPLETO desde GitHub Release"""
-    faiss_files = [
-        Path("faiss_index/index.faiss"),
-        Path("faiss_index/index.pkl"),
-    ]
-    
-    # Verificar que todos los archivos existan
-    all_exist = all(f.exists() for f in faiss_files)
-    
-    if not all_exist:
-        return False
-    
-    # Verificar que tenga el marcador de descarga desde Release
+    """Verifica si ya existe el índice FAISS COMPLETO"""
+    faiss_files = [Path("faiss_index/index.faiss"), Path("faiss_index/index.pkl")]
     marker = Path("faiss_index/.faiss_ready")
-    if not marker.exists():
-        print("[WARNING] ⚠️  Índice FAISS existe pero NO tiene marcador de Release")
-        print("[WARNING] ⚠️  Probablemente es un placeholder antiguo")
-        print("[INFO] Se eliminará y descargará el índice completo")
-        
-        # Eliminar índice antiguo
-        import shutil
+    
+    if all(f.exists() for f in faiss_files) and marker.exists():
+        # Verificar contenido del marcador
         try:
-            shutil.rmtree("faiss_index")
-            print("[INFO] Índice antiguo eliminado")
-        except Exception as e:
-            print(f"[WARNING] Error eliminando índice antiguo: {e}")
-        
-        return False
-    
-    # Si tiene el marcador, verificar contenido
-    with open(marker, 'r') as f:
-        content = f.read().strip()
-    
-    if content == "downloaded_from_release":
-        # Mostrar tamaño de archivos
-        for f in faiss_files:
-            size_mb = f.stat().st_size / (1024 * 1024)
-            print(f"[INFO] Índice FAISS encontrado: {f} ({size_mb:.2f} MB)")
-        return True
-    else:
-        print("[WARNING] ⚠️  Marcador de índice inválido")
-        return False
-
+            with open(marker, 'r') as f:
+                if f.read().strip() == "downloaded_from_release":
+                    return True
+        except:
+            pass
+            
+    return False
 
 def create_empty_faiss_placeholder():
     """Crea un índice FAISS vacío como placeholder"""
     print("[INFO] Creando índice FAISS placeholder...")
-    
     try:
         from langchain_google_vertexai import VertexAIEmbeddings
         from langchain_community.vectorstores import FAISS
         from langchain_core.documents import Document
         
-        # Crear embeddings
-        embeddings = VertexAIEmbeddings(
-            model_name="text-multilingual-embedding-002",
-            project="midyear-node-436821-t3"
-        )
-        
-        # Crear un documento placeholder
-        placeholder_doc = Document(
-            page_content="ÍNDICE FAISS NO DISPONIBLE - Los documentos fuente no están en Streamlit Cloud. Para usar la app completa, descarga el índice desde GitHub Release o ejecútala localmente.",
-            metadata={"source": "placeholder", "timestamp": "00:00:00,000 --> 00:00:00,000"}
-        )
-        
-        # Crear índice FAISS con el placeholder
+        embeddings = VertexAIEmbeddings(model_name="text-multilingual-embedding-002", project="midyear-node-436821-t3")
+        placeholder_doc = Document(page_content="ÍNDICE NO DISPONIBLE", metadata={"source": "placeholder"})
         faiss_vs = FAISS.from_documents([placeholder_doc], embeddings)
         
-        # Guardar
         faiss_dir = Path("faiss_index")
         faiss_dir.mkdir(exist_ok=True)
         faiss_vs.save_local(str(faiss_dir))
-        
-        print("[SUCCESS] ✅ Índice FAISS placeholder creado")
-        print("[WARNING] ⚠️  Este índice está VACÍO - no contiene documentos reales")
         return True
-    
     except Exception as e:
         print(f"[ERROR] Error creando placeholder: {e}")
-        import traceback
-        traceback.print_exc()
         return False
 
 def setup_faiss():
-    """Configuración principal del índice FAISS"""
-    
+    """Configuración principal"""
     print("\n" + "="*60)
-    print("CONFIGURACIÓN DE ÍNDICE FAISS PARA STREAMLIT CLOUD")
+    print("CONFIGURACIÓN DE ÍNDICES (FAISS + BM25)")
     print("="*60 + "\n")
     
-    # 1. Verificar si ya existe
+    # 1. Configurar FAISS (Prioridad)
+    faiss_ready = False
     if check_faiss_exists():
-        print("[INFO] ✅ Índice FAISS ya disponible")
-        return True
+        print("[INFO] ✅ Índice FAISS verificado")
+        faiss_ready = True
+    else:
+        if download_faiss_from_release():
+            faiss_ready = True
+        else:
+            print("[WARNING] Falló descarga FAISS. Creando placeholder...")
+            create_empty_faiss_placeholder()
+            # No retornamos False aquí para permitir que la app arranque aunque sea vacía
     
-    # 2. Intentar descargar desde GitHub Release
-    print("\n[PASO 1] Intentando descarga desde GitHub Release...")
-    if download_faiss_from_release():
-        return True
+    # 2. Configurar BM25 (Complementario)
+    # Intentamos descargar siempre si falta, independientemente de FAISS
+    download_bm25_if_missing()
     
-    # 3. Crear placeholder (ya que no hay documentos SRT en la nube)
-    print("\n[PASO 2] Descarga falló, creando índice placeholder...")
-    print("[INFO] Los documentos SRT no están disponibles en Streamlit Cloud")
-    print("[INFO] Se creará un índice vacío para evitar errores")
-    
-    if create_empty_faiss_placeholder():
-        return True
-    
-    # 4. Error crítico
-    print("\n[ERROR] ❌ No se pudo configurar el índice FAISS")
-    print("La aplicación no podrá funcionar sin el índice.")
-    return False
+    return True
 
 if __name__ == "__main__":
     success = setup_faiss()
