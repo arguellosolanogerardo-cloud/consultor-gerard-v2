@@ -1428,30 +1428,15 @@ if not st.session_state.user_name:
             st.markdown("### 🔐 Acceso Seguro")
             
             # Botón de Login con Google
-            # Detectar URL base para redirect (detectar automáticamente local vs cloud)
-            # En local usamos localhost:8501, en cloud usamos la URL de Streamlit Cloud
-            try:
-                # Intentar obtener la URL actual desde Streamlit (solo funciona en Cloud)
-                from streamlit.web import cli as stcli
-                import sys
-                
-                # Verificar si estamos en desarrollo local
-                if '--server.port' in sys.argv or 'localhost' in str(st.get_option('browser.serverAddress')):
-                    redirect_uri = "http://localhost:8501/"
-                else:
-                    # En producción (Streamlit Cloud)
-                    redirect_uri = "https://consultor-gerard-v3-zrg5ejmgryrttxhtxwqlxz.streamlit.app/"
-            except:
-                # Fallback: Detectar por variables de entorno
-                import socket
-                hostname = socket.gethostname()
-                
-                # Si el hostname contiene 'streamlit' o estamos en un entorno cloud
-                if 'streamlit' in hostname.lower() or os.getenv('STREAMLIT_SHARING_MODE'):
-                    redirect_uri = "https://consultor-gerard-v3-zrg5ejmgryrttxhtxwqlxz.streamlit.app/"
-                else:
-                    # Entorno local
-                    redirect_uri = "http://localhost:8501/"
+            # Detectar URL base para redirect (Estrategia robusta por SO)
+            # Local (Usuario) = Windows ('nt')
+            # Cloud (Streamlit) = Linux ('posix')
+            if os.name == 'nt':
+                redirect_uri = "http://localhost:8501/"
+                print("[INFO] Entorno detectado: LOCAL (Windows)")
+            else:
+                redirect_uri = "https://consultor-gerard-v3-zrg5ejmgryrttxhtxwqlxz.streamlit.app/"
+                print("[INFO] Entorno detectado: CLOUD (Linux/Otro)")
             
             print(f"[INFO] Usando redirect_uri: {redirect_uri}")
             login_url = auth_google.get_login_url(redirect_uri) 
