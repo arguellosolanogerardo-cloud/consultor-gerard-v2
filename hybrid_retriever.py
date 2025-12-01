@@ -45,9 +45,16 @@ class HybridRetriever(BaseRetriever):
             k: Número de documentos a retornar
             alpha: Peso para resultados FAISS (0-1)
         """
+        import os
+        if not os.path.exists(bm25_path):
+            raise FileNotFoundError(f"Índice BM25 no encontrado en: {bm25_path}")
+            
         # Cargar índice BM25
-        with open(bm25_path, 'rb') as f:
-            bm25_data = pickle.load(f)
+        try:
+            with open(bm25_path, 'rb') as f:
+                bm25_data = pickle.load(f)
+        except Exception as e:
+            raise ValueError(f"Error cargando índice BM25 (posible corrupción): {e}")
         
         super().__init__(
             faiss_retriever=faiss_retriever,
