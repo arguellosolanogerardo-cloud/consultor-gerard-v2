@@ -1188,7 +1188,6 @@ if not st.session_state.user_name:
     with col2:
         # --- OPCIÓN 1: LOGIN CON GOOGLE (Solo si está disponible) ---
         if GOOGLE_AUTH_AVAILABLE:
-            st.markdown("### 🔐 Acceso Seguro")
             
             # Botón de Login con Google
             # Detectar URL base para redirect
