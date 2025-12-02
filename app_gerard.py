@@ -2063,9 +2063,8 @@ if user_name:
                 # Obtener retriever
                 if exhaustive_search:
                     # Modo exhaustivo: Híbrido con más documentos (Quirúrgico)
-                    # Usa HybridRetriever con k=200 para capturar TODO.
-                    # Pasa documents=st.session_state.all_docs para generar índice en memoria
-                    retriever = HybridRetriever(
+                    # Usa HybridRetriever.build para crear la instancia de forma segura
+                    retriever = HybridRetriever.build(
                         faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 200}),
                         documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
                         k=200,
@@ -2074,7 +2073,7 @@ if user_name:
                     search_method = 'hybrid_surgical'
                 else:
                     # Modo normal: Híbrido estándar
-                    retriever = HybridRetriever(
+                    retriever = HybridRetriever.build(
                         faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 100}),
                         documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
                         k=100

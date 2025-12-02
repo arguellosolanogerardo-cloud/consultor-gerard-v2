@@ -37,27 +37,28 @@ class HybridRetriever(BaseRetriever):
     k: int = 10
     alpha: float = 0.7  # Peso para FAISS (0.7 = 70% semántica, 30% léxica)
     
-    def __init__(self, faiss_retriever, bm25_path: str = "bm25_index.pkl", documents: List[Document] = None, k: int = 10, alpha: float = 0.7):
+    @classmethod
+    def build(cls, faiss_retriever, bm25_path: str = "bm25_index.pkl", documents: List[Document] = None, k: int = 10, alpha: float = 0.7):
         """
-        Args:
-            faiss_retriever: Retriever de FAISS
-            bm25_path: Ruta al índice BM25 (opcional si se pasa documents)
-            documents: Lista de documentos para construir índice en memoria (prioridad sobre path)
-            k: Número de documentos a retornar
-            alpha: Peso para resultados FAISS (0-1)
+        Factory method para crear HybridRetriever de forma segura con Pydantic.
+        Maneja la lógica de carga/generación del índice antes de instanciar la clase.
         """
         import os
         from rank_bm25 import BM25Okapi
         
+        bm25_index = None
+        bm25_docs = []
+        bm25_metadatas = []
+        
         if documents:
             # Construir índice en memoria (Ideal para Cloud)
             print(f"[INFO] Construyendo índice BM25 en memoria con {len(documents)} documentos...")
-            self.bm25_docs = [doc.page_content for doc in documents]
-            self.bm25_metadatas = [doc.metadata for doc in documents]
+            bm25_docs = [doc.page_content for doc in documents]
+            bm25_metadatas = [doc.metadata for doc in documents]
             
             # Tokenizar todos los documentos
-            tokenized_docs = [tokenize_clean(doc) for doc in self.bm25_docs]
-            self.bm25_index = BM25Okapi(tokenized_docs)
+            tokenized_docs = [tokenize_clean(doc) for doc in bm25_docs]
+            bm25_index = BM25Okapi(tokenized_docs)
             print("[INFO] Índice BM25 construido exitosamente.")
             
         else:
@@ -70,17 +71,18 @@ class HybridRetriever(BaseRetriever):
                 with open(bm25_path, 'rb') as f:
                     bm25_data = pickle.load(f)
                 
-                self.bm25_index = bm25_data['bm25']
-                self.bm25_docs = bm25_data['docs']
-                self.bm25_metadatas = bm25_data['metadatas']
+                bm25_index = bm25_data['bm25']
+                bm25_docs = bm25_data['docs']
+                bm25_metadatas = bm25_data['metadatas']
             except Exception as e:
                 raise ValueError(f"Error cargando índice BM25 (posible corrupción): {e}")
         
-        super().__init__(
+        # Instanciar la clase usando el constructor estándar de Pydantic
+        return cls(
             faiss_retriever=faiss_retriever,
-            bm25_index=self.bm25_index,
-            bm25_docs=self.bm25_docs,
-            bm25_metadatas=self.bm25_metadatas,
+            bm25_index=bm25_index,
+            bm25_docs=bm25_docs,
+            bm25_metadatas=bm25_metadatas,
             k=k,
             alpha=alpha
         )
