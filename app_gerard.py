@@ -366,11 +366,16 @@ st.markdown("""
     /* Inputs y TextArea */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
-        background-color: rgba(30, 30, 46, 0.95) !important;
-        color: #61AFEF !important;
+        background-color: rgba(230, 230, 250, 0.9) !important; /* Fondo claro (Lavender) para contraste con azul oscuro */
+        color: #00008B !important; /* Azul Oscuro */
         border: 2px solid #61AFEF !important;
         border-radius: 8px !important;
-        font-size: clamp(0.9em, 2.5vw, 1em) !important;
+        font-family: Arial, sans-serif !important;
+        font-size: 22px !important;
+        font-weight: bold !important;
+        font-style: italic !important;
+        text-decoration: underline !important;
+        text-transform: uppercase !important;
         padding: 12px !important;
     }
     
