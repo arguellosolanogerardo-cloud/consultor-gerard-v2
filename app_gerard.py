@@ -2053,20 +2053,19 @@ if user_name:
                 # Obtener retriever
                 if exhaustive_search:
                     # Modo exhaustivo: Híbrido con más documentos (Quirúrgico)
-                    # Antes usaba solo FAISS, lo que perdía precisión en nombres propios.
-                    # Ahora usa HybridRetriever con k=200 para capturar TODO.
+                    # Usa HybridRetriever con k=200 para capturar TODO.
                     retriever = HybridRetriever(
-                        vector_retriever=faiss_vs.as_retriever(search_kwargs={"k": 200}),
-                        bm25_retriever=BM25Retriever.from_documents(st.session_state.all_docs) if 'all_docs' in st.session_state else None,
+                        faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 200}),
+                        bm25_path="bm25_index.pkl",
                         k=200,
-                        alpha=0.6 # Ligeramente más peso a BM25 en modo exhaustivo implícitamente por el volumen
+                        alpha=0.6 
                     )
                     search_method = 'hybrid_surgical'
                 else:
                     # Modo normal: Híbrido estándar
                     retriever = HybridRetriever(
-                        vector_retriever=faiss_vs.as_retriever(search_kwargs={"k": 100}),
-                        bm25_retriever=BM25Retriever.from_documents(st.session_state.all_docs) if 'all_docs' in st.session_state else None,
+                        faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 100}),
+                        bm25_path="bm25_index.pkl",
                         k=100
                     )
                 
