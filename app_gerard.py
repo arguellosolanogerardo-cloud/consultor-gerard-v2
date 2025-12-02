@@ -93,6 +93,7 @@ def generate_pdf_from_html_local(
                         margin: 20px 0;
                         page-break-after: avoid;
                         color: #000;
+                        text-transform: uppercase;
                     }
                     h2 {
                         font-size: 14pt;
@@ -1768,7 +1769,8 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             # Construir HTML de toda la conversación
             html_parts = []
             for entry in st.session_state.conversation_history:
-                html_parts.append(f'<p style="color: #000000; font-weight: bold;">Pregunta ({entry["timestamp"]}):</p>')
+                # Estilo específico solicitado: ARIAL, SUBRAYADO, NEGRITA, NEGRO, TAMAÑO 26
+                html_parts.append(f'<p style="font-family: Arial, sans-serif; text-decoration: underline; font-weight: bold; color: #000000; font-size: 26pt; margin-bottom: 10px;">PREGUNTA ({entry["timestamp"]}):</p>')
                 html_parts.append(f'<p style="color: #000000;">{entry["query"]}</p>')
                 html_parts.append(f'<p style="color: #000000; font-weight: bold;">Respuesta:</p>')
                 # Aplicar colorización a la respuesta antes de exportar
