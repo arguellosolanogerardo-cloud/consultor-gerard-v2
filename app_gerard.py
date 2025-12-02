@@ -1098,6 +1098,16 @@ def load_resources():
         allow_dangerous_deserialization=True
     )
     
+    # EXTRAER DOCUMENTOS PARA BM25 EN MEMORIA
+    # Esto permite generar el índice BM25 sin necesitar el archivo .pkl gigante
+    try:
+        all_docs = list(faiss_vs.docstore._dict.values())
+        st.session_state.all_docs = all_docs
+        print(f"[INFO] Documentos extraídos de FAISS para BM25: {len(all_docs)}")
+    except Exception as e:
+        print(f"[WARNING] No se pudieron extraer documentos de FAISS: {e}")
+        st.session_state.all_docs = []
+    
     return llm, faiss_vs
 
 # Prompt de GERARD - Agente Analítico Forense
@@ -2054,9 +2064,10 @@ if user_name:
                 if exhaustive_search:
                     # Modo exhaustivo: Híbrido con más documentos (Quirúrgico)
                     # Usa HybridRetriever con k=200 para capturar TODO.
+                    # Pasa documents=st.session_state.all_docs para generar índice en memoria
                     retriever = HybridRetriever(
                         faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 200}),
-                        bm25_path="bm25_index.pkl",
+                        documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
                         k=200,
                         alpha=0.6 
                     )
@@ -2065,7 +2076,7 @@ if user_name:
                     # Modo normal: Híbrido estándar
                     retriever = HybridRetriever(
                         faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 100}),
-                        bm25_path="bm25_index.pkl",
+                        documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
                         k=100
                     )
                 
