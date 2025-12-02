@@ -366,16 +366,11 @@ st.markdown("""
     /* Inputs y TextArea */
     .stTextInput > div > div > input,
     .stTextArea > div > div > textarea {
-        background-color: rgba(230, 230, 250, 0.9) !important; /* Fondo claro (Lavender) para contraste con azul oscuro */
-        color: #00008B !important; /* Azul Oscuro */
+        background-color: rgba(30, 30, 46, 0.95) !important;
+        color: #61AFEF !important;
         border: 2px solid #61AFEF !important;
         border-radius: 8px !important;
-        font-family: Arial, sans-serif !important;
-        font-size: 22px !important;
-        font-weight: bold !important;
-        font-style: italic !important;
-        text-decoration: underline !important;
-        text-transform: uppercase !important;
+        font-size: clamp(0.9em, 2.5vw, 1em) !important;
         padding: 12px !important;
     }
     
@@ -1785,10 +1780,11 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             # Construir HTML de toda la conversación
             html_parts = []
             for entry in st.session_state.conversation_history:
-                # Estilo específico solicitado: ARIAL, SUBRAYADO, NEGRITA, NEGRO, TAMAÑO 26
-                html_parts.append(f'<p style="font-family: Arial, sans-serif; text-decoration: underline; font-weight: bold; color: #000000; font-size: 26pt; margin-bottom: 10px;">PREGUNTA ({entry["timestamp"]}):</p>')
-                html_parts.append(f'<p style="color: #000000;">{entry["query"]}</p>')
-                html_parts.append(f'<p style="color: #000000; font-weight: bold;">Respuesta:</p>')
+                # Estilo específico solicitado para PDF: 
+                # MAYUSCULA, AZUL OSCURO, ARIAL, INCLINADA, SUBRAYADA, NEGRILLA, FUENTE NUMERO 22
+                html_parts.append(f'<p style="font-family: Arial, sans-serif; text-transform: uppercase; color: #00008B; font-style: italic; text-decoration: underline; font-weight: bold; font-size: 22pt; margin-bottom: 10px;">PREGUNTA ({entry["timestamp"]}):</p>')
+                html_parts.append(f'<p style="font-family: Arial, sans-serif; font-size: 14pt; margin-bottom: 20px; color: #333;">{entry["query"]}</p>')
+                html_parts.append(f'<p style="font-family: Arial, sans-serif; font-weight: bold; color: #2E7D32; font-size: 16pt; margin-top: 20px; margin-bottom: 10px;">RESPUESTA:</p>')
                 # Aplicar colorización a la respuesta antes de exportar
                 colored_response = colorize_citations(entry["response"])
                 html_parts.append(f'<p>{colored_response}</p>')
