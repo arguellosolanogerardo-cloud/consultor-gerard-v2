@@ -1098,16 +1098,6 @@ def load_resources():
         allow_dangerous_deserialization=True
     )
     
-    # EXTRAER DOCUMENTOS PARA BM25 EN MEMORIA
-    # Esto permite generar el índice BM25 sin necesitar el archivo .pkl gigante
-    try:
-        all_docs = list(faiss_vs.docstore._dict.values())
-        st.session_state.all_docs = all_docs
-        print(f"[INFO] Documentos extraídos de FAISS para BM25: {len(all_docs)}")
-    except Exception as e:
-        print(f"[WARNING] No se pudieron extraer documentos de FAISS: {e}")
-        st.session_state.all_docs = []
-    
     return llm, faiss_vs
 
 # Prompt de GERARD - Agente Analítico Forense
@@ -1653,6 +1643,17 @@ user_name = st.session_state.user_name
 with st.spinner("🚀 Iniciando sistemas neuronales..."):
     try:
         llm, faiss_vs = load_resources()
+        
+        # EXTRAER DOCUMENTOS PARA BM25 EN MEMORIA (Fuera del caché para que persista en session_state)
+        if 'all_docs' not in st.session_state or not st.session_state.all_docs:
+            try:
+                # Acceder al docstore de FAISS
+                all_docs = list(faiss_vs.docstore._dict.values())
+                st.session_state.all_docs = all_docs
+                print(f"[INFO] Documentos extraídos de FAISS para BM25: {len(all_docs)}")
+            except Exception as e:
+                print(f"[WARNING] No se pudieron extraer documentos de FAISS: {e}")
+                st.session_state.all_docs = []
         doc_count = faiss_vs.index.ntotal if hasattr(faiss_vs, 'index') else 0
         
         # Detectar si es un índice placeholder vacío
