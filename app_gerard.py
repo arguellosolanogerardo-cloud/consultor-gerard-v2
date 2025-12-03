@@ -1730,8 +1730,16 @@ with st.sidebar:
     st.markdown(f"**{user_name}**")
     if st.session_state.get('user_email'):
         st.markdown(f"📧 {st.session_state.user_email}")
-    if st.session_state.get('user_city') and st.session_state.get('user_country'):
-        st.markdown(f"📍 {st.session_state.user_city}, {st.session_state.user_country}")
+    
+    # Mostrar ubicación solo si NO es "Detectando..." (login manual)
+    user_city = st.session_state.get('user_city', '')
+    user_country = st.session_state.get('user_country', '')
+    
+    if user_city and user_country and user_city != "Detectando..." and user_country != "Detectando...":
+        st.markdown(f"📍 {user_city}, {user_country}")
+    elif st.session_state.get('user_email'):
+        # Si es login de Google (tiene email pero no ubicación real)
+        st.markdown(f"🌐 Acceso Web")
     
     st.markdown("---")
     
