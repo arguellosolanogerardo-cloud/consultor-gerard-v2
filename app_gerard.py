@@ -1744,7 +1744,7 @@ if 'sheets_logger' not in st.session_state:
 with st.sidebar:
     # === LOGO/IMAGEN (PRIMERO) ===
     try:
-        st.image("gestor.png", use_container_width=True)
+        st.image("assets/gestor.png", use_container_width=True)
         st.markdown("---")
     except Exception as e:
         print(f"[WARNING] No se pudo cargar gestor.png: {e}")
