@@ -1722,18 +1722,45 @@ if 'conversation_history' not in st.session_state:
 if 'sheets_logger' not in st.session_state:
     st.session_state.sheets_logger = init_sheets_logger()
 
-# --- BARRA LATERAL: GUÍA DE USO ---
-# (Reemplaza al indicador de estado de Google Sheets)
-
-with st.sidebar.expander("📚 Guía de Uso", expanded=False):
-    try:
-        with open("GUIA_MODELOS_PREGUNTA_GERARD.md", "r", encoding="utf-8") as f:
-            guia_content = f.read()
-        
-        st.markdown(guia_content)
+# --- BARRA LATERAL ---
+with st.sidebar:
+    # Botón de Cerrar Sesión
+    st.markdown("---")
+    st.markdown(f"### 👤 Usuario")
+    st.markdown(f"**{user_name}**")
+    if st.session_state.get('user_email'):
+        st.markdown(f"📧 {st.session_state.user_email}")
+    if st.session_state.get('user_city') and st.session_state.get('user_country'):
+        st.markdown(f"📍 {st.session_state.user_city}, {st.session_state.user_country}")
+    
+    st.markdown("---")
+    
+    if st.button("🚪 Cerrar Sesión", use_container_width=True, type="secondary"):
+        # Limpiar todos los datos de sesión
+        st.session_state.user_name = ""
+        st.session_state.user_email = ""
+        st.session_state.user_city = ""
+        st.session_state.user_country = ""
+        st.session_state.oauth_processed = False
+        st.session_state.oauth_processing = False
+        st.session_state.conversation_history = []
+        st.success("✅ Sesión cerrada exitosamente")
+        time.sleep(1)
+        st.rerun()
+    
+    st.markdown("---")
+    
+    # Guía de Uso
+    with st.expander("📚 Guía de Uso", expanded=False):
+        try:
+            with open("GUIA_MODELOS_PREGUNTA_GERARD.md", "r", encoding="utf-8") as f:
+                guia_content = f.read()
             
-    except Exception as e:
-        st.error(f"Error cargando la guía: {e}")
+            st.markdown(guia_content)
+                
+        except Exception as e:
+            st.error(f"Error cargando la guía: {e}")
+
 
 
 # Inicializar flag para limpiar campo de pregunta
