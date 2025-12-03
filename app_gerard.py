@@ -1743,11 +1743,13 @@ if 'sheets_logger' not in st.session_state:
 # --- BARRA LATERAL ---
 with st.sidebar:
     # === LOGO/IMAGEN (PRIMERO) ===
-    try:
-        st.image("assets/gestor.png", use_container_width=True)
+    import os
+    gestor_path = "assets/gestor.png"
+    if os.path.exists(gestor_path):
+        st.image(gestor_path, use_container_width=True)
         st.markdown("---")
-    except Exception as e:
-        print(f"[WARNING] No se pudo cargar gestor.png: {e}")
+    else:
+        print(f"[WARNING] Imagen no encontrada: {gestor_path}")
     
     # === GUÍA DE USO ===
     with st.expander("📚 Guía de Uso", expanded=False):
@@ -1772,17 +1774,6 @@ with st.sidebar:
     st.markdown(f"**{user_name}**")
     if st.session_state.get('user_email'):
         st.markdown(f"📧 {st.session_state.user_email}")
-    
-    # Mostrar ubicación detectada
-    user_city = st.session_state.get('user_city', '')
-    user_country = st.session_state.get('user_country', '')
-    user_ip = st.session_state.get('user_ip', '')
-    
-    # Mostrar ubicación si está disponible (ya sea de login manual o detección automática)
-    if user_city and user_country and user_city not in ["Detectando...", "No detectado", "Error de detección"]:
-        st.markdown(f"📍 {user_city}, {user_country}")
-        if user_ip and user_ip != "No disponible":
-            st.markdown(f"🌐 IP: {user_ip}")
     
     st.markdown("---")
     
