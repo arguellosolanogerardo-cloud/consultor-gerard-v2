@@ -1468,9 +1468,27 @@ if not st.session_state.user_name:
                         st.session_state.user_name = user_info.get('name', 'Usuario Google')
                         st.session_state.user_email = user_info.get('email', '')
                         
-                        # Para usuarios de Google, ciudad y país se detectarán automáticamente
-                        st.session_state.user_city = "Detectando..."
-                        st.session_state.user_country = "Detectando..."
+                        # Detectar ubicación real del usuario automáticamente
+                        try:
+                            from geo_utils import GeoLocator
+                            geo = GeoLocator(timeout_seconds=3)
+                            location = geo.get_location()
+                            
+                            if location and location.get('ciudad') != 'Desconocido':
+                                st.session_state.user_city = location.get('ciudad', 'Desconocido')
+                                st.session_state.user_country = location.get('pais', 'Desconocido')
+                                st.session_state.user_ip = location.get('ip', 'Desconocido')
+                                print(f"[INFO] 📍 Ubicación detectada: {st.session_state.user_city}, {st.session_state.user_country} (IP: {st.session_state.user_ip})")
+                            else:
+                                st.session_state.user_city = "No detectado"
+                                st.session_state.user_country = "No detectado"
+                                st.session_state.user_ip = "No detectado"
+                                print("[WARNING] No se pudo detectar ubicación del usuario")
+                        except Exception as e:
+                            print(f"[WARNING] Error detectando ubicación: {e}")
+                            st.session_state.user_city = "Error de detección"
+                            st.session_state.user_country = "Error de detección"
+                            st.session_state.user_ip = "No disponible"
                         
                         # Marcar como procesado exitosamente
                         st.session_state.oauth_processed = True
@@ -1731,15 +1749,16 @@ with st.sidebar:
     if st.session_state.get('user_email'):
         st.markdown(f"📧 {st.session_state.user_email}")
     
-    # Mostrar ubicación solo si NO es "Detectando..." (login manual)
+    # Mostrar ubicación detectada
     user_city = st.session_state.get('user_city', '')
     user_country = st.session_state.get('user_country', '')
+    user_ip = st.session_state.get('user_ip', '')
     
-    if user_city and user_country and user_city != "Detectando..." and user_country != "Detectando...":
+    # Mostrar ubicación si está disponible (ya sea de login manual o detección automática)
+    if user_city and user_country and user_city not in ["Detectando...", "No detectado", "Error de detección"]:
         st.markdown(f"📍 {user_city}, {user_country}")
-    elif st.session_state.get('user_email'):
-        # Si es login de Google (tiene email pero no ubicación real)
-        st.markdown(f"🌐 Acceso Web")
+        if user_ip and user_ip != "No disponible":
+            st.markdown(f"🌐 IP: {user_ip}")
     
     st.markdown("---")
     
