@@ -1420,6 +1420,12 @@ if not st.session_state.get('user_name'):
 if 'user_name' not in st.session_state:
     st.session_state.user_name = ""
 
+# Inicializar flag de procesamiento OAuth (previene bucles infinitos)
+if 'oauth_processing' not in st.session_state:
+    st.session_state.oauth_processing = False
+if 'oauth_processed' not in st.session_state:
+    st.session_state.oauth_processed = False
+
 # Lógica de UI optimizada: Mostrar input de usuario ANTES de cargar recursos pesados
 if not st.session_state.user_name:
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -1440,30 +1446,60 @@ if not st.session_state.user_name:
                 print("[INFO] Entorno detectado: CLOUD (Linux/Otro)")
             
             print(f"[INFO] Usando redirect_uri: {redirect_uri}")
-            login_url = auth_google.get_login_url(redirect_uri) 
             
             # Verificar si volvemos de un redirect de Google
             query_params = st.query_params
-            if "code" in query_params:
+            
+            # PROTECCIÓN CONTRA BUCLES: Solo procesar si hay código Y no hemos procesado antes
+            if "code" in query_params and not st.session_state.oauth_processed:
+                print("[INFO] 🔐 Procesando callback de Google OAuth...")
                 code = query_params["code"]
-                st.query_params.clear()
+                
+                # Marcar inmediatamente como procesado ANTES de cualquier operación
+                st.session_state.oauth_processing = True
                 
                 with st.spinner("🔄 Verificando credenciales de Google..."):
                     user_info = auth_google.get_user_info(code, redirect_uri)
                     
                     if user_info:
+                        print(f"[INFO] ✅ Usuario autenticado: {user_info.get('name', 'Desconocido')}")
+                        
+                        # CRÍTICO: Guardar datos en session_state ANTES de limpiar query_params
                         st.session_state.user_name = user_info.get('name', 'Usuario Google')
                         st.session_state.user_email = user_info.get('email', '')
+                        
                         # Para usuarios de Google, ciudad y país se detectarán automáticamente
                         st.session_state.user_city = "Detectando..."
                         st.session_state.user_country = "Detectando..."
-                        st.success(f"✅ ¡Bienvenido, {st.session_state.user_name}!")
-                        time.sleep(1)
-                        st.rerun()
+                        
+                        # Marcar como procesado exitosamente
+                        st.session_state.oauth_processed = True
+                        st.session_state.oauth_processing = False
+                        
+                        # Verificar que user_name se guardó correctamente
+                        if st.session_state.user_name:
+                            print(f"[INFO] ✅ Session state actualizado: user_name={st.session_state.user_name}")
+                            
+                            # AHORA sí limpiar query_params (después de guardar todo)
+                            st.query_params.clear()
+                            
+                            st.success(f"✅ ¡Bienvenido, {st.session_state.user_name}!")
+                            time.sleep(1)
+                            st.rerun()
+                        else:
+                            print("[ERROR] ❌ No se pudo guardar user_name en session_state")
+                            st.session_state.oauth_processing = False
+                            st.error("❌ Error al guardar información de usuario.")
                     else:
+                        print("[ERROR] ❌ No se pudo obtener información del usuario de Google")
+                        st.session_state.oauth_processing = False
+                        st.session_state.oauth_processed = True  # Marcar para evitar reintentos
+                        st.query_params.clear()  # Limpiar para salir del bucle
                         st.error("❌ Error al iniciar sesión con Google.")
 
-            if login_url:
+            # Mostrar botón de login solo si NO estamos procesando OAuth
+            login_url = auth_google.get_login_url(redirect_uri)
+            if login_url and not st.session_state.oauth_processing:
                 st.markdown(
                     f'''
                     <style>
@@ -1506,7 +1542,7 @@ if not st.session_state.user_name:
                     }}
                     </style>
                     
-                    <a href="{login_url}" target="_self" class="google-neo-button">
+                    <a href="{login_url}" class="google-neo-button">
                         <svg viewBox="0 0 24 24">
                             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
                             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
