@@ -1742,8 +1742,25 @@ if 'sheets_logger' not in st.session_state:
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    # Botón de Cerrar Sesión
+    # === GUÍA DE USO (PRIMERO) ===
+    with st.expander("📚 Guía de Uso", expanded=False):
+        try:
+            with open("GUIA_MODELOS_PREGUNTA_GERARD.md", "r", encoding="utf-8") as f:
+                guia_content = f.read()
+            
+            st.markdown(guia_content)
+            
+            # Botón para ver como página completa
+            if st.button("🔗 Ver Guía Completa", use_container_width=True, key="ver_guia_completa"):
+                st.session_state.show_guia_page = True
+                st.rerun()
+                
+        except Exception as e:
+            st.error(f"Error cargando la guía: {e}")
+    
     st.markdown("---")
+    
+    # === INFORMACIÓN DEL USUARIO ===
     st.markdown(f"### 👤 Usuario")
     st.markdown(f"**{user_name}**")
     if st.session_state.get('user_email'):
@@ -1762,6 +1779,7 @@ with st.sidebar:
     
     st.markdown("---")
     
+    # === BOTÓN CERRAR SESIÓN ===
     if st.button("🚪 Cerrar Sesión", use_container_width=True, type="secondary"):
         # Limpiar todos los datos de sesión
         st.session_state.user_name = ""
@@ -1774,20 +1792,28 @@ with st.sidebar:
         st.success("✅ Sesión cerrada exitosamente")
         time.sleep(1)
         st.rerun()
+
+
+
+
+# === MOSTRAR GUÍA COMO PÁGINA COMPLETA ===
+if st.session_state.get('show_guia_page', False):
+    st.markdown("# 📚 Guía de Uso Completa")
+    
+    if st.button("⬅️ Volver a la Aplicación", type="primary"):
+        st.session_state.show_guia_page = False
+        st.rerun()
     
     st.markdown("---")
     
-    # Guía de Uso
-    with st.expander("📚 Guía de Uso", expanded=False):
-        try:
-            with open("GUIA_MODELOS_PREGUNTA_GERARD.md", "r", encoding="utf-8") as f:
-                guia_content = f.read()
-            
-            st.markdown(guia_content)
-                
-        except Exception as e:
-            st.error(f"Error cargando la guía: {e}")
-
+    try:
+        with open("GUIA_MODELOS_PREGUNTA_GERARD.md", "r", encoding="utf-8") as f:
+            guia_content = f.read()
+        st.markdown(guia_content)
+    except Exception as e:
+        st.error(f"Error cargando la guía: {e}")
+    
+    st.stop()  # Detener ejecución para no mostrar el resto de la app
 
 
 # Inicializar flag para limpiar campo de pregunta
