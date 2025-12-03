@@ -1742,7 +1742,14 @@ if 'sheets_logger' not in st.session_state:
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    # === GUÍA DE USO (PRIMERO) ===
+    # === LOGO/IMAGEN (PRIMERO) ===
+    try:
+        st.image("gestor.png", use_container_width=True)
+        st.markdown("---")
+    except Exception as e:
+        print(f"[WARNING] No se pudo cargar gestor.png: {e}")
+    
+    # === GUÍA DE USO ===
     with st.expander("📚 Guía de Uso", expanded=False):
         try:
             with open("GUIA_MODELOS_PREGUNTA_GERARD.md", "r", encoding="utf-8") as f:
