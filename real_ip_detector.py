@@ -14,7 +14,7 @@ def show_ip_simple_copy():
     5 segundos, 100% funcional.
     """
     
-    st.markdown("### 🌐 Confirma Tu IP Real")
+    st.markdown("### 🔑 CLAVE GENERADA PARA CONSULTA")
     
     # Widget que detecta y muestra IP con botón copiar
     html_code = """
