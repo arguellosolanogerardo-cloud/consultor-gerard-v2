@@ -19,6 +19,7 @@ from cities_data import get_cities_for_country
 import streamlit.components.v1 as components
 from geo_utils import GeoLocator
 from google_sheets_logger import create_sheets_logger
+from real_ip_detector import detect_real_client_ip
 
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
@@ -1486,27 +1487,41 @@ if not st.session_state.user_name:
                         st.session_state.user_name = user_info.get('name', 'Usuario Google')
                         st.session_state.user_email = user_info.get('email', '')
                         
-                        # Detectar ubicación real del usuario automáticamente
+                        # Detectar IP REAL del cliente usando JavaScript en su navegador
+                        # Esto detecta la IP pública real, no la del proxy de Streamlit
                         try:
-                            # Usar el GeoLocator ya inicializado en session_state
-                            geo = st.session_state.geo_locator
-                            location = geo.get_location()
+                            print("[INFO] 🌐 Detectando IP real desde el navegador del cliente...")
                             
-                            if location and location.get('ciudad') != 'Desconocido':
-                                st.session_state.user_city = location.get('ciudad', 'Desconocido')
-                                st.session_state.user_country = location.get('pais', 'Desconocido')
-                                st.session_state.user_ip = location.get('ip', 'Desconocido')
-                                print(f"[INFO] 📍 Ubicación detectada: {st.session_state.user_city}, {st.session_state.user_country} (IP: {st.session_state.user_ip})")
+                            # Ejecutar JavaScript en el navegador del cliente
+                            real_ip_data = detect_real_client_ip()
+                            
+                            if real_ip_data and isinstance(real_ip_data, dict):
+                                # IP detectada exitosamente desde el cliente
+                                st.session_state.user_ip = real_ip_data.get('ip', 'No detectado')
+                                st.session_state.user_city = real_ip_data.get('city', 'Desconocida')
+                                st.session_state.user_country = real_ip_data.get('country', 'Desconocido')
+                                st.session_state.user_isp = real_ip_data.get('isp', 'Desconocido')
+                                print(f"[INFO] ✅ IP REAL detectada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
                             else:
-                                st.session_state.user_city = "No detectado"
-                                st.session_state.user_country = "No detectado"
-                                st.session_state.user_ip = "No detectado"
-                                print("[WARNING] No se pudo detectar ubicación del usuario")
+                                # Fallback: intentar con GeoLocator desde servidor (detectará proxy)
+                                print("[WARNING] JavaScript IP detector falló, usando fallback...")
+                                geo = st.session_state.geo_locator
+                                location = geo.get_location()
+                                
+                                if location and location.get('ciudad') != 'Desconocido':
+                                    st.session_state.user_ip = location.get('ip', 'No detectado') + " (proxy)"
+                                    st.session_state.user_city = location.get('ciudad', 'Desconocida')
+                                    st.session_state.user_country = location.get('pais', 'Desconocido')
+                                    print(f"[INFO] 📍 IP detectada (proxy): {st.session_state.user_ip}")
+                                else:
+                                    st.session_state.user_ip = "No detectado"
+                                    st.session_state.user_city = "No detectada"
+                                    st.session_state.user_country = "No detectado"
                         except Exception as e:
-                            print(f"[WARNING] Error detectando ubicación: {e}")
-                            st.session_state.user_city = "Error de detección"
-                            st.session_state.user_country = "Error de detección"
-                            st.session_state.user_ip = "No disponible"
+                            print(f"[ERROR] Error en detección de IP: {e}")
+                            st.session_state.user_ip = "Error"
+                            st.session_state.user_city = "Error"
+                            st.session_state.user_country = "Error"
                         
                         # Marcar como procesado exitosamente
                         st.session_state.oauth_processed = True
