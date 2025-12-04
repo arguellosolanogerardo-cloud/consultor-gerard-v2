@@ -78,10 +78,10 @@ def show_ip_simple_copy():
         <div id="loading" class="loading">Detectando tu IP...</div>
         <div id="content" style="display:none;">
             <div class="ip-box">
-                <div style="font-size: 14px; margin-bottom: 5px;">TU IP REAL:</div>
+
                 <div id="ip" class="ip-value">-</div>
                 <div id="location" class="location">-</div>
-                <button class="copy-btn" onclick="copyIP()">📋 Copiar IP</button>
+                <button class="copy-btn" onclick="copyIP()">📋 Copiar CLAVE</button>
                 <div id="success" class="success">✓ Copiado!</div>
             </div>
         </div>
@@ -124,11 +124,11 @@ def show_ip_simple_copy():
     components.html(html_code, height=200)
     
     st.markdown("---")
-    st.markdown("**Pega la IP aquí:**")
+    st.markdown("**PEGA LA CLAVE AQUÍ:**")
     
     col1, col2 = st.columns([3, 1])
     with col1:
-        ip_input = st.text_input("IP", label_visibility="collapsed", placeholder="Pega tu IP aquí", key="ip_paste_field")
+        ip_input = st.text_input("IP", label_visibility="collapsed", placeholder="Pega tu CLAVE aquí", key="ip_paste_field")
     
     with col2:
         if st.button("✅ Confirmar", type="primary", use_container_width=True):
