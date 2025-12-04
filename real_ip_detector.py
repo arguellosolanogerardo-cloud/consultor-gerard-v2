@@ -11,8 +11,8 @@ import streamlit.components.v1 as components
 
 def show_ip_one_click():
     """
-    Widget que detecta IP, muestra info, 1 botón: "Continuar desde [PAÍS]?"
-    Al hacer clic, redirige con query params y Streamlit captura.
+    Widget minimalista: SOLO botón "Continuar desde [PAÍS]?"
+    Sin mostrar IP, ciudad ni textos de verificación.
     """
     
     # Procesar query params si vienen del redirect
@@ -28,15 +28,10 @@ def show_ip_one_click():
         
         print(f"[INFO] ✅ IP REAL confirmada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
         
-        st.success(f"✅ Ubicación confirmada: {st.session_state.user_city}, {st.session_state.user_country}")
         st.rerun()
         return True
     
-    # Si no hay query params, mostrar widget de confirmación
-    st.markdown("### 🌐 Verificación de Ubicación")
-    st.info("📍 Detectando tu ubicación real...")
-    
-    # Widget con detección automática y botón de confirmación
+    # Widget MINIMALISTA: solo botón, sin textos
     html_code = """
     <!DOCTYPE html>
     <html>
@@ -45,60 +40,18 @@ def show_ip_one_click():
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body {
                 font-family: 'Segoe UI', Arial, sans-serif;
-                padding: 20px;
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            }
-            .card {
-                background: white;
-                border-radius: 12px;
                 padding: 30px;
-                text-align: center;
-                box-shadow: 0 8px 20px rgba(0,0,0,0.2);
-            }
-            .icon { font-size: 48px; margin-bottom: 15px; }
-            .status {
-                font-size: 16px;
-                color: #667eea;
-                margin: 15px 0;
-                animation: pulse 1.5s infinite;
-            }
-            @keyframes pulse {
-                0%, 100% { opacity: 1; }
-                50% { opacity: 0.5; }
-            }
-            .info-box {
-                background: #f8f9fa;
-                border-radius: 8px;
-                padding: 15px;
-                margin: 15px 0;
-            }
-            .label {
-                font-size: 12px;
-                color: #999;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-                margin-bottom: 5px;
-            }
-            .value {
-                font-size: 20px;
-                font-weight: bold;
-                color: #333;
-                margin: 5px 0;
-            }
-            .ip-value {
-                font-size: 24px;
-                color: #667eea;
-                font-family: 'Courier New', monospace;
-            }
-            .btn-container {
-                margin-top: 25px;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                min-height: 150px;
             }
             .confirm-btn {
                 background: linear-gradient(45deg, #667eea, #764ba2);
                 color: white;
                 border: none;
-                padding: 16px 32px;
-                border-radius: 8px;
+                padding: 18px 40px;
+                border-radius: 10px;
                 font-size: 18px;
                 font-weight: bold;
                 cursor: pointer;
@@ -116,33 +69,26 @@ def show_ip_one_click():
             .confirm-btn.show {
                 display: inline-block;
             }
+            .loading {
+                color: #667eea;
+                font-size: 16px;
+                animation: pulse 1.5s infinite;
+            }
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
         </style>
     </head>
     <body>
-        <div class="card">
-            <div class="icon">🌍</div>
-            <div id="status" class="status">Detectando tu ubicación...</div>
-            <div id="content" style="display:none;">
-                <div class="info-box">
-                    <div class="label">IP Pública</div>
-                    <div id="ip" class="value ip-value">-</div>
-                </div>
-                <div class="info-box">
-                    <div class="label">Ubicación Detectada</div>
-                    <div id="location" class="value">-</div>
-                </div>
-                <div class="btn-container">
-                    <button id="confirmBtn" class="confirm-btn" onclick="confirmLocation()">
-                        -
-                    </button>
-                </div>
-            </div>
-        </div>
+        <div id="loading" class="loading">Cargando...</div>
+        <button id="confirmBtn" class="confirm-btn" onclick="confirmLocation()">
+            -
+        </button>
         <script>
             let detectedData = { ip: '', city: '', country: '' };
             
             function confirmLocation() {
-                // Redirigir con query params
                 const url = new URL(window.location.href);
                 url.searchParams.set('confirmed_ip', detectedData.ip);
                 url.searchParams.set('confirmed_city', detectedData.city);
@@ -161,22 +107,15 @@ def show_ip_one_click():
                         country: data.country_name || data.country || 'Unknown'
                     };
                     
-                    // Ocultar loading
-                    document.getElementById('status').style.display = 'none';
-                    document.getElementById('content').style.display = 'block';
+                    // Ocultar loading, mostrar solo botón
+                    document.getElementById('loading').style.display = 'none';
                     
-                    // Mostrar datos
-                    document.getElementById('ip').textContent = detectedData.ip;
-                    document.getElementById('location').textContent = detectedData.city + ', ' + detectedData.country;
-                    
-                    // Mostrar botón con texto del país
                     const btn = document.getElementById('confirmBtn');
                     btn.textContent = '✅ Continuar desde ' + detectedData.country + '?';
                     btn.classList.add('show');
                     
                 } catch (e) {
-                    document.getElementById('status').textContent = '❌ Error detectando ubicación';
-                    document.getElementById('status').classList.remove('status');
+                    document.getElementById('loading').textContent = 'Error';
                 }
             })();
         </script>
@@ -184,6 +123,6 @@ def show_ip_one_click():
     </html>
     """
     
-    components.html(html_code, height=400)
+    components.html(html_code, height=150)
     
     return False
