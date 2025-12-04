@@ -133,32 +133,45 @@ def show_ip_simple_copy():
     with col2:
         if st.button("✅ Confirmar", type="primary", use_container_width=True):
             if ip_input and len(ip_input) > 5:
-                # Buscar ciudad y país de esta IP usando ipapi
+                # Buscar ciudad y país de esta IP usando múltiples APIs
                 import requests
+                city = "Unknown"
+                country = "Unknown"
+                
+                # Intentar API 1: ipapi.co
                 try:
-                    response = requests.get(f'https://ipapi.co/{ip_input}/json/', timeout=3)
+                    response = requests.get(f'https://ipapi.co/{ip_input}/json/', timeout=5)
                     if response.status_code == 200:
                         data = response.json()
-                        st.session_state.user_ip = ip_input
-                        st.session_state.user_city = data.get('city', 'Unknown')
-                        st.session_state.user_country = data.get('country_name', data.get('country', 'Unknown'))
-                        
-                        print(f"[INFO] ✅ IP REAL confirmada: {ip_input} | {st.session_state.user_city}, {st.session_state.user_country}")
-                    else:
-                        # Si no se puede obtener info, guardar solo IP
-                        st.session_state.user_ip = ip_input
-                        st.session_state.user_city = "Unknown"
-                        st.session_state.user_country = "Unknown"
+                        city = data.get('city', 'Unknown')
+                        country = data.get('country_name', data.get('country', 'Unknown'))
+                        print(f"[INFO] ipapi.co: {city}, {country}")
                 except Exception as e:
-                    print(f"[WARNING] Error obteniendo ubicación de IP: {e}")
-                    st.session_state.user_ip = ip_input
-                    st.session_state.user_city = "Unknown"
-                    st.session_state.user_country = "Unknown"
-                    
+                    print(f"[WARNING] ipapi.co falló: {e}")
+                
+                # Si ipapi.co falló, intentar API 2: ip-api.com
+                if city == "Unknown" or country == "Unknown":
+                    try:
+                        response = requests.get(f'http://ip-api.com/json/{ip_input}', timeout=5)
+                        if response.status_code == 200:
+                            data = response.json()
+                            if data.get('status') == 'success':
+                                city = data.get('city', 'Unknown')
+                                country = data.get('country', 'Unknown')
+                                print(f"[INFO] ip-api.com: {city}, {country}")
+                    except Exception as e:
+                        print(f"[WARNING] ip-api.com falló: {e}")
+                
+                # Guardar datos
+                st.session_state.user_ip = ip_input
+                st.session_state.user_city = city
+                st.session_state.user_country = country
                 st.session_state.real_ip_detected = True
                 st.session_state.ip_needs_confirmation = False
                 
-                st.success(f"✅ IP confirmada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
+                print(f"[INFO] ✅ IP REAL confirmada: {ip_input} | {city}, {country}")
+                
+                st.success(f"✅ IP confirmada: {ip_input} | {city}, {country}")
                 st.rerun()
             else:
                 st.error("❌ Por favor pega una IP válida")
