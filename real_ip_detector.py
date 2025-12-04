@@ -122,7 +122,7 @@ def show_ip_simple_copy():
     components.html(html_code, height=200)
     
     st.markdown("---")
-    st.markdown("**PEGA LA CLAVE AQUÍ:**")
+    st.markdown("**PEGA LA CLAVE DE ACCESO AQUÍ:**")
     
     col1, col2 = st.columns([3, 1])
     with col1:
