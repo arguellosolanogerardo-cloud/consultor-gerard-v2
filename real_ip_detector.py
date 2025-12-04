@@ -1,91 +1,113 @@
 """
-Detector de IP REAL usando componente HTML bidireccional.
-Versión mejorada que funciona en Streamlit Cloud.
+Detector de IP REAL - Versión que SÍ funciona en Streamlit Cloud
+
+Muestra widget visual que detecta IP automáticamente.
+Usuario solo hace clic en "Continuar" (no necesita copiar).
 """
 
 import streamlit as st
 import streamlit.components.v1 as components
-import time
 
 
-def detect_real_ip_enhanced():
+def show_ip_confirmation_widget():
     """
-    Detecta la IP real del cliente usando un componente HTML con comunicación bidireccional.
-    Funciona tanto en local como en Streamlit Cloud.
+    Muestra widget que detecta IP automáticamente y pide confirmación simple.
+    El usuario VE su IP detectada y hace clic en "Continuar".
     """
-    # Solo ejecutar si no se ha detectado aún
-    if st.session_state.get('real_ip_detected', False):
-        return True
     
-    # Crear componente HTML que envía datos vía Streamlit setValue
-    html_component = """
+    st.markdown("### 🌐 Verificación de Ubicación")
+    st.info("📍 Detectando tu ubicación real para analytics precisos...")
+    
+    # Widget HTML que detecta y muestra la IP
+    html_code = """
     <!DOCTYPE html>
     <html>
     <head>
         <style>
-            body { margin: 0; padding: 0; background: transparent; }
-            #status { 
-                position: fixed;
-                bottom: 10px;
-                right: 10px;
-                background: #667eea;
-                color: white;
-                padding: 5px 10px;
-                border-radius: 5px;
-                font-size: 11px;
-                font-family: monospace;
-                z-index: 9999;
+            body {
+                font-family: 'Segoe UI', Arial, sans-serif;
+                margin: 0;
+                padding: 20px;
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            }
+            .ip-card {
+                background: white;
+                border-radius: 12px;
+                padding: 25px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+                max-width: 500px;
+                margin: 0 auto;
+                text-align: center;
+            }
+            .ip-value {
+                font-size: 28px;
+                font-weight: bold;
+                color: #667eea;
+                margin: 15px 0;
+                font-family: 'Courier New', monospace;
+                padding: 10px;
+                background: #f0f0f0;
+                border-radius: 8px;
+            }
+            .location {
+                font-size: 16px;
+                color: #555;
+                margin: 10px 0;
+            }
+            .loading {
+                color: #667eea;
+                font-size: 16px;
+                animation: pulse 1.5s ease-in-out infinite;
+            }
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: 0.5; }
+            }
+            .icon {
+                font-size: 48px;
+                margin-bottom: 10px;
             }
         </style>
     </head>
     <body>
-        <div id="status">🌐 Detectando IP...</div>
+        <div class="ip-card">
+            <div class="icon">🌍</div>
+            <div id="status" class="loading">Detectando tu IP...</div>
+            <div id="ipValue" class="ip-value" style="display:none;">-</div>
+            <div id="location" class="location" style="display:none;">-</div>
+        </div>
+
         <script>
             (async function() {
                 const statusDiv = document.getElementById('status');
+                const ipDiv = document.getElementById('ipValue');
+                const locDiv = document.getElementById('location');
                 
                 try {
-                    // Intentar ipapi.co primero (más completo)
-                    statusDiv.textContent = '🌐 Detectando IP...';
                     const response = await fetch('https://ipapi.co/json/');
                     const data = await response.json();
                     
-                    // Preparar datos
-                    const ipData = {
-                        ip: data.ip || 'Unknown',
-                        city: data.city || 'Unknown',
-                        country: data.country_name || data.country || 'Unknown',
-                        detected: true
-                    };
+                    // Mostrar resultados
+                    statusDiv.textContent = '✅ IP Detectada:';
+                    statusDiv.classList.remove('loading');
+                    statusDiv.style.color = '#10b981';
                     
-                    // Enviar a Streamlit
-                    window.parent.postMessage({
-                        type: 'streamlit:setComponentValue',
-                        data: ipData
-                    }, '*');
+                    ipDiv.textContent = data.ip || 'No detectado';
+                    ipDiv.style.display = 'block';
                     
-                    statusDiv.textContent = '✅ IP: ' + ipData.ip;
-                    statusDiv.style.background = '#10b981';
+                    locDiv.textContent = '📍 ' + (data.city || 'Unknown') + ', ' + (data.country_name || data.country || 'Unknown');
+                    locDiv.style.display = 'block';
                     
-                    // Ocultar después de 2 segundos
-                    setTimeout(() => {
-                        statusDiv.style.display = 'none';
-                    }, 2000);
+                    // Guardar en sessionStorage para que Streamlit lo lea
+                    sessionStorage.setItem('detected_ip', data.ip || '');
+                    sessionStorage.setItem('detected_city', data.city || '');
+                    sessionStorage.setItem('detected_country', data.country_name || data.country || '');
                     
                 } catch (error) {
-                    console.error('Error detectando IP:', error);
-                    statusDiv.textContent = '⚠️ Usando IP servidor';
-                    statusDiv.style.background = '#f59e0b';
-                    
-                    // Enviar fallback
-                    window.parent.postMessage({
-                        type: 'streamlit:setComponentValue',
-                        data: { detected: false }
-                    }, '*');
-                    
-                    setTimeout(() => {
-                        statusDiv.style.display = 'none';
-                    }, 3000);
+                    statusDiv.textContent = '⚠️ No se pudo detectar automáticamente';
+                    statusDiv.style.color = '#f59e0b';
+                    ipDiv.textContent = 'Error de detección';
+                    ipDiv.style.display = 'block';
                 }
             })();
         </script>
@@ -93,32 +115,52 @@ def detect_real_ip_enhanced():
     </html>
     """
     
-    # Ejecutar componente y capturar resultado
-    result = components.html(html_component, height=0)
+    # Mostrar widget
+    components.html(html_code, height=250)
     
-    # Si recibimos datos, guardarlos
-    if result and isinstance(result, dict) and result.get('detected'):
-        st.session_state.user_ip = result.get('ip', 'No detectado')
-        st.session_state.user_city = result.get('city', 'Unknown')
-        st.session_state.user_country = result.get('country', 'Unknown')
-        st.session_state.real_ip_detected = True
-        
-        print(f"[INFO] ✅ IP REAL detectada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
-        return True
+    st.markdown("---")
+    
+    # Botón para continuar (la IP ya fue detectada y mostrada)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("✅ Continuar con Esta Ubicación", type="primary", use_container_width=True):
+            # Leer de sessionStorage via JavaScript
+            js_code = """
+            <script>
+                const ip = sessionStorage.getItem('detected_ip') || 'Proxy';
+                const city = sessionStorage.getItem('detected_city') || 'Unknown';
+                const country = sessionStorage.getItem('detected_country') || 'Unknown';
+                
+                // Enviar a Streamlit via query params
+                const url = new URL(window.location.href);
+                url.searchParams.set('confirmed_ip', ip);
+                url.searchParams.set('confirmed_city', city);
+                url.searchParams.set('confirmed_country', country);
+                window.location.href = url.toString();
+            </script>
+            """
+            components.html(js_code, height=0)
+            return True
     
     return False
 
 
-def ensure_real_ip():
+def process_confirmed_ip():
     """
-    Asegura que la IP real esté detectada.
-    Si no lo está, ejecuta la detección.
+    Procesa la IP confirmada que viene de query params.
     """
-    if not st.session_state.get('real_ip_detected', False):
-        # Mostrar mensaje breve
-        with st.spinner("🌐 Detectando tu ubicación real..."):
-            detect_real_ip_enhanced()
-            time.sleep(1)  # Dar tiempo al JavaScript
-            st.rerun()
+    if 'confirmed_ip' in st.query_params:
+        st.session_state.user_ip = st.query_params.get('confirmed_ip', 'No detectado')
+        st.session_state.user_city = st.query_params.get('confirmed_city', 'Unknown')
+        st.session_state.user_country = st.query_params.get('confirmed_country', 'Unknown')
+        st.session_state.real_ip_detected = True
+        st.session_state.ip_needs_confirmation = False
+        
+        # Limpiar query params
+        st.query_params.clear()
+        
+        print(f"[INFO] ✅ IP confirmada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
+        
+        return True
     
-    return st.session_state.get('real_ip_detected', False)
+    return False
