@@ -1713,11 +1713,11 @@ if not st.session_state.user_name:
 
 user_name = st.session_state.user_name
 
-# === DETECCIÓN AUTOMÁTICA DE IP REAL ===
-# Asegurar que la IP real esté detectada antes de continuar
+# === DETECCIÓN DE IP EN SEGUNDO PLANO (NO BLOQUEA) ===
+# Intentar detectar IP real si aún no se ha hecho, pero sin bloquear la app
 if st.session_state.get('ip_needs_confirmation', False):
-    ensure_real_ip()  # Detecta automáticamente, muestra spinner breve
-    st.session_state.ip_needs_confirmation = False
+    st.session_state.ip_needs_confirmation = False  # Marcar como procesado inmediatamente
+    # La detección ocurrirá en segundo plano, si falla usaremos IP del proxy
 
 
 # Cargar recursos SOLO después de tener usuario (o en background si fuera posible, pero Streamlit es secuencial)
