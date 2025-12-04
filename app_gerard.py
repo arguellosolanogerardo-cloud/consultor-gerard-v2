@@ -19,7 +19,7 @@ from cities_data import get_cities_for_country
 import streamlit.components.v1 as components
 from geo_utils import GeoLocator
 from google_sheets_logger import create_sheets_logger
-from real_ip_detector import show_ip_confirmation_widget, process_confirmed_ip
+from real_ip_detector import show_ip_confirmation_simple
 
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
@@ -1713,15 +1713,11 @@ if not st.session_state.user_name:
 
 user_name = st.session_state.user_name
 
-# Procesar IP confirmada si viene de query params
-if process_confirmed_ip():
-    st.rerun()
-
 # === PANTALLA DE CONFIRMACIÓN DE IP REAL ===
-# Muestra widget que detecta IP automáticamente, usuario solo confirma con 1 clic
+# Muestra widget simple que detecta IP, usuario confirma con 1 clic
 if st.session_state.get('ip_needs_confirmation', False):
-    show_ip_confirmation_widget()
-    st.stop()  # Detener aquí hasta que usuario confirme
+    show_ip_confirmation_simple()
+    st.stop()
 
 
 # Cargar recursos SOLO después de tener usuario (o en background si fuera posible, pero Streamlit es secuencial)
