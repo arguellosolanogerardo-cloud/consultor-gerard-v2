@@ -80,7 +80,6 @@ def show_ip_simple_copy():
             <div class="ip-box">
 
                 <div id="ip" class="ip-value">-</div>
-                <div id="location" class="location">-</div>
                 <button class="copy-btn" onclick="copyIP()">📋 Copiar CLAVE</button>
                 <div id="success" class="success">✓ Copiado!</div>
             </div>
@@ -110,7 +109,6 @@ def show_ip_simple_copy():
                     document.getElementById('loading').style.display = 'none';
                     document.getElementById('content').style.display = 'block';
                     document.getElementById('ip').textContent = detectedData.ip;
-                    document.getElementById('location').textContent = detectedData.city + ', ' + detectedData.country;
                     
                 } catch (e) {
                     document.getElementById('loading').textContent = '❌ Error';
