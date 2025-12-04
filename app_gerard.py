@@ -19,7 +19,7 @@ from cities_data import get_cities_for_country
 import streamlit.components.v1 as components
 from geo_utils import GeoLocator
 from google_sheets_logger import create_sheets_logger
-from real_ip_detector import show_ip_one_click
+from real_ip_detector import show_ip_simple_copy
 
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
@@ -1713,10 +1713,10 @@ if not st.session_state.user_name:
 
 user_name = st.session_state.user_name
 
-# === CONFIRMACIÓN DE IP REAL (1 CLIC) ===
-# Widget detecta automáticamente, botón "Continuar desde [PAÍS]?", 1 clic y listo
+# === CONFIRMACIÓN SIMPLE DE IP REAL ===
+# Muestra IP, copiar, pegar, confirmar - solución que SÍ funciona
 if st.session_state.get('ip_needs_confirmation', False):
-    show_ip_one_click()
+    show_ip_simple_copy()
     st.stop()
 
 

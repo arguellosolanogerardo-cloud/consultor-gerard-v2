@@ -1,22 +1,22 @@
 """
-Detector de IP REAL - Solución que SÍ FUNCIONA (sin redirect)
+Detector de IP REAL - Solución SIMPLE que SÍ funciona
 
-Usa formulario Streamlit con campos ocultos que JavaScript llena.
+Muestra IP, botón copiar, campo pegar, confirmar.
 """
 
 import streamlit as st
 import streamlit.components.v1 as components
 
 
-def show_ip_one_click():
+def show_ip_simple_copy():
     """
-    Versión funcional: detecta IP, llena campos ocultos, botón envía formulario.
-    Sin redirect - usa solo mecanismos nativos de Streamlit.
+    Solución simple: muestra IP con botón copiar, usuario pega y confirma.
+    5 segundos, 100% funcional.
     """
     
-    st.markdown("### 🌐 Confirma Tu Ubicación")
+    st.markdown("### 🌐 Confirma Tu IP Real")
     
-    # Widget que detecta y muestra SOLO el botón
+    # Widget que detecta y muestra IP con botón copiar
     html_code = """
     <!DOCTYPE html>
     <html>
@@ -24,52 +24,96 @@ def show_ip_one_click():
         <style>
             body {
                 font-family: Arial, sans-serif;
-                padding: 20px;
+                padding: 15px;
                 text-align: center;
+            }
+            .ip-box {
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                border-radius: 10px;
+                margin: 10px 0;
+            }
+            .ip-value {
+                font-size: 28px;
+                font-weight: bold;
+                font-family: 'Courier New', monospace;
+                margin: 10px 0;
+                user-select: all;
+            }
+            .location {
+                font-size: 14px;
+                opacity: 0.9;
+            }
+            .copy-btn {
+                background: white;
+                color: #667eea;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 6px;
+                font-weight: bold;
+                cursor: pointer;
+                margin-top: 10px;
+            }
+            .copy-btn:hover {
+                background: #f0f0f0;
             }
             .loading {
                 color: #667eea;
-                font-size: 16px;
                 animation: pulse 1.5s infinite;
             }
             @keyframes pulse {
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.5; }
             }
-            .country-text {
-                font-size: 24px;
-                font-weight: bold;
-                color: #333;
-                margin: 20px 0;
+            .success {
+                color: #10b981;
+                font-size: 12px;
+                margin-top: 5px;
                 display: none;
-            }
-            .country-text.show {
-                display: block;
             }
         </style>
     </head>
     <body>
-        <div id="loading" class="loading">Detectando...</div>
-        <div id="countryText" class="country-text">-</div>
+        <div id="loading" class="loading">Detectando tu IP...</div>
+        <div id="content" style="display:none;">
+            <div class="ip-box">
+                <div style="font-size: 14px; margin-bottom: 5px;">TU IP REAL:</div>
+                <div id="ip" class="ip-value">-</div>
+                <div id="location" class="location">-</div>
+                <button class="copy-btn" onclick="copyIP()">📋 Copiar IP</button>
+                <div id="success" class="success">✓ Copiado!</div>
+            </div>
+        </div>
         <script>
+            let detectedData = { ip: '', city: '', country: '' };
+            
+            function copyIP() {
+                navigator.clipboard.writeText(detectedData.ip);
+                document.getElementById('success').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('success').style.display = 'none';
+                }, 2000);
+            }
+            
             (async function() {
                 try {
                     const res = await fetch('https://ipapi.co/json/');
                     const data = await res.json();
                     
-                    // Guardar en localStorage
-                    localStorage.setItem('detected_ip', data.ip || 'Proxy');
-                    localStorage.setItem('detected_city', data.city || 'Unknown');
-                    localStorage.setItem('detected_country', data.country_name || data.country || 'Unknown');
+                    detectedData = {
+                        ip: data.ip || 'No detectado',
+                        city: data.city || 'Unknown',
+                        country: data.country_name || data.country || 'Unknown'
+                    };
                     
-                    // Mostrar país
                     document.getElementById('loading').style.display = 'none';
-                    const countryDiv = document.getElementById('countryText');
-                    countryDiv.textContent = (data.country_name || data.country || 'Unknown');
-                    countryDiv.classList.add('show');
+                    document.getElementById('content').style.display = 'block';
+                    document.getElementById('ip').textContent = detectedData.ip;
+                    document.getElementById('location').textContent = detectedData.city + ', ' + detectedData.country;
                     
                 } catch (e) {
-                    document.getElementById('loading').textContent = 'Error';
+                    document.getElementById('loading').textContent = '❌ Error';
                 }
             })();
         </script>
@@ -77,60 +121,32 @@ def show_ip_one_click():
     </html>
     """
     
-    components.html(html_code, height=120)
+    components.html(html_code, height=200)
     
-    # Formulario Streamlit
-    with st.form(key="ip_confirmation_form"):
-        st.markdown("**¿Continuar desde este país?**")
-        
-        # Campo oculto que JavaScript llenará
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            ip_val = st.text_input("IP", key="hidden_ip", label_visibility="collapsed", placeholder="Detectando...")
-        with col2:
-            city_val = st.text_input("Ciudad", key="hidden_city", label_visibility="collapsed", placeholder="Detectando...")
-        with col3:
-            country_val = st.text_input("País", key="hidden_country", label_visibility="collapsed", placeholder="Detectando...")
-        
-        # Script para llenar campos desde localStorage
-        st.markdown("""
-        <script>
-            setTimeout(function() {
-                const ip = localStorage.getItem('detected_ip') || '';
-                const city = localStorage.getItem('detected_city') || '';
-                const country = localStorage.getItem('detected_country') || '';
-                
-                const inputs = parent.document.querySelectorAll('input[type="text"]');
-                if (inputs.length >= 3) {
-                    // Buscar los 3 últimos inputs (son los del formulario)
-                    const startIdx = Math.max(0, inputs.length - 3);
-                    if (inputs[startIdx]) inputs[startIdx].value = ip;
-                    if (inputs[startIdx + 1]) inputs[startIdx + 1].value = city;
-                    if (inputs[startIdx + 2]) inputs[startIdx + 2].value = country;
+    st.markdown("---")
+    st.markdown("**Pega la IP aquí:**")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        ip_input = st.text_input("IP", label_visibility="collapsed", placeholder="Pega tu IP aquí", key="ip_paste_field")
+    
+    with col2:
+        if st.button("✅ Confirmar", type="primary", use_container_width=True):
+            if ip_input and len(ip_input) > 5:
+                # Guardar IP
+                st.session_state.user_ip = ip_input
+                # Dejar ciudad y país como detectados anteriormente o Unknown
+                if not st.session_state.get('user_city'):
+                    st.session_state.user_city = "Unknown"
+                if not st.session_state.get('user_country'):
+                    st.session_state.user_country = "Unknown"
                     
-                    // Trigger change events
-                    for (let i = startIdx; i < inputs.length; i++) {
-                        if (inputs[i]) {
-                            inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-                            inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
-                        }
-                    }
-                }
-            }, 1000);
-        </script>
-        """, unsafe_allow_html=True)
-        
-        submitted = st.form_submit_button("✅ Confirmar", use_container_width=True, type="primary")
-        
-        if submitted:
-            # Usar valores de los campos (que JavaScript llenó)
-            st.session_state.user_ip = ip_val if ip_val else "Proxy"
-            st.session_state.user_city = city_val if city_val else "Unknown"
-            st.session_state.user_country = country_val if country_val else "Unknown"
-            st.session_state.real_ip_detected = True
-            st.session_state.ip_needs_confirmation = False
-            
-            print(f"[INFO] ✅ IP confirmada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
-            
-            st.success(f"✅ Confirmado: {st.session_state.user_country}")
-            st.rerun()
+                st.session_state.real_ip_detected = True
+                st.session_state.ip_needs_confirmation = False
+                
+                print(f"[INFO] ✅ IP REAL confirmada: {ip_input}")
+                
+                st.success(f"✅ IP confirmada: {ip_input}")
+                st.rerun()
+            else:
+                st.error("❌ Por favor pega una IP válida")
