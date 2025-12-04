@@ -17,6 +17,8 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from cities_data import get_cities_for_country
 import streamlit.components.v1 as components
+from geo_utils import GeoLocator
+from google_sheets_logger import create_sheets_logger
 
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
@@ -1428,6 +1430,19 @@ if 'oauth_processing' not in st.session_state:
     st.session_state.oauth_processing = False
 if 'oauth_processed' not in st.session_state:
     st.session_state.oauth_processed = False
+
+# Inicializar detector de IP (una sola vez por sesión)
+if 'geo_locator' not in st.session_state:
+    st.session_state.geo_locator = GeoLocator(timeout_seconds=3)
+    print("[INFO] GeoLocator inicializado")
+
+# Inicializar Google Sheets Logger (una sola vez por sesión)
+if 'sheets_logger' not in st.session_state:
+    st.session_state.sheets_logger = create_sheets_logger()
+    if st.session_state.sheets_logger:
+        print("[INFO] Google Sheets Logger inicializado")
+    else:
+        print("[WARNING] Google Sheets Logger no disponible - credenciales no encontradas")
 
 # Lógica de UI optimizada: Mostrar input de usuario ANTES de cargar recursos pesados
 if not st.session_state.user_name:
