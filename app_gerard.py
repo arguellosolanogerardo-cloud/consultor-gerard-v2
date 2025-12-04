@@ -1369,7 +1369,7 @@ def colorize_citations(text: str) -> str:
 # Header con logo
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
-    st.image("assets/gerardfull.jpg", use_container_width=True)
+    st.image("assets/gerardfull.png", use_container_width=True)
 st.markdown('<div class="subtitle">v3.69 | ASISTENTE</div>', unsafe_allow_html=True)
 
 # IMPORTANTE: Inicializar recursos AL INICIO para descargar FAISS si es necesario
