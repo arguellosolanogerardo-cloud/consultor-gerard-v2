@@ -1,24 +1,42 @@
 """
-Detector de IP REAL - Solución MANUAL (única que funciona 100%)
+Detector de IP REAL - Solución con 1 SOLO CLIC
 
-Muestra IP detectada, usuario copia y pega manualmente.
-Es un paso extra, pero GARANTIZA que funcione.
+Widget detecta automáticamente, muestra, botón con texto del país.
+1 clic → todo automático → IP REAL guardada.
 """
 
 import streamlit as st
 import streamlit.components.v1 as components
 
 
-def show_ip_manual_confirmation():
+def show_ip_one_click():
     """
-    Muestra widget que detecta IP y pide al usuario copiar/pegar.
-    Es manual pero es la ÚNICA forma que funciona en Streamlit Cloud.
+    Widget que detecta IP, muestra info, 1 botón: "Continuar desde [PAÍS]?"
+    Al hacer clic, redirige con query params y Streamlit captura.
     """
     
-    st.markdown("### 🌐 Confirma Tu Ubicación Real")
-    st.info("📍 **Por qué esto es necesario:** Para obtener tu IP REAL (no la del servidor), necesitamos tu ayuda.")
+    # Procesar query params si vienen del redirect
+    if 'confirmed_ip' in st.query_params:
+        st.session_state.user_ip = st.query_params.get('confirmed_ip', 'Proxy')
+        st.session_state.user_city = st.query_params.get('confirmed_city', 'Unknown')
+        st.session_state.user_country = st.query_params.get('confirmed_country', 'Unknown')
+        st.session_state.real_ip_detected = True
+        st.session_state.ip_needs_confirmation = False
+        
+        # Limpiar query params
+        st.query_params.clear()
+        
+        print(f"[INFO] ✅ IP REAL confirmada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
+        
+        st.success(f"✅ Ubicación confirmada: {st.session_state.user_city}, {st.session_state.user_country}")
+        st.rerun()
+        return True
     
-    # Widget que detecta IP
+    # Si no hay query params, mostrar widget de confirmación
+    st.markdown("### 🌐 Verificación de Ubicación")
+    st.info("📍 Detectando tu ubicación real...")
+    
+    # Widget con detección automática y botón de confirmación
     html_code = """
     <!DOCTYPE html>
     <html>
@@ -33,135 +51,103 @@ def show_ip_manual_confirmation():
             .card {
                 background: white;
                 border-radius: 12px;
-                padding: 25px;
+                padding: 30px;
                 text-align: center;
                 box-shadow: 0 8px 20px rgba(0,0,0,0.2);
             }
-            .title {
-                font-size: 14px;
-                color: #666;
-                margin-bottom: 15px;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-            }
-            .ip-display {
-                background: #f0f0f0;
-                border: 2px dashed #667eea;
-                border-radius: 8px;
-                padding: 15px;
-                margin: 15px 0;
-            }
-            .ip-value {
-                font-size: 32px;
-                font-weight: bold;
-                color: #667eea;
-                font-family: 'Courier New', monospace;
-                letter-spacing: 2px;
-                margin: 10px 0;
-                user-select: all;
-            }
-            .location-value {
-                font-size: 18px;
-                color: #555;
-                margin: 8px 0;
-                user-select: all;
-            }
-            .copy-btn {
-                background: #667eea;
-                color: white;
-                border: none;
-                padding: 12px 25px;
-                border-radius: 6px;
+            .icon { font-size: 48px; margin-bottom: 15px; }
+            .status {
                 font-size: 16px;
-                cursor: pointer;
-                margin: 10px 5px;
-                transition: all 0.3s;
-            }
-            .copy-btn:hover {
-                background: #5568d3;
-                transform: translateY(-2px);
-            }
-            .copy-btn:active {
-                transform: translateY(0);
-            }
-            .loading {
                 color: #667eea;
-                font-size: 18px;
+                margin: 15px 0;
                 animation: pulse 1.5s infinite;
             }
             @keyframes pulse {
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.5; }
             }
-            .instruction {
-                background: #fff3cd;
-                border-left: 4px solid #ffc107;
-                padding: 12px;
+            .info-box {
+                background: #f8f9fa;
+                border-radius: 8px;
+                padding: 15px;
                 margin: 15px 0;
-                border-radius: 4px;
-                text-align: left;
-                font-size: 14px;
-                color: #856404;
             }
-            .success {
-                color: #10b981;
-                font-size: 14px;
-                margin-top: 10px;
+            .label {
+                font-size: 12px;
+                color: #999;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+                margin-bottom: 5px;
+            }
+            .value {
+                font-size: 20px;
+                font-weight: bold;
+                color: #333;
+                margin: 5px 0;
+            }
+            .ip-value {
+                font-size: 24px;
+                color: #667eea;
+                font-family: 'Courier New', monospace;
+            }
+            .btn-container {
+                margin-top: 25px;
+            }
+            .confirm-btn {
+                background: linear-gradient(45deg, #667eea, #764ba2);
+                color: white;
+                border: none;
+                padding: 16px 32px;
+                border-radius: 8px;
+                font-size: 18px;
+                font-weight: bold;
+                cursor: pointer;
+                transition: all 0.3s;
+                box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
                 display: none;
             }
-            .success.show {
-                display: block;
+            .confirm-btn:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+            }
+            .confirm-btn:active {
+                transform: translateY(0);
+            }
+            .confirm-btn.show {
+                display: inline-block;
             }
         </style>
     </head>
     <body>
         <div class="card">
-            <div class="title">🌍 Tu Ubicación Real Detectada</div>
-            <div id="status" class="loading">Detectando desde tu navegador...</div>
+            <div class="icon">🌍</div>
+            <div id="status" class="status">Detectando tu ubicación...</div>
             <div id="content" style="display:none;">
-                <div class="instruction">
-                    ⚠️ <strong>IMPORTANTE:</strong> Copia estos datos y pégalos en los campos de abajo.
+                <div class="info-box">
+                    <div class="label">IP Pública</div>
+                    <div id="ip" class="value ip-value">-</div>
                 </div>
-                <div class="ip-display">
-                    <div style="font-size: 12px; color: #999; margin-bottom: 5px;">IP PÚBLICA:</div>
-                    <div id="ip" class="ip-value">-</div>
-                    <button class="copy-btn" onclick="copyIP()">📋 Copiar IP</button>
+                <div class="info-box">
+                    <div class="label">Ubicación Detectada</div>
+                    <div id="location" class="value">-</div>
                 </div>
-                <div class="ip-display">
-                    <div style="font-size: 12px; color: #999; margin-bottom: 5px;">CIUDAD:</div>
-                    <div id="city" class="location-value">-</div>
-                    <button class="copy-btn" onclick="copyCity()">📋 Copiar Ciudad</button>
+                <div class="btn-container">
+                    <button id="confirmBtn" class="confirm-btn" onclick="confirmLocation()">
+                        -
+                    </button>
                 </div>
-                <div class="ip-display">
-                    <div style="font-size: 12px; color: #999; margin-bottom: 5px;">PAÍS:</div>
-                    <div id="country" class="location-value">-</div>
-                    <button class="copy-btn" onclick="copyCountry()">📋 Copiar País</button>
-                </div>
-                <div id="successMsg" class="success">✓ Copiado al portapapeles</div>
             </div>
         </div>
         <script>
             let detectedData = { ip: '', city: '', country: '' };
             
-            function showSuccess() {
-                const msg = document.getElementById('successMsg');
-                msg.classList.add('show');
-                setTimeout(() => msg.classList.remove('show'), 2000);
-            }
-            
-            function copyIP() {
-                navigator.clipboard.writeText(detectedData.ip);
-                showSuccess();
-            }
-            
-            function copyCity() {
-                navigator.clipboard.writeText(detectedData.city);
-                showSuccess();
-            }
-            
-            function copyCountry() {
-                navigator.clipboard.writeText(detectedData.country);
-                showSuccess();
+            function confirmLocation() {
+                // Redirigir con query params
+                const url = new URL(window.location.href);
+                url.searchParams.set('confirmed_ip', detectedData.ip);
+                url.searchParams.set('confirmed_city', detectedData.city);
+                url.searchParams.set('confirmed_country', detectedData.country);
+                window.location.href = url.toString();
             }
             
             (async function() {
@@ -175,15 +161,22 @@ def show_ip_manual_confirmation():
                         country: data.country_name || data.country || 'Unknown'
                     };
                     
+                    // Ocultar loading
                     document.getElementById('status').style.display = 'none';
                     document.getElementById('content').style.display = 'block';
+                    
+                    // Mostrar datos
                     document.getElementById('ip').textContent = detectedData.ip;
-                    document.getElementById('city').textContent = detectedData.city;
-                    document.getElementById('country').textContent = detectedData.country;
+                    document.getElementById('location').textContent = detectedData.city + ', ' + detectedData.country;
+                    
+                    // Mostrar botón con texto del país
+                    const btn = document.getElementById('confirmBtn');
+                    btn.textContent = '✅ Continuar desde ' + detectedData.country + '?';
+                    btn.classList.add('show');
                     
                 } catch (e) {
-                    document.getElementById('status').textContent = '❌ Error detectando IP';
-                    document.getElementById('status').classList.remove('loading');
+                    document.getElementById('status').textContent = '❌ Error detectando ubicación';
+                    document.getElementById('status').classList.remove('status');
                 }
             })();
         </script>
@@ -191,33 +184,6 @@ def show_ip_manual_confirmation():
     </html>
     """
     
-    components.html(html_code, height=550)
+    components.html(html_code, height=400)
     
-    st.markdown("---")
-    st.markdown("### 📝 Pega los Datos Aquí")
-    
-    # Campos para que usuario pegue manualmente
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        ip_input = st.text_input("🌐 IP Pública", placeholder="Pega aquí tu IP", key="manual_ip")
-    with col2:
-        city_input = st.text_input("🏙️ Ciudad", placeholder="Pega aquí tu ciudad", key="manual_city")
-    with col3:
-        country_input = st.text_input("🌍 País", placeholder="Pega aquí tu país", key="manual_country")
-    
-    # Botón para confirmar
-    if st.button("✅ Confirmar Ubicación", type="primary", use_container_width=True):
-        if ip_input and city_input and country_input:
-            st.session_state.user_ip = ip_input
-            st.session_state.user_city = city_input
-            st.session_state.user_country = country_input
-            st.session_state.real_ip_detected = True
-            st.session_state.ip_needs_confirmation = False
-            
-            print(f"[INFO] ✅ IP REAL confirmada manualmente: {ip_input} | {city_input}, {country_input}")
-            
-            st.success(f"✅ Ubicación confirmada: {city_input}, {country_input} ({ip_input})")
-            st.balloons()
-            st.rerun()
-        else:
-            st.error("❌ Por favor completa todos los campos con los datos mostrados arriba.")
+    return False
