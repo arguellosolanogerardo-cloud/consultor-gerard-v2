@@ -19,7 +19,7 @@ from cities_data import get_cities_for_country
 import streamlit.components.v1 as components
 from geo_utils import GeoLocator
 from google_sheets_logger import create_sheets_logger
-from real_ip_detector import show_ip_detector_widget
+from real_ip_detector import detect_ip_silently, init_invisible_ip_detection
 
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
@@ -1713,50 +1713,23 @@ if not st.session_state.user_name:
 
 user_name = st.session_state.user_name
 
-# === PANTALLA DE CONFIRMACIÓN DE IP REAL ===
-# Mostrar solo si el usuario necesita confirmar su IP
+# === DETECCIÓN INVISIBLE DE IP REAL ===
+# Este proceso es completamente automático y no requiere intervención del usuario
+# Se ejecuta en segundo plano usando JavaScript
 if st.session_state.get('ip_needs_confirmation', False):
-    st.title("🌐 Confirma Tu Dirección IP Real")
-    st.info("📍 Para analytics precisos, necesitamos tu IP pública real. Se mostrarán debajo:")
+    # Inicializar detección invisible
+    init_invisible_ip_detection()
     
-    # Mostrar widget que detecta la IP real con JavaScript
-    show_ip_detector_widget()
+    # Intentar detectar IP de forma invisible
+    ip_data = detect_ip_silently()
     
-    st.markdown("---")
-    st.markdown("### ✏️ Ingresa la IP Mostrada Arriba")
-    
-    col1, col2 = st.columns([3, 1])
-    with col1:
-        confirmed_ip = st.text_input(
-            "IP Detectada:",
-            placeholder="Ej: 186.45.123.89",
-            help="Copia y pega la IP que se mostró en el recuadro azul de arriba",
-            key="ip_confirmation_input"
-        )
-    
-    with col2:
-        st.write("")  # Espaciado
-        st.write("")  # Espaciado
-        if st.button("✅ Confirmar", type="primary", use_container_width=True):
-            if confirmed_ip and len(confirmed_ip.split('.')) == 4:
-                # Guardar IP confirmada
-                st.session_state.user_ip = confirmed_ip
-                st.session_state.ip_needs_confirmation = False
-                st.success(f"✅ IP confirmada: {confirmed_ip}")
-                time.sleep(1)
-                st.rerun()
-            else:
-                st.error("❌ Por favor ingresa una IP válida (formato: xxx.xxx.xxx.xxx)")
-    
-    # Opción para saltar este paso (usar IP del proxy)
-    if st.button("⏭️ Usar IP del Servidor (Menos Preciso)", type="secondary"):
+    if ip_data and ip_data.get('ip'):
+        # IP detectada exitosamente
         st.session_state.ip_needs_confirmation = False
-        st.warning(f"⚠️ Usando IP del servidor: {st.session_state.user_ip}")
-        time.sleep(1)
+        print(f"[INFO] ✅ IP REAL detectada automáticamente: {ip_data['ip']}")
         st.rerun()
-    
-    # Detener aquí hasta que confirme
-    st.stop()
+    # Si no hay IP aún, el JavaScript se está ejecutando en segundo plano
+    # La próxima recarga traerá la IP en query_params
 
 
 # Cargar recursos SOLO después de tener usuario (o en background si fuera posible, pero Streamlit es secuencial)
