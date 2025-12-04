@@ -26,6 +26,9 @@ except ImportError:
     GOOGLE_AUTH_AVAILABLE = False
     print("[WARNING] Google Auth no disponible - falta google-api-python-client")
 
+# ===== CONFIGURACIÓN DE LOGIN =====
+# Habilita/deshabilita el formulario de ingreso manual
+ENABLE_MANUAL_LOGIN = False  # Cambia a False para reactivar el ingreso manual
 
 # ===== FUNCIONES DE GENERACIÓN DE PDF (CON WEASYPRINT) =====
 # Verificar disponibilidad de weasyprint (prioridad) y reportlab (fallback)
@@ -1573,114 +1576,117 @@ if not st.session_state.user_name:
                     unsafe_allow_html=True
                 )
             
-            st.markdown("--- O ---")
+            # Solo mostrar separador y formulario manual si está habilitado
+            if ENABLE_MANUAL_LOGIN:
+                st.markdown("--- O ---")
 
         # --- OPCIÓN 2: NOMBRE MANUAL ---
-        st.markdown("### ✍️ Ingreso Manual")
-        
-        # Lista de países más comunes (puede expandirse)
-        PAISES = [
-            "", "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", 
-            "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", 
-            "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", 
-            "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde", 
-            "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", 
-            "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", 
-            "Dominican Republic", "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", 
-            "Eritrea", "España", "Estonia", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", 
-            "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", 
-            "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", 
-            "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", 
-            "Kenya", "Kiribati", "North Korea", "South Korea", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", 
-            "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", 
-            "Macedonia", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", 
-            "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", 
-            "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", 
-            "Nicaragua", "Niger", "Nigeria", "Norway", "Oman", "Pakistan", "Palau", "Panama", 
-            "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", 
-            "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", 
-            "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", 
-            "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", 
-            "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", 
-            "Sudan", "Suriname", "Swaziland", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", 
-            "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", 
-            "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", 
-            "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", 
-            "Yemen", "Zambia", "Zimbabwe"
-        ]
-        
-        # Usamos contenedores para organizar, pero SIN st.form para permitir interactividad
-        # Esto permite que al seleccionar país, se actualice la lista de ciudades
-        
-        temp_name = st.text_input(
-            "👤 Nombre completo:",
-            placeholder="Ej: Juan Pérez",
-            key="temp_user_name",
-            help="Escribe tu nombre completo"
-        )
-        
-        temp_country = st.selectbox(
-            "🌍 País:",
-            options=PAISES,
-            index=0,
-            key="temp_user_country",
-            help="Selecciona tu país de la lista"
-        )
-        
-        # Lógica dinámica para ciudad basada en el país
-        temp_city = ""
-        cities_list = get_cities_for_country(temp_country)
-        
-        if cities_list:
-            # Si hay ciudades para este país, mostrar dropdown
-            city_options = ["Seleccionar..."] + sorted(cities_list) + ["Otra ciudad..."]
-            selected_city_option = st.selectbox(
-                "🏙️ Ciudad:",
-                options=city_options,
-                key="temp_user_city_select",
-                help="Selecciona tu ciudad o elige 'Otra ciudad...' para escribirla"
-            )
+        if ENABLE_MANUAL_LOGIN:
+            st.markdown("### ✍️ Ingreso Manual")
             
-            if selected_city_option == "Otra ciudad...":
-                temp_city = st.text_input(
-                    "Escribe el nombre de tu ciudad:",
-                    placeholder="Ej: Mi Ciudad",
-                    key="temp_user_city_manual"
-                )
-            elif selected_city_option != "Seleccionar...":
-                temp_city = selected_city_option
-        else:
-            # Si no hay lista de ciudades (o no se seleccionó país), mostrar text input normal
-            temp_city = st.text_input(
-                "🏙️ Ciudad:",
-                placeholder="Ej: Madrid, Barcelona...",
-                key="temp_user_city_manual_fallback",
-                help="Escribe el nombre de tu ciudad"
+            # Lista de países más comunes (puede expandirse)
+            PAISES = [
+                "", "Afghanistan", "Albania", "Algeria", "Andorra", "Angola", "Argentina", "Armenia", "Australia", 
+                "Austria", "Azerbaijan", "Bahamas", "Bahrain", "Bangladesh", "Barbados", "Belarus", "Belgium", 
+                "Belize", "Benin", "Bhutan", "Bolivia", "Bosnia and Herzegovina", "Botswana", "Brazil", "Brunei", 
+                "Bulgaria", "Burkina Faso", "Burundi", "Cambodia", "Cameroon", "Canada", "Cape Verde", 
+                "Central African Republic", "Chad", "Chile", "China", "Colombia", "Comoros", "Congo", 
+                "Costa Rica", "Croatia", "Cuba", "Cyprus", "Czech Republic", "Denmark", "Djibouti", "Dominica", 
+                "Dominican Republic", "East Timor", "Ecuador", "Egypt", "El Salvador", "Equatorial Guinea", 
+                "Eritrea", "España", "Estonia", "Ethiopia", "Fiji", "Finland", "France", "Gabon", "Gambia", 
+                "Georgia", "Germany", "Ghana", "Greece", "Grenada", "Guatemala", "Guinea", "Guinea-Bissau", 
+                "Guyana", "Haiti", "Honduras", "Hungary", "Iceland", "India", "Indonesia", "Iran", "Iraq", 
+                "Ireland", "Israel", "Italy", "Ivory Coast", "Jamaica", "Japan", "Jordan", "Kazakhstan", 
+                "Kenya", "Kiribati", "North Korea", "South Korea", "Kuwait", "Kyrgyzstan", "Laos", "Latvia", 
+                "Lebanon", "Lesotho", "Liberia", "Libya", "Liechtenstein", "Lithuania", "Luxembourg", 
+                "Macedonia", "Madagascar", "Malawi", "Malaysia", "Maldives", "Mali", "Malta", "Marshall Islands", 
+                "Mauritania", "Mauritius", "Mexico", "Micronesia", "Moldova", "Monaco", "Mongolia", "Montenegro", 
+                "Morocco", "Mozambique", "Myanmar", "Namibia", "Nauru", "Nepal", "Netherlands", "New Zealand", 
+                "Nicaragua", "Niger", "Nigeria", "Norway", "Oman", "Pakistan", "Palau", "Panama", 
+                "Papua New Guinea", "Paraguay", "Peru", "Philippines", "Poland", "Portugal", "Qatar", 
+                "Romania", "Russia", "Rwanda", "Saint Kitts and Nevis", "Saint Lucia", 
+                "Saint Vincent and the Grenadines", "Samoa", "San Marino", "Sao Tome and Principe", 
+                "Saudi Arabia", "Senegal", "Serbia", "Seychelles", "Sierra Leone", "Singapore", "Slovakia", 
+                "Slovenia", "Solomon Islands", "Somalia", "South Africa", "South Sudan", "Spain", "Sri Lanka", 
+                "Sudan", "Suriname", "Swaziland", "Sweden", "Switzerland", "Syria", "Taiwan", "Tajikistan", 
+                "Tanzania", "Thailand", "Togo", "Tonga", "Trinidad and Tobago", "Tunisia", "Turkey", 
+                "Turkmenistan", "Tuvalu", "Uganda", "Ukraine", "United Arab Emirates", "United Kingdom", 
+                "United States", "Uruguay", "Uzbekistan", "Vanuatu", "Vatican City", "Venezuela", "Vietnam", 
+                "Yemen", "Zambia", "Zimbabwe"
+            ]
+        
+            # Usamos contenedores para organizar, pero SIN st.form para permitir interactividad
+            # Esto permite que al seleccionar país, se actualice la lista de ciudades
+        
+            temp_name = st.text_input(
+                "👤 Nombre completo:",
+                placeholder="Ej: Juan Pérez",
+                key="temp_user_name",
+                help="Escribe tu nombre completo"
             )
         
-        st.markdown("<br>", unsafe_allow_html=True)
-        submit_button = st.button("🚀 Continuar", use_container_width=True, key="manual_login_btn")
+            temp_country = st.selectbox(
+                "🌍 País:",
+                options=PAISES,
+                index=0,
+                key="temp_user_country",
+                help="Selecciona tu país de la lista"
+            )
         
-        if submit_button:
-            # Validar que todos los campos estén llenos
-            if not temp_name or not temp_name.strip():
-                st.error("❌ Por favor ingresa tu nombre")
-            elif not temp_country or temp_country == "":
-                st.error("❌ Por favor selecciona tu país de la lista")
-            elif not temp_city or not temp_city.strip():
-                st.error("❌ Por favor selecciona o ingresa tu ciudad")
-            # Validar que la ciudad sea un nombre válido (sin números)
-            elif not temp_city.replace(" ", "").replace("-", "").isalpha():
-                st.error("❌ El nombre de la ciudad no es válido. Solo debe contener letras, espacios y guiones")
-            elif len(temp_city.strip()) < 2:
-                st.error("❌ El nombre de la ciudad es demasiado corto")
+            # Lógica dinámica para ciudad basada en el país
+            temp_city = ""
+            cities_list = get_cities_for_country(temp_country)
+        
+            if cities_list:
+                # Si hay ciudades para este país, mostrar dropdown
+                city_options = ["Seleccionar..."] + sorted(cities_list) + ["Otra ciudad..."]
+                selected_city_option = st.selectbox(
+                    "🏙️ Ciudad:",
+                    options=city_options,
+                    key="temp_user_city_select",
+                    help="Selecciona tu ciudad o elige 'Otra ciudad...' para escribirla"
+                )
+            
+                if selected_city_option == "Otra ciudad...":
+                    temp_city = st.text_input(
+                        "Escribe el nombre de tu ciudad:",
+                        placeholder="Ej: Mi Ciudad",
+                        key="temp_user_city_manual"
+                    )
+                elif selected_city_option != "Seleccionar...":
+                    temp_city = selected_city_option
             else:
-                # Guardar datos en session_state
-                st.session_state.user_name = temp_name.strip()
-                st.session_state.user_city = temp_city.strip().title()  # Capitalizar correctamente
-                st.session_state.user_country = temp_country.strip()
-                st.success(f"✅ ¡Bienvenido, {temp_name.strip()}!")
-                st.rerun()
+                # Si no hay lista de ciudades (o no se seleccionó país), mostrar text input normal
+                temp_city = st.text_input(
+                    "🏙️ Ciudad:",
+                    placeholder="Ej: Madrid, Barcelona...",
+                    key="temp_user_city_manual_fallback",
+                    help="Escribe el nombre de tu ciudad"
+                )
+        
+            st.markdown("<br>", unsafe_allow_html=True)
+            submit_button = st.button("🚀 Continuar", use_container_width=True, key="manual_login_btn")
+        
+            if submit_button:
+                # Validar que todos los campos estén llenos
+                if not temp_name or not temp_name.strip():
+                    st.error("❌ Por favor ingresa tu nombre")
+                elif not temp_country or temp_country == "":
+                    st.error("❌ Por favor selecciona tu país de la lista")
+                elif not temp_city or not temp_city.strip():
+                    st.error("❌ Por favor selecciona o ingresa tu ciudad")
+                # Validar que la ciudad sea un nombre válido (sin números)
+                elif not temp_city.replace(" ", "").replace("-", "").isalpha():
+                    st.error("❌ El nombre de la ciudad no es válido. Solo debe contener letras, espacios y guiones")
+                elif len(temp_city.strip()) < 2:
+                    st.error("❌ El nombre de la ciudad es demasiado corto")
+                else:
+                    # Guardar datos en session_state
+                    st.session_state.user_name = temp_name.strip()
+                    st.session_state.user_city = temp_city.strip().title()  # Capitalizar correctamente
+                    st.session_state.user_country = temp_country.strip()
+                    st.success(f"✅ ¡Bienvenido, {temp_name.strip()}!")
+                    st.rerun()
     
     # Detener ejecución aquí si no hay usuario para que sea instantáneo
     if not st.session_state.user_name:
