@@ -133,20 +133,32 @@ def show_ip_simple_copy():
     with col2:
         if st.button("✅ Confirmar", type="primary", use_container_width=True):
             if ip_input and len(ip_input) > 5:
-                # Guardar IP
-                st.session_state.user_ip = ip_input
-                # Dejar ciudad y país como detectados anteriormente o Unknown
-                if not st.session_state.get('user_city'):
+                # Buscar ciudad y país de esta IP usando ipapi
+                import requests
+                try:
+                    response = requests.get(f'https://ipapi.co/{ip_input}/json/', timeout=3)
+                    if response.status_code == 200:
+                        data = response.json()
+                        st.session_state.user_ip = ip_input
+                        st.session_state.user_city = data.get('city', 'Unknown')
+                        st.session_state.user_country = data.get('country_name', data.get('country', 'Unknown'))
+                        
+                        print(f"[INFO] ✅ IP REAL confirmada: {ip_input} | {st.session_state.user_city}, {st.session_state.user_country}")
+                    else:
+                        # Si no se puede obtener info, guardar solo IP
+                        st.session_state.user_ip = ip_input
+                        st.session_state.user_city = "Unknown"
+                        st.session_state.user_country = "Unknown"
+                except Exception as e:
+                    print(f"[WARNING] Error obteniendo ubicación de IP: {e}")
+                    st.session_state.user_ip = ip_input
                     st.session_state.user_city = "Unknown"
-                if not st.session_state.get('user_country'):
                     st.session_state.user_country = "Unknown"
                     
                 st.session_state.real_ip_detected = True
                 st.session_state.ip_needs_confirmation = False
                 
-                print(f"[INFO] ✅ IP REAL confirmada: {ip_input}")
-                
-                st.success(f"✅ IP confirmada: {ip_input}")
+                st.success(f"✅ IP confirmada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
                 st.rerun()
             else:
                 st.error("❌ Por favor pega una IP válida")
