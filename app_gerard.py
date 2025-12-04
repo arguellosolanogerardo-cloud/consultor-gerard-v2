@@ -1488,8 +1488,8 @@ if not st.session_state.user_name:
                         
                         # Detectar ubicación real del usuario automáticamente
                         try:
-                            from geo_utils import GeoLocator
-                            geo = GeoLocator(timeout_seconds=3)
+                            # Usar el GeoLocator ya inicializado en session_state
+                            geo = st.session_state.geo_locator
                             location = geo.get_location()
                             
                             if location and location.get('ciudad') != 'Desconocido':
