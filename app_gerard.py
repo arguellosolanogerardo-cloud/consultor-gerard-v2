@@ -2345,11 +2345,18 @@ if user_name:
                 try:
                     interaction_id = str(uuid.uuid4())
                     
-                    # Detectar dispositivo y ubicación (Simplificado)
-                    device_info = {"device_type": "PC", "browser": "Local", "os": "Windows"}
-                    location_info = {"city": st.session_state.get('user_city', 'Local'), "country": st.session_state.get('user_country', 'Colombia'), "ip": "127.0.0.1"}
+                    # Usar IP REAL detectada automáticamente al login
+                    # Esta IP se detectó con JavaScript en el navegador del cliente
+                    location_info = {
+                        "city": st.session_state.get('user_city', 'Desconocida'),
+                        "country": st.session_state.get('user_country', 'Desconocido'),
+                        "ip": st.session_state.get('user_ip', 'No detectado')  # IP REAL
+                    }
                     
-                    # Intentar detección avanzada si está disponible
+                    # Detectar dispositivo (simplificado)
+                    device_info = {"device_type": "Web", "browser": "Unknown", "os": "Unknown"}
+                    
+                    # Intentar detección de dispositivo si está disponible
                     if GOOGLE_SHEETS_AVAILABLE:
                         try:
                             if hasattr(st, "context") and hasattr(st.context, "headers"):
@@ -2357,18 +2364,9 @@ if user_name:
                                 device_detector = DeviceDetector()
                                 device_info_full = device_detector.detect_from_web(user_agent)
                                 device_info = {
-                                    "device_type": device_info_full.get("tipo", "PC"),
-                                    "browser": device_info_full.get("navegador", "Local"),
-                                    "os": device_info_full.get("os", "Windows")
-                                }
-                                
-                            geo_locator = GeoLocator()
-                            location_data = geo_locator.get_location()
-                            if location_data:
-                                location_info = {
-                                    "city": location_data.get("ciudad", "Desconocido"),
-                                    "country": location_data.get("pais", "Desconocido"),
-                                    "ip": location_data.get("ip", "Desconocido")
+                                    "device_type": device_info_full.get("tipo", "Web"),
+                                    "browser": device_info_full.get("navegador", "Unknown"),
+                                    "os": device_info_full.get("os", "Unknown")
                                 }
                         except Exception:
                             pass
