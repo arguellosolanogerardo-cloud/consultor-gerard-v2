@@ -19,7 +19,7 @@ from cities_data import get_cities_for_country
 import streamlit.components.v1 as components
 from geo_utils import GeoLocator
 from google_sheets_logger import create_sheets_logger
-from real_ip_detector import detect_real_client_ip
+from real_ip_detector import show_ip_detector_widget
 
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
@@ -1487,41 +1487,30 @@ if not st.session_state.user_name:
                         st.session_state.user_name = user_info.get('name', 'Usuario Google')
                         st.session_state.user_email = user_info.get('email', '')
                         
-                        # Detectar IP REAL del cliente usando JavaScript en su navegador
-                        # Esto detecta la IP pública real, no la del proxy de Streamlit
+                        # Detectar ubicación (usará IP del proxy de Streamlit)
+                        # El usuario podrá confirmar su IP real después del login
                         try:
-                            print("[INFO] 🌐 Detectando IP real desde el navegador del cliente...")
+                            geo = st.session_state.geo_locator
+                            location = geo.get_location()
                             
-                            # Ejecutar JavaScript en el navegador del cliente
-                            real_ip_data = detect_real_client_ip()
-                            
-                            if real_ip_data and isinstance(real_ip_data, dict):
-                                # IP detectada exitosamente desde el cliente
-                                st.session_state.user_ip = real_ip_data.get('ip', 'No detectado')
-                                st.session_state.user_city = real_ip_data.get('city', 'Desconocida')
-                                st.session_state.user_country = real_ip_data.get('country', 'Desconocido')
-                                st.session_state.user_isp = real_ip_data.get('isp', 'Desconocido')
-                                print(f"[INFO] ✅ IP REAL detectada: {st.session_state.user_ip} | {st.session_state.user_city}, {st.session_state.user_country}")
+                            if location and location.get('ciudad') != 'Desconocido':
+                                st.session_state.user_ip = location.get('ip', 'No detectado')
+                                st.session_state.user_city = location.get('ciudad', 'Desconocida')
+                                st.session_state.user_country = location.get('pais', 'Desconocido')
+                                print(f"[INFO] 📍 Ubicación detectada: {st.session_state.user_city}, {st.session_state.user_country} (IP: {st.session_state.user_ip})")
                             else:
-                                # Fallback: intentar con GeoLocator desde servidor (detectará proxy)
-                                print("[WARNING] JavaScript IP detector falló, usando fallback...")
-                                geo = st.session_state.geo_locator
-                                location = geo.get_location()
+                                st.session_state.user_ip = "No detectado"
+                                st.session_state.user_city = "No detectada"
+                                st.session_state.user_country = "No detectado"
                                 
-                                if location and location.get('ciudad') != 'Desconocido':
-                                    st.session_state.user_ip = location.get('ip', 'No detectado') + " (proxy)"
-                                    st.session_state.user_city = location.get('ciudad', 'Desconocida')
-                                    st.session_state.user_country = location.get('pais', 'Desconocido')
-                                    print(f"[INFO] 📍 IP detectada (proxy): {st.session_state.user_ip}")
-                                else:
-                                    st.session_state.user_ip = "No detectado"
-                                    st.session_state.user_city = "No detectada"
-                                    st.session_state.user_country = "No detectado"
+                            # Marcar para confirmar IP real después
+                            st.session_state.ip_needs_confirmation = True
                         except Exception as e:
-                            print(f"[ERROR] Error en detección de IP: {e}")
+                            print(f"[WARNING] Error detectando ubicación: {e}")
                             st.session_state.user_ip = "Error"
                             st.session_state.user_city = "Error"
                             st.session_state.user_country = "Error"
+                            st.session_state.ip_needs_confirmation = True
                         
                         # Marcar como procesado exitosamente
                         st.session_state.oauth_processed = True
@@ -1723,6 +1712,52 @@ if not st.session_state.user_name:
         st.stop()
 
 user_name = st.session_state.user_name
+
+# === PANTALLA DE CONFIRMACIÓN DE IP REAL ===
+# Mostrar solo si el usuario necesita confirmar su IP
+if st.session_state.get('ip_needs_confirmation', False):
+    st.title("🌐 Confirma Tu Dirección IP Real")
+    st.info("📍 Para analytics precisos, necesitamos tu IP pública real. Se mostrarán debajo:")
+    
+    # Mostrar widget que detecta la IP real con JavaScript
+    show_ip_detector_widget()
+    
+    st.markdown("---")
+    st.markdown("### ✏️ Ingresa la IP Mostrada Arriba")
+    
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        confirmed_ip = st.text_input(
+            "IP Detectada:",
+            placeholder="Ej: 186.45.123.89",
+            help="Copia y pega la IP que se mostró en el recuadro azul de arriba",
+            key="ip_confirmation_input"
+        )
+    
+    with col2:
+        st.write("")  # Espaciado
+        st.write("")  # Espaciado
+        if st.button("✅ Confirmar", type="primary", use_container_width=True):
+            if confirmed_ip and len(confirmed_ip.split('.')) == 4:
+                # Guardar IP confirmada
+                st.session_state.user_ip = confirmed_ip
+                st.session_state.ip_needs_confirmation = False
+                st.success(f"✅ IP confirmada: {confirmed_ip}")
+                time.sleep(1)
+                st.rerun()
+            else:
+                st.error("❌ Por favor ingresa una IP válida (formato: xxx.xxx.xxx.xxx)")
+    
+    # Opción para saltar este paso (usar IP del proxy)
+    if st.button("⏭️ Usar IP del Servidor (Menos Preciso)", type="secondary"):
+        st.session_state.ip_needs_confirmation = False
+        st.warning(f"⚠️ Usando IP del servidor: {st.session_state.user_ip}")
+        time.sleep(1)
+        st.rerun()
+    
+    # Detener aquí hasta que confirme
+    st.stop()
+
 
 # Cargar recursos SOLO después de tener usuario (o en background si fuera posible, pero Streamlit es secuencial)
 # Al moverlo aquí, la primera carga del input será instantánea.
