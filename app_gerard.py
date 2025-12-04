@@ -19,7 +19,7 @@ from cities_data import get_cities_for_country
 import streamlit.components.v1 as components
 from geo_utils import GeoLocator
 from google_sheets_logger import create_sheets_logger
-from real_ip_detector import detect_ip_silently, init_invisible_ip_detection
+from real_ip_detector import ensure_real_ip
 
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
@@ -1713,23 +1713,11 @@ if not st.session_state.user_name:
 
 user_name = st.session_state.user_name
 
-# === DETECCIÓN INVISIBLE DE IP REAL ===
-# Este proceso es completamente automático y no requiere intervención del usuario
-# Se ejecuta en segundo plano usando JavaScript
+# === DETECCIÓN AUTOMÁTICA DE IP REAL ===
+# Asegurar que la IP real esté detectada antes de continuar
 if st.session_state.get('ip_needs_confirmation', False):
-    # Inicializar detección invisible
-    init_invisible_ip_detection()
-    
-    # Intentar detectar IP de forma invisible
-    ip_data = detect_ip_silently()
-    
-    if ip_data and ip_data.get('ip'):
-        # IP detectada exitosamente
-        st.session_state.ip_needs_confirmation = False
-        print(f"[INFO] ✅ IP REAL detectada automáticamente: {ip_data['ip']}")
-        st.rerun()
-    # Si no hay IP aún, el JavaScript se está ejecutando en segundo plano
-    # La próxima recarga traerá la IP en query_params
+    ensure_real_ip()  # Detecta automáticamente, muestra spinner breve
+    st.session_state.ip_needs_confirmation = False
 
 
 # Cargar recursos SOLO después de tener usuario (o en background si fuera posible, pero Streamlit es secuencial)
