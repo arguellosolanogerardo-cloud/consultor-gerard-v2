@@ -1531,6 +1531,20 @@ if not st.session_state.user_name:
                         st.session_state.user_name = user_info.get('name', 'Usuario Google')
                         st.session_state.user_email = user_info.get('email', '')
                         
+                        # Función para validar si un string es una IP válida
+                        def is_valid_ip(ip_string):
+                            """Verifica si el string es una dirección IP válida (IPv4 o IPv6)"""
+                            if not ip_string or not isinstance(ip_string, str):
+                                return False
+                            # Si contiene espacios o letras que no sean en notación hex (IPv6), no es IP
+                            if ' ' in ip_string:
+                                return False
+                            # Verificar formato IPv4 o IPv6
+                            import re
+                            ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+                            ipv6_pattern = r'^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$'
+                            return bool(re.match(ipv4_pattern, ip_string) or re.match(ipv6_pattern, ip_string))
+                        
                         # Detectar ubicación (usará IP del proxy de Streamlit)
                         # El usuario podrá confirmar su IP real después del login
                         try:
@@ -1538,7 +1552,14 @@ if not st.session_state.user_name:
                             location = geo.get_location()
                             
                             if location and location.get('ciudad') != 'Desconocido':
-                                st.session_state.user_ip = location.get('ip', 'No detectado')
+                                detected_ip = location.get('ip', 'No detectado')
+                                # VALIDACIÓN: Asegurar que la IP es válida y no es un nombre
+                                if is_valid_ip(detected_ip):
+                                    st.session_state.user_ip = detected_ip
+                                else:
+                                    print(f"[WARNING] IP inválida detectada: '{detected_ip}' - usando 'No detectado'")
+                                    st.session_state.user_ip = "No detectado"
+                                
                                 st.session_state.user_city = location.get('ciudad', 'Desconocida')
                                 st.session_state.user_country = location.get('pais', 'Desconocido')
                                 print(f"[INFO] 📍 Ubicación detectada: {st.session_state.user_city}, {st.session_state.user_country} (IP: {st.session_state.user_ip})")
@@ -1749,14 +1770,32 @@ if not st.session_state.user_name:
                     st.session_state.user_city = temp_city.strip().title()  # Capitalizar correctamente
                     st.session_state.user_country = temp_country.strip()
                     
-                    # NUEVO: Detectar ubicación/IP también para login manual
+                    # Función para validar si un string es una IP válida
+                    def is_valid_ip(ip_string):
+                        """Verifica si el string es una dirección IP válida (IPv4 o IPv6)"""
+                        if not ip_string or not isinstance(ip_string, str):
+                            return False
+                        if ' ' in ip_string:
+                            return False
+                        import re
+                        ipv4_pattern = r'^(\d{1,3}\.){3}\d{1,3}$'
+                        ipv6_pattern = r'^([0-9a-fA-F]{0,4}:){2,7}[0-9a-fA-F]{0,4}$'
+                        return bool(re.match(ipv4_pattern, ip_string) or re.match(ipv6_pattern, ip_string))
+                    
+                    # Detectar ubicación/IP también para login manual
                     try:
                         geo = st.session_state.geo_locator
                         location = geo.get_location()
                         
                         if location and location.get('ciudad') != 'Desconocido':
-                            st.session_state.user_ip = location.get('ip', 'No detectado')
-                            print(f"[INFO] 📍 IP detectada para login manual: {st.session_state.user_ip}")
+                            detected_ip = location.get('ip', 'No detectado')
+                            # VALIDACIÓN: Asegurar que la IP es válida
+                            if is_valid_ip(detected_ip):
+                                st.session_state.user_ip = detected_ip
+                                print(f"[INFO] 📍 IP detectada para login manual: {st.session_state.user_ip}")
+                            else:
+                                print(f"[WARNING] IP inválida en login manual: '{detected_ip}' - usando 'No detectado'")
+                                st.session_state.user_ip = "No detectado"
                         else:
                             st.session_state.user_ip = "No detectado"
                         
