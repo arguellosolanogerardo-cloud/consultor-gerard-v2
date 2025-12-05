@@ -1851,6 +1851,15 @@ if st.session_state.get('show_guia_page', False):
 # FUNCIÓN DE VISUALIZACIÓN DE RESULTADOS (Refactorizada para persistencia)
 # ═══════════════════════════════════════════════════════════════
 def display_analysis_result(response, docs, search_time, search_method, relevant_docs_count, user_name):
+    # Ocultar animación de Data Scanning si está activa
+    st.components.v1.html("""
+    <script>
+        if (window.top && window.top.hideScanningAnimation) {
+            window.top.hideScanningAnimation();
+        }
+    </script>
+    """, height=0)
+    
     # Mostrar respuesta
     st.success("✅ Análisis completado")
     
@@ -2258,11 +2267,106 @@ if user_name:
     if st.session_state.trigger_search and query:
         # Desactivar trigger para evitar bucles, pero mantenemos question_executed
         st.session_state.trigger_search = False
-        # Mostrar GIF de búsqueda
-        st.markdown('<div class="gif-container">', unsafe_allow_html=True)
-        if os.path.exists("assets/ovni.gif"):
-            st.image("assets/ovni.gif", width=300)
-        st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Cargar y mostrar animación Data Scanning
+        import json
+        import os
+        
+        data_scanning_path = os.path.join("assets", "Data Scanning.json")
+        try:
+            with open(data_scanning_path, 'r', encoding='utf-8') as f:
+                scanning_animation_data = json.load(f)
+        except Exception as e:
+            print(f"[ERROR] Error cargando Data Scanning.json: {e}")
+            scanning_animation_data = {}
+        
+        # Inyectar animación Data Scanning overlay
+        if scanning_animation_data:
+            scanning_injector_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <body>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+                <script>
+                    (function() {{
+                        const animationData = {json.dumps(scanning_animation_data)};
+                        let scanningAnimation = null;
+                        
+                        function injectScanningOverlay() {{
+                            if (typeof lottie === 'undefined') {{
+                                setTimeout(injectScanningOverlay, 100);
+                                return;
+                            }}
+                            
+                            const targetDoc = window.top.document;
+                            
+                            // Limpiar overlay anterior si existe
+                            const oldOverlay = targetDoc.getElementById('scanning-overlay');
+                            if (oldOverlay) {{
+                                oldOverlay.remove();
+                            }}
+                            
+                            const overlay = targetDoc.createElement('div');
+                            overlay.id = 'scanning-overlay';
+                            overlay.style.cssText = `
+                                display: flex;
+                                position: fixed;
+                                top: 0;
+                                left: 0;
+                                width: 100vw;
+                                height: 100vh;
+                                background: rgba(0, 0, 0, 0.85);
+                                z-index: 999999;
+                                justify-content: center;
+                                align-items: center;
+                            `;
+                            
+                            const container = targetDoc.createElement('div');
+                            container.id = 'scanning-container';
+                            container.style.cssText = `
+                                width: 500px;
+                                height: 500px;
+                            `;
+                            
+                            overlay.appendChild(container);
+                            targetDoc.body.appendChild(overlay);
+                            
+                            try {{
+                                scanningAnimation = lottie.loadAnimation({{
+                                    container: container,
+                                    renderer: 'svg',
+                                    loop: true,
+                                    autoplay: true,
+                                    animationData: animationData
+                                }});
+                                
+                                // Función global para ocultar la animación
+                                window.top.hideScanningAnimation = function() {{
+                                    const ovl = targetDoc.getElementById('scanning-overlay');
+                                    if (ovl) {{
+                                        ovl.remove();
+                                    }}
+                                }};
+                                
+                            }} catch (error) {{
+                                console.error('[ERROR] Error con animación scanning:', error);
+                            }}
+                        }}
+                        
+                        setTimeout(injectScanningOverlay, 100);
+                    }})();
+                </script>
+            </body>
+            </html>
+            """
+            
+            st.components.v1.html(scanning_injector_html, height=0)
+        
+        # Mostrar GIF de búsqueda (opcional, puedes comentar esto si solo quieres la animación Lottie)
+        # st.markdown('<div class="gif-container">', unsafe_allow_html=True)
+        # if os.path.exists("assets/ovni.gif"):
+        #     st.image("assets/ovni.gif", width=300)
+        # st.markdown('</div>', unsafe_allow_html=True)
         
         st.info(f"🔄 Procesando consulta de **{user_name.upper()}**...")
         
