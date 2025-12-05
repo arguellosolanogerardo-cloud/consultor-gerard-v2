@@ -2059,6 +2059,99 @@ if 'clear_query' not in st.session_state:
 
 # Solo mostrar el resto SI hay nombre de usuario
 if user_name:
+    # Cargar animación question.json
+    import json
+    import os
+    
+    question_lottie_path = os.path.join("assets", "question.json")
+    try:
+        with open(question_lottie_path, 'r', encoding='utf-8') as f:
+            question_animation_data = json.load(f)
+    except Exception as e:
+        print(f"[ERROR] Error cargando question.json: {e}")
+        question_animation_data = {}
+    
+    # Inyectar animación question overlay (solo si no se ha mostrado antes)
+    if question_animation_data and 'question_animation_shown' not in st.session_state:
+        st.session_state.question_animation_shown = True
+        
+        question_injector_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <body>
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+            <script>
+                (function() {{
+                    const animationData = {json.dumps(question_animation_data)};
+                    let questionAnimation = null;
+                    
+                    function injectQuestionOverlay() {{
+                        if (typeof lottie === 'undefined') {{
+                            setTimeout(injectQuestionOverlay, 100);
+                            return;
+                        }}
+                        
+                        const targetDoc = window.top.document;
+                        
+                        if (targetDoc.getElementById('question-overlay')) {{
+                            return;
+                        }}
+                        
+                        const overlay = targetDoc.createElement('div');
+                        overlay.id = 'question-overlay';
+                        overlay.style.cssText = `
+                            display: flex;
+                            position: fixed;
+                            top: 0;
+                            left: 0;
+                            width: 100vw;
+                            height: 100vh;
+                            background: rgba(0, 0, 0, 0.7);
+                            z-index: 999999;
+                            justify-content: center;
+                            align-items: center;
+                        `;
+                        
+                        const container = targetDoc.createElement('div');
+                        container.id = 'question-container';
+                        container.style.cssText = `
+                            width: 400px;
+                            height: 400px;
+                        `;
+                        
+                        overlay.appendChild(container);
+                        targetDoc.body.appendChild(overlay);
+                        
+                        try {{
+                            questionAnimation = lottie.loadAnimation({{
+                                container: container,
+                                renderer: 'svg',
+                                loop: false,
+                                autoplay: false,
+                                animationData: animationData
+                            }});
+                            
+                            questionAnimation.addEventListener('complete', function() {{
+                                targetDoc.getElementById('question-overlay').style.display = 'none';
+                            }});
+                            
+                            // Mostrar y reproducir automáticamente
+                            questionAnimation.play();
+                            
+                        }} catch (error) {{
+                            console.error('[ERROR] Error con animación question:', error);
+                        }}
+                    }}
+                    
+                    setTimeout(injectQuestionOverlay, 300);
+                }})();
+            </script>
+        </body>
+        </html>
+        """
+        
+        st.components.v1.html(question_injector_html, height=0)
+    
     # Mensaje de bienvenida personalizado
     st.markdown(
         f'<div style="text-align: center; font-weight: bold; margin: 20px 0;">'
