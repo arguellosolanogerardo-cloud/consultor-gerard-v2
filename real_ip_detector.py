@@ -70,17 +70,19 @@ def show_ip_simple_copy():
                         left: 0;
                         width: 100vw;
                         height: 100vh;
-                        background: rgba(0, 0, 0, 0.7);
+                        background: rgba(0, 0, 0, 0.5);
                         z-index: 999999;
                         justify-content: center;
                         align-items: center;
+                        pointer-events: none;
                     `;
                     
                     const container = targetDoc.createElement('div');
                     container.id = 'lottie-page-container';
                     container.style.cssText = `
-                        width: 500px;
-                        height: 500px;
+                        width: 400px;
+                        height: 400px;
+                        pointer-events: auto;
                     `;
                     
                     overlay.appendChild(container);
