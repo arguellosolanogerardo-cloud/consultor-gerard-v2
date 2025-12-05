@@ -31,7 +31,7 @@ def show_ip_simple_copy():
         lottie_animation_data = {}
     
     st.markdown("""
-    <h3 style="color: #FFD700; margin-bottom: 20px;">
+    <h3 style="color: #FF00FF; margin-bottom: 20px;">
         🔑 CLAVE GENERADA PARA CONSULTA
     </h3>
     """, unsafe_allow_html=True)
@@ -283,7 +283,7 @@ def show_ip_simple_copy():
     
     st.markdown("---")
     st.markdown("""
-    <p style="color: #00ff41; font-size: 20px; font-weight: bold; margin-bottom: 10px;">
+    <p style="color: #FFFF00; font-size: 20px; font-weight: bold; margin-bottom: 10px;">
         PEGA LA CLAVE DE ACCESO AQUÍ:
     </p>
     """, unsafe_allow_html=True)
