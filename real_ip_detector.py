@@ -30,7 +30,11 @@ def show_ip_simple_copy():
         print(f"[ERROR] Error cargando animación Lottie: {e}")
         lottie_animation_data = {}
     
-    st.markdown("### 🔑 CLAVE GENERADA PARA CONSULTA")
+    st.markdown("""
+    <h3 style="color: #FFD700; margin-bottom: 20px;">
+        🔑 CLAVE GENERADA PARA CONSULTA
+    </h3>
+    """, unsafe_allow_html=True)
     
     # Inyectar el overlay directamente en el DOM de la página principal
     lottie_injector_html = f"""
@@ -161,6 +165,21 @@ def show_ip_simple_copy():
                 font-family: 'Courier New', monospace;
                 margin: 10px 0;
                 user-select: all;
+                word-break: break-all;
+                overflow-wrap: break-word;
+            }
+            @media (max-width: 768px) {
+                .ip-value {
+                    font-size: 18px;
+                }
+                .ip-box {
+                    padding: 15px;
+                }
+            }
+            @media (max-width: 480px) {
+                .ip-value {
+                    font-size: 14px;
+                }
             }
             .copy-btn {
                 background: white;
@@ -171,9 +190,15 @@ def show_ip_simple_copy():
                 font-weight: bold;
                 cursor: pointer;
                 margin-top: 10px;
+                transition: all 0.3s ease;
             }
             .copy-btn:hover {
                 background: #f0f0f0;
+            }
+            .copy-btn.copied {
+                background: #00ff41;
+                color: #000;
+                box-shadow: 0 0 20px #00ff41;
             }
             .loading {
                 color: #667eea;
@@ -183,12 +208,6 @@ def show_ip_simple_copy():
                 0%, 100% { opacity: 1; }
                 50% { opacity: 0.5; }
             }
-            .success {
-                color: #10b981;
-                font-size: 12px;
-                margin-top: 5px;
-                display: none;
-            }
         </style>
     </head>
     <body>
@@ -197,18 +216,25 @@ def show_ip_simple_copy():
             <div class="ip-box">
                 <div id="ip" class="ip-value">-</div>
                 <button class="copy-btn" onclick="copyIP()">📋 Copiar CLAVE</button>
-                <div id="success" class="success">✓ Copiado!</div>
             </div>
         </div>
         <script>
             let detectedData = { ip: '', city: '', country: '' };
             
             function copyIP() {
-                navigator.clipboard.writeText(detectedData.ip);
-                document.getElementById('success').style.display = 'block';
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.innerHTML;
                 
+                navigator.clipboard.writeText(detectedData.ip);
+                
+                // Cambiar a verde neón
+                btn.classList.add('copied');
+                btn.innerHTML = 'COPIADO ✓';
+                
+                // Volver al estado original después de 2 segundos
                 setTimeout(() => {
-                    document.getElementById('success').style.display = 'none';
+                    btn.classList.remove('copied');
+                    btn.innerHTML = originalText;
                 }, 2000);
             }
             
@@ -256,7 +282,11 @@ def show_ip_simple_copy():
     components.html(html_code, height=200)
     
     st.markdown("---")
-    st.markdown("**PEGA LA CLAVE DE ACCESO AQUÍ:**")
+    st.markdown("""
+    <p style="color: #00ff41; font-size: 20px; font-weight: bold; margin-bottom: 10px;">
+        PEGA LA CLAVE DE ACCESO AQUÍ:
+    </p>
+    """, unsafe_allow_html=True)
     
     col1, col2 = st.columns([3, 1])
     with col1:
@@ -303,7 +333,6 @@ def show_ip_simple_copy():
                 
                 print(f"[INFO] ✅ IP REAL confirmada: {ip_input} | {city}, {country}")
                 
-                st.success(f"✅ IP confirmada: {ip_input} | {city}, {country}")
                 st.rerun()
             else:
                 st.error("❌ Por favor pega una IP válida")
