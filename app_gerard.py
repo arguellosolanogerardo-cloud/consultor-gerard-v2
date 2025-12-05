@@ -1748,6 +1748,25 @@ if not st.session_state.user_name:
                     st.session_state.user_name = temp_name.strip()
                     st.session_state.user_city = temp_city.strip().title()  # Capitalizar correctamente
                     st.session_state.user_country = temp_country.strip()
+                    
+                    # NUEVO: Detectar ubicación/IP también para login manual
+                    try:
+                        geo = st.session_state.geo_locator
+                        location = geo.get_location()
+                        
+                        if location and location.get('ciudad') != 'Desconocido':
+                            st.session_state.user_ip = location.get('ip', 'No detectado')
+                            print(f"[INFO] 📍 IP detectada para login manual: {st.session_state.user_ip}")
+                        else:
+                            st.session_state.user_ip = "No detectado"
+                        
+                        # Marcar para confirmar IP real después
+                        st.session_state.ip_needs_confirmation = True
+                    except Exception as e:
+                        print(f"[WARNING] Error detectando IP en login manual: {e}")
+                        st.session_state.user_ip = "No detectado"
+                        st.session_state.ip_needs_confirmation = True
+                    
                     st.success(f"✅ ¡Bienvenido, {temp_name.strip()}!")
                     st.rerun()
     
