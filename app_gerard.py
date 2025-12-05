@@ -1375,6 +1375,50 @@ with col2:
     st.image("assets/gerardfull.png", use_container_width=True)
 st.markdown('<div class="subtitle">v3.69 | ASISTENTE</div>', unsafe_allow_html=True)
 
+# CSS Global para colorización de respuestas
+st.markdown("""
+<style>
+    /* Encabezados nivel 4 (####**texto**) en AMARILLO INTENSO */
+    .header-level-4 {
+        color: #FFD700 !important;
+        font-family: 'Merriweather', serif !important;
+        font-size: 26px !important;
+        font-weight: bold !important;
+        text-transform: uppercase !important;
+        text-align: center !important;
+        margin: 20px 0 !important;
+        padding: 10px 0 !important;
+        letter-spacing: 1px !important;
+        display: block !important;
+    }
+    
+    /* Asegurar que los colores inline se apliquen */
+    #respuesta-gerard span[style*="color"] {
+        /* Forzar aplicación de colores inline */
+    }
+    
+    /* Timestamps en ROJO */
+    #respuesta-gerard span[style*="#FF0000"] {
+        color: #FF0000 !important;
+    }
+    
+    /* Citas en AZUL */
+    #respuesta-gerard span[style*="#61AFEF"] {
+        color: #61AFEF !important;
+    }
+    
+    /* Documentos en VERDE OSCURO */
+    #respuesta-gerard span[style*="#2E7D32"] {
+        color: #2E7D32 !important;
+    }
+    
+    /* Encabezados en AMARILLO */
+    #respuesta-gerard span[style*="#E5C07B"] {
+        color: #E5C07B !important;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # IMPORTANTE: Inicializar recursos AL INICIO para descargar FAISS si es necesario
 # Esto asegura que el índice se descargue al cargar la app, no cuando alguien pregunta
 try:
@@ -2315,17 +2359,19 @@ if user_name:
                                 left: 0;
                                 width: 100vw;
                                 height: 100vh;
-                                background: rgba(0, 0, 0, 0.85);
+                                background: rgba(0, 0, 0, 0.5);
                                 z-index: 999999;
                                 justify-content: center;
                                 align-items: center;
+                                pointer-events: none;
                             `;
                             
                             const container = targetDoc.createElement('div');
                             container.id = 'scanning-container';
                             container.style.cssText = `
-                                width: 500px;
-                                height: 500px;
+                                width: 400px;
+                                height: 400px;
+                                pointer-events: auto;
                             `;
                             
                             overlay.appendChild(container);
