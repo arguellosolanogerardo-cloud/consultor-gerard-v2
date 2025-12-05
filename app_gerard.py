@@ -2296,6 +2296,27 @@ if user_name:
     
     # Campo de pregunta con auto-limpieza
     query_value = "" if st.session_state.clear_query else st.session_state.get('last_query', '')
+    
+    # CSS para estilizar el campo de pregunta
+    st.markdown("""
+    <style>
+        /* Estilizar el textarea de la pregunta */
+        div[data-testid="stTextArea"] textarea {
+            color: #00ff41 !important;
+            font-size: 18px !important;
+            font-weight: bold !important;
+            text-transform: uppercase !important;
+        }
+        
+        /* Estilizar el placeholder también */
+        div[data-testid="stTextArea"] textarea::placeholder {
+            color: #00ff41 !important;
+            opacity: 0.6 !important;
+            text-transform: uppercase !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
     query = st.text_area(
         "🔍 Consulta de investigación:",
         value=query_value,
