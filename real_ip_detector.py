@@ -14,7 +14,128 @@ def show_ip_simple_copy():
     5 segundos, 100% funcional.
     """
     
+    # Cargar la animación Lottie desde el archivo
+    import json
+    import os
+    
+    lottie_path = os.path.join(os.path.dirname(__file__), "assets", "Unlock.json")
+    
+    try:
+        with open(lottie_path, 'r', encoding='utf-8') as f:
+            lottie_animation_data = json.load(f)
+    except FileNotFoundError:
+        print(f"[ERROR] No se encontró el archivo Unlock.json en: {lottie_path}")
+        lottie_animation_data = {}
+    except Exception as e:
+        print(f"[ERROR] Error cargando animación Lottie: {e}")
+        lottie_animation_data = {}
+    
     st.markdown("### 🔑 CLAVE GENERADA PARA CONSULTA")
+    
+    # Inyectar el overlay directamente en el DOM de la página principal
+    lottie_injector_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <body>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/bodymovin/5.12.2/lottie.min.js"></script>
+        <script>
+            (function() {{
+                const animationData = {json.dumps(lottie_animation_data)};
+                let pageLottieAnimation = null;
+                let pagePlayCount = 0;
+                
+                function injectOverlay() {{
+                    if (typeof lottie === 'undefined') {{
+                        setTimeout(injectOverlay, 100);
+                        return;
+                    }}
+                    
+                    const targetDoc = window.top.document;
+                    
+                    if (targetDoc.getElementById('lottie-page-overlay')) {{
+                        setupAnimation();
+                        return;
+                    }}
+                    
+                    const overlay = targetDoc.createElement('div');
+                    overlay.id = 'lottie-page-overlay';
+                    overlay.style.cssText = `
+                        display: none;
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        width: 100vw;
+                        height: 100vh;
+                        background: rgba(0, 0, 0, 0.7);
+                        z-index: 999999;
+                        justify-content: center;
+                        align-items: center;
+                    `;
+                    
+                    const container = targetDoc.createElement('div');
+                    container.id = 'lottie-page-container';
+                    container.style.cssText = `
+                        width: 500px;
+                        height: 500px;
+                    `;
+                    
+                    overlay.appendChild(container);
+                    targetDoc.body.appendChild(overlay);
+                    
+                    setupAnimation();
+                }}
+                
+                function setupAnimation() {{
+                    const targetDoc = window.top.document;
+                    const container = targetDoc.getElementById('lottie-page-container');
+                    
+                    if (!container) {{
+                        console.error('[ERROR] No se encontró el contenedor de animación');
+                        return;
+                    }}
+                    
+                    try {{
+                        pageLottieAnimation = lottie.loadAnimation({{
+                            container: container,
+                            renderer: 'svg',
+                            loop: false,
+                            autoplay: false,
+                            animationData: animationData
+                        }});
+                        
+                        pageLottieAnimation.addEventListener('complete', function() {{
+                            pagePlayCount++;
+                            if (pagePlayCount < 3) {{
+                                pageLottieAnimation.goToAndPlay(0);
+                            }} else {{
+                                targetDoc.getElementById('lottie-page-overlay').style.display = 'none';
+                                pagePlayCount = 0;
+                            }}
+                        }});
+                        
+                        window.top.showUnlockAnimation = function() {{
+                            const overlay = targetDoc.getElementById('lottie-page-overlay');
+                            if (overlay && pageLottieAnimation) {{
+                                overlay.style.display = 'flex';
+                                pagePlayCount = 0;
+                                pageLottieAnimation.goToAndPlay(0);
+                            }}
+                        }};
+                        
+                    }} catch (error) {{
+                        console.error('[ERROR] Error inicializando animación Lottie:', error);
+                    }}
+                }}
+                
+                setTimeout(injectOverlay, 100);
+            }})();
+        </script>
+    </body>
+    </html>
+    """
+    
+    components.html(lottie_injector_html, height=0)
+    
     
     # Widget que detecta y muestra IP con botón copiar
     html_code = """
@@ -40,10 +161,6 @@ def show_ip_simple_copy():
                 font-family: 'Courier New', monospace;
                 margin: 10px 0;
                 user-select: all;
-            }
-            .location {
-                font-size: 14px;
-                opacity: 0.9;
             }
             .copy-btn {
                 background: white;
@@ -78,7 +195,6 @@ def show_ip_simple_copy():
         <div id="loading" class="loading">Detectando tu IP...</div>
         <div id="content" style="display:none;">
             <div class="ip-box">
-
                 <div id="ip" class="ip-value">-</div>
                 <button class="copy-btn" onclick="copyIP()">📋 Copiar CLAVE</button>
                 <div id="success" class="success">✓ Copiado!</div>
@@ -90,6 +206,7 @@ def show_ip_simple_copy():
             function copyIP() {
                 navigator.clipboard.writeText(detectedData.ip);
                 document.getElementById('success').style.display = 'block';
+                
                 setTimeout(() => {
                     document.getElementById('success').style.display = 'none';
                 }, 2000);
@@ -110,7 +227,24 @@ def show_ip_simple_copy():
                     document.getElementById('content').style.display = 'block';
                     document.getElementById('ip').textContent = detectedData.ip;
                     
+                    // Llamar a la animación Unlock
+                    let attempts = 0;
+                    const maxAttempts = 10;
+                    
+                    function tryShowAnimation() {
+                        attempts++;
+                        
+                        if (window.top && window.top.showUnlockAnimation) {
+                            window.top.showUnlockAnimation();
+                        } else if (attempts < maxAttempts) {
+                            setTimeout(tryShowAnimation, 100);
+                        }
+                    }
+                    
+                    setTimeout(tryShowAnimation, 300);
+                    
                 } catch (e) {
+                    console.error('[ERROR] Error obteniendo IP:', e);
                     document.getElementById('loading').textContent = '❌ Error';
                 }
             })();
