@@ -20,6 +20,7 @@ import streamlit.components.v1 as components
 from geo_utils import GeoLocator
 from google_sheets_logger import create_sheets_logger
 from real_ip_detector import show_ip_simple_copy
+from document_title_filter import hybrid_search_with_title, detect_title_in_query
 
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
@@ -1171,6 +1172,47 @@ Eres un Agente Analítico Forense especializado en la extracción de informació
 
 ## CONSULTA DEL USUARIO:
 {input}
+
+---
+
+## 🔍 BÚSQUEDAS POR TÍTULO/AUDIO/VIDEO DE DOCUMENTO:
+
+Cuando el usuario pregunta específicamente por un **documento, archivo, audio o video** usando su título o ID:
+
+**PASO 1: VERIFICACIÓN**
+- Revisa el campo `[Documento: nombre_archivo.srt]` de cada fragmento del contexto
+- Identifica si los fragmentos pertenecen al documento mencionado por el usuario
+- Los usuarios pueden referirse a los documentos como: "documento", "archivo", "audio", "video"
+
+**PASO 2: DECLARACIÓN DE ESTADO**
+- Si **NO hay fragmentos** del documento/audio/video solicitado en el contexto:
+  → Declara explícitamente: "No se encontraron fragmentos del [documento/audio/video] '[título]' en el contexto proporcionado"
+  → NO inventes información
+  → NO uses conocimiento general
+  
+- Si **SÍ hay fragmentos** del documento/audio/video solicitado:
+  → Procesa ÚNICAMENTE esos fragmentos
+  → Ignora fragmentos de otros documentos/audios/videos
+  → Responde la pregunta basándote solo en esos fragmentos específicos
+
+**PASO 3: RESPUESTA**
+- Cada cita DEBE incluir el nombre del archivo fuente
+- Mantén el mismo formato de citación obligatorio: `**[Documento: ...]** "texto literal"`
+- Agrupa la información temáticamente si hay múltiples fragmentos
+
+**EJEMPLO DE RESPUESTA CORRECTA:**
+Si el usuario pregunta: "EN EL AUDIO DE TÍTULO: Para que se dejo Donald trump como presidente. QUE INFORMACION SE DA DE MARIA MAGDALENA?"
+
+Y el contexto contiene fragmentos de ese audio, responde:
+```
+**INFORMACIÓN SOBRE MARÍA MAGDALENA EN EL AUDIO SOLICITADO**
+
+**[Documento: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Timestamp: 00:05:23 --> 00: 05:45]**
+"maría magdalena era una gran maestra espiritual que acompañó al maestro jesús..."
+
+**[Documento: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Timestamp: 00:12:10 --> 00:12:33]**
+"ella fue la única mujer entre los discípulos..."
+```
 
 ---
 
@@ -2524,30 +2566,62 @@ if user_name:
         try:
             # 1. Búsqueda de documentos
             with st.spinner("🔍 Buscando información relevante..."):
-                # Determinar método de búsqueda
-                search_method = 'hybrid'
+                # NUEVO: Detectar si la pregunta menciona un título específico
+                title_info = detect_title_in_query(query)
                 
-                # Obtener retriever
-                if exhaustive_search:
-                    # Modo exhaustivo: Híbrido con más documentos (Quirúrgico)
-                    # Usa HybridRetriever.build para crear la instancia de forma segura
-                    retriever = HybridRetriever.build(
-                        faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 200}),
-                        documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
-                        k=200,
-                        alpha=0.6 
+                if title_info['has_title']:
+                    # Búsqueda con filtro por título
+                    print(f"[INFO] 🎯 Búsqueda híbrida con filtro de título activada")
+                    print(f"[INFO] Keywords detectadas: {title_info['keywords']}")
+                    print(f"[INFO] Patrón detectado: {title_info['pattern_matched']}")
+                    
+                    # Determinar K según complejidad de la pregunta
+                    k_optimal = get_optimal_k(query, force_exhaustive=exhaustive_search)
+                    
+                    # Usar búsqueda híbrida con filtro por título
+                    docs = hybrid_search_with_title(
+                        faiss_vs=faiss_vs,
+                        query=query,
+                        all_docs=st.session_state.all_docs if 'all_docs' in st.session_state else [],
+                        k=k_optimal['k'],
+                        title_keywords=title_info['keywords']
                     )
-                    search_method = 'hybrid_surgical'
+                    
+                    search_method = 'hybrid_title_filter'
+                    
+                    # Mostrar información de debug en consola
+                    print(f"[INFO] Documentos recuperados con filtro: {len(docs)}")
+                    if len(docs) > 0:
+                        print(f"[INFO] Primer documento source: {docs[0].metadata.get('source', 'N/A')[:100]}")
+                    
                 else:
-                    # Modo normal: Híbrido estándar
-                    retriever = HybridRetriever.build(
-                        faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 100}),
-                        documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
-                        k=100
-                    )
-                
-                # Ejecutar búsqueda
-                docs = retriever.invoke(query)
+                    # Búsqueda normal sin filtro de título
+                    print(f"[INFO] 📊 Búsqueda híbrida estándar (sin filtro de título)")
+                    
+                    # Determinar método de búsqueda
+                    search_method = 'hybrid'
+                    
+                    # Obtener retriever
+                    if exhaustive_search:
+                        # Modo exhaustivo: Híbrido con más documentos (Quirúrgico)
+                        # Usa HybridRetriever.build para crear la instancia de forma segura
+                        retriever = HybridRetriever.build(
+                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 200}),
+                            documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
+                            k=200,
+                            alpha=0.6 
+                        )
+                        search_method = 'hybrid_surgical'
+                    else:
+                        # Modo normal: Híbrido estándar
+                        retriever = HybridRetriever.build(
+                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 100}),
+                            documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
+                            k=100
+                        )
+                    
+                    # Ejecutar búsqueda
+                    docs = retriever.invoke(query)
                 
                 # Filtrar por umbral de relevancia (simulado)
                 relevant_docs = docs 
@@ -2559,6 +2633,7 @@ if user_name:
             method_badges = {
                 'hybrid': '🎯 Híbrido',
                 'hybrid_surgical': '🧬 Híbrida Quirúrgica',
+                'hybrid_title_filter': '📑 Híbrida con Filtro de Título',
                 'faiss': '🔍 FAISS',
                 'faiss_exhaustive': '🚀 FAISS (Exhaustivo)',
                 'bm25': '📝 BM25'

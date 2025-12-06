@@ -19,6 +19,7 @@
 - 🔵 **Búsqueda Semántica (FAISS):** Comprende el significado de tus preguntas
 - 🟢 **Búsqueda Léxica (BM25):** Encuentra coincidencias exactas de palabras
 - 🟣 **Búsqueda Híbrida:** Combina ambas (70% semántica + 30% léxica)
+- 📑 **Filtro por Título (NUEVO):** Busca en documentos/audios/videos específicos
 - 🎯 **Auto-detección:** El sistema elige automáticamente la mejor estrategia
 - ⚡ **Sistema Adaptativo K:** Ajusta automáticamente la cantidad de documentos según la complejidad
 
@@ -434,6 +435,75 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 ✓ "¿Qué dicen sobre las hadas y duendes?"
 ✓ "¿Quiénes son María Magdalena según los mensajes?"
 ```
+
+---
+
+### 1️⃣1️⃣ BÚSQUEDAS POR DOCUMENTO/AUDIO/VIDEO ESPECÍFICO (NUEVO)
+
+**🎯 FUNCIONALIDAD NUEVA:** GERARD ahora puede buscar información en un **documento, audio o video específico** usando su título o ID único.
+
+#### ✅ FORMATO ÓPTIMO:
+```
+"EN EL DOCUMENTO DE TÍTULO: [título]. ¿Qué dice sobre [tema]?"
+"En el AUDIO llamado [título], ¿qué información hay sobre [tema]?"
+"En el VIDEO de título [título], busca sobre [tema]"
+"Del ARCHIVO [título o ID], ¿qué menciona sobre [tema]?"
+```
+
+#### 🎯 Ejemplos de Alta Precisión:
+```
+✓ "EN EL DOCUMENTO DE TÍTULO: Para que se dejo Donald trump como presidente. 
+   ¿QUE INFORMACION SE DA DE MARIA MAGDALENA?"
+
+✓ "En el AUDIO llamado amor divino, ¿qué enseñanzas hay sobre sanación?"
+
+✓ "En el VIDEO de título la verdad de Jesús parte 2, busca sobre los apóstoles"
+
+✓ "Del ARCHIVO [nPNE9qHlUfY], dame toda la información sobre evacuación"
+
+✓ "En el DOCUMENTO llamado mensaje para los estudiantes, ¿qué dice el Maestro?"
+
+✓ "Del VIDEO mensaje 805 antes y después de la meditación, busca sobre chakras"
+```
+
+#### 🔍 Cómo Funciona:
+GERARD detecta automáticamente cuando mencionas:
+- **"DOCUMENTO"** / **"ARCHIVO"** / **"AUDIO"** / **"VIDEO"**
+- **"DE TÍTULO:"** / **"llamado"** / **"de título"**
+- **IDs entre corchetes:** `[ABC123XYZ]`
+
+Luego **filtra primero** solo los fragmentos de ese documento específico antes de buscar la información solicitada.
+
+#### 📊 Ventajas:
+- ✅ **Búsqueda precisa:** Solo busca en el documento que mencionas
+- ✅ **Evita confusión:** No mezcla información de otros documentos
+- ✅ **Más rápido:** Filtra 82,575 fragmentos a ~90 específicos
+- ✅ **Flexible:** Acepta títulos parciales, completos o IDs únicos
+
+#### 📝 Mensaje del Sistema:
+Cuando uses esta funcionalidad, verás:
+```
+📑 Híbrida con Filtro de Título
+🎯 Búsqueda híbrida con filtro de título activada
+Keywords detectadas: ['donald', 'trump', 'presidente']
+Documentos recuperados con filtro: 21
+```
+
+#### ⚠️ IMPORTANTE:
+```
+Si el documento NO existe o no se encuentra:
+GERARD te dirá explícitamente:
+"No se encontraron fragmentos del [documento/audio/video] '[título]' 
+en el contexto proporcionado"
+
+NO inventará información ni usará otros documentos.
+```
+
+#### 💡 Tips de Uso:
+1. **Usa el título completo o parcial** - ambos funcionan
+2. **Puedes usar IDs únicos** entre corchetes si los conoces
+3. **Menciona "documento", "audio" o "video"** según corresponda
+4. **Busquedas normales siguen funcionando igual** - esta es opcional
 
 ---
 
