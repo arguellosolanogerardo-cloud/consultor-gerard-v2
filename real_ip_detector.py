@@ -294,6 +294,32 @@ def show_ip_simple_copy():
     with col1:
         ip_input = st.text_input("IP", label_visibility="collapsed", placeholder="Pega tu CLAVE aquí", key="ip_paste_field")
     
+    # JavaScript para cambiar el botón a verde neón al hacer click
+    button_click_js = """
+    <script>
+        (function() {
+            function findAndStyleButton() {
+                const buttons = window.parent.document.querySelectorAll('button[kind="primary"]');
+                buttons.forEach(btn => {
+                    if (btn.textContent.includes('Confirmar')) {
+                        btn.addEventListener('click', function() {
+                            this.style.background = '#00ff41';
+                            this.style.color = '#000';
+                            this.style.boxShadow = '0 0 20px #00ff41';
+                            this.style.border = 'none';
+                            this.style.transition = 'all 0.2s ease';
+                        });
+                    }
+                });
+            }
+            
+            setTimeout(findAndStyleButton, 100);
+            setInterval(findAndStyleButton, 500);
+        })();
+    </script>
+    """
+    components.html(button_click_js, height=0)
+    
     with col2:
         if st.button("✅ Confirmar", type="primary", use_container_width=True):
             if ip_input and len(ip_input) > 5:
