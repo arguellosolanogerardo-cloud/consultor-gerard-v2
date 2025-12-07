@@ -635,7 +635,19 @@ st.markdown("""
 # @st.cache_resource - REMOVIDO para asegurar que os.environ se configure en cada worker/hilo
 def setup_gcp_credentials():
     """Configura las credenciales de GCP una sola vez por sesión"""
-    if "gcp_service_account" in st.secrets:
+    
+    # Intentar detectar si st.secrets está disponible y tiene gcp_service_account
+    has_secrets = False
+    try:
+        # Verificar si st.secrets existe y tiene la configuración necesaria
+        if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
+            has_secrets = True
+    except Exception as e:
+        # Si falla (por ejemplo, no hay secrets.toml), continuar sin secrets
+        print(f"[INFO] st.secrets no disponible: {e}")
+        has_secrets = False
+    
+    if has_secrets:
         # Streamlit Cloud: usa secrets
         import json
         import tempfile
@@ -653,10 +665,29 @@ def setup_gcp_credentials():
             credentials_path = f.name
         
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_path
-        print(f"[INFO] Credenciales GCP configuradas en: {credentials_path}")
+        print(f"[INFO] Credenciales GCP configuradas desde st.secrets: {credentials_path}")
     else:
-        # Local: usa google_credentials.json que tiene Drive API habilitada
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "google_credentials.json"
+        # Local/Render: detectar automáticamente el archivo correcto
+        # Prioridad: archivo sin espacios (Render) -> archivo con espacios (Local)
+        credential_paths = [
+            "google_credentials.json",  # Render/producción sin espacios
+            "credencial_json_midyear-node-436821-t3-525a146e96a0.json",  # Alternativa sin espacios
+            "credencial json/midyear-node-436821-t3-525a146e96a0.json"  # Local con espacios
+        ]
+        
+        credentials_file = None
+        for path in credential_paths:
+            if os.path.exists(path):
+                credentials_file = path
+                print(f"[INFO] Usando credenciales desde: {path}")
+                break
+        
+        if credentials_file:
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_file
+        else:
+            print("[WARNING] No se encontró archivo de credenciales local.")
+
+
 
 # Ejecutar configuración de credenciales
 setup_gcp_credentials()

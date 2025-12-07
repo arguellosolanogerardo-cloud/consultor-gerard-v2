@@ -92,7 +92,6 @@ def check_faiss_exists_wrapper():
         
         try:
             import requests
-import setup_faiss_cloud
             import zipfile
             from io import BytesIO
             
@@ -153,7 +152,29 @@ def load_resources():
             # si keyring falla, seguimos el flujo normal y mostraremos el error abajo
             pass
     # Configurar credenciales de servicio de Google
-    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "credencial json/midyear-node-436821-t3-525a146e96a0.json"
+    # Detectar automáticamente la ruta correcta según el entorno
+    # Prioridad: 1) st.secrets (Streamlit Cloud), 2) archivo sin espacios (Render), 3) archivo con espacios (Local)
+    if not hasattr(st, 'secrets') or 'gcp_service_account' not in getattr(st, 'secrets', {}):
+        # Solo configurar archivo si no estamos en Streamlit Cloud con secrets
+        credential_paths = [
+            "google_credentials.json",  # Render/producción sin espacios
+            "credencial_json_midyear-node-436821-t3-525a146e96a0.json",  # Alternativa sin espacios
+            "credencial json/midyear-node-436821-t3-525a146e96a0.json"  # Local con espacios
+        ]
+        
+        credentials_file = None
+        for path in credential_paths:
+            if os.path.exists(path):
+                credentials_file = path
+                print(f"[INFO] Usando credenciales desde: {path}")
+                break
+        
+        if credentials_file:
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = credentials_file
+        else:
+            print("[WARNING] No se encontró archivo de credenciales local. Se intentará usar st.secrets si está disponible.")
+    else:
+        print("[INFO] Usando credenciales desde st.secrets (Streamlit Cloud)")
     
     # Intentar inicializar el LLM y embeddings
     llm = None
