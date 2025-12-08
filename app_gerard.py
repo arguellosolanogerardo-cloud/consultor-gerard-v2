@@ -2155,27 +2155,57 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             `;
             parentDoc.body.appendChild(modalDiv);
             
+            // Función para cerrar el modal de respuesta lista
+            window.closeResponseReadyModal = function() {
+                console.log('[Response Modal] Cerrando modal...');
+                const modal = parentDoc.getElementById('response-ready-modal');
+                if (modal) {
+                    modal.remove(); // Eliminar completamente del DOM
+                    console.log('[Response Modal] Modal eliminado');
+                    // Scroll automático a la respuesta después de cerrar
+                    setTimeout(function() {
+                        window.parent.scrollTo({
+                            top: document.body.scrollHeight,
+                            behavior: 'smooth'
+                        });
+                    }, 200);
+                }
+            };
+            
             // Event listeners para el modal en el documento padre
             const closeBtn = parentDoc.getElementById('response-ready-modal-close');
             if (closeBtn) {
-                const newCloseBtn = closeBtn.cloneNode(true);
-                closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+                console.log('[Response Modal] Configurando event listeners...');
                 
-                newCloseBtn.addEventListener('click', function(e) {
+                // Estrategia 1: onclick inline (más confiable en móviles)
+                closeBtn.onclick = function(e) {
+                    console.log('[Response Modal] onclick disparado');
                     e.preventDefault();
                     e.stopPropagation();
-                    const modal = parentDoc.getElementById('response-ready-modal');
-                    if (modal) {
-                        modal.style.display = 'none';
-                        // Scroll automático a la respuesta después de cerrar
-                        setTimeout(function() {
-                            window.parent.scrollTo({
-                                top: document.body.scrollHeight,
-                                behavior: 'smooth'
-                            });
-                        }, 200);
-                    }
-                });
+                    window.closeResponseReadyModal();
+                    return false;
+                };
+                
+                // Estrategia 2: addEventListener para click
+                closeBtn.addEventListener('click', function(e) {
+                    console.log('[Response Modal] click listener disparado');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.closeResponseReadyModal();
+                }, { passive: false });
+                
+                // Estrategia 3: touchend para móviles
+                closeBtn.addEventListener('touchend', function(e) {
+                    console.log('[Response Modal] touchend listener disparado');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    window.closeResponseReadyModal();
+                }, { passive: false });
+                
+                // Hacer el botón más accesible al touch
+                closeBtn.style.cursor = 'pointer';
+                closeBtn.style.userSelect = 'none';
+                closeBtn.style.webkitTapHighlightColor = 'transparent';
             }
             
             // Cerrar al hacer click fuera del modal
@@ -2183,7 +2213,8 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             if (modal) {
                 modal.addEventListener('click', function(event) {
                     if (event.target.id === 'response-ready-modal') {
-                        event.target.style.display = 'none';
+                        console.log('[Response Modal] Click fuera del modal');
+                        window.closeResponseReadyModal();
                     }
                 });
             }
@@ -2430,24 +2461,50 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 `;
                 parentDoc.body.appendChild(modalDiv);
                 
+                // Función para cerrar el modal
+                window.closePdfModal = function() {
+                    console.log('[PDF Modal] Cerrando modal...');
+                    const modal = parentDoc.getElementById('pdf-modal');
+                    if (modal) {
+                        modal.remove(); // Eliminar completamente del DOM
+                        console.log('[PDF Modal] Modal eliminado');
+                    }
+                };
+                
                 // Event listeners para el modal en el documento padre
                 const closeBtn = parentDoc.getElementById('pdf-modal-close');
                 if (closeBtn) {
-                    // Remover listeners anteriores si existen
-                    const newCloseBtn = closeBtn.cloneNode(true);
-                    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+                    console.log('[PDF Modal] Configurando event listeners...');
                     
-                    // Agregar nuevo listener
-                    newCloseBtn.addEventListener('click', function(e) {
-                        console.log('Botón ENTENDIDO clickeado');
+                    // Estrategia 1: onclick inline (más confiable en móviles)
+                    closeBtn.onclick = function(e) {
+                        console.log('[PDF Modal] onclick disparado');
                         e.preventDefault();
                         e.stopPropagation();
-                        const modal = parentDoc.getElementById('pdf-modal');
-                        if (modal) {
-                            modal.style.display = 'none';
-                            console.log('Modal cerrado');
-                        }
-                    });
+                        window.closePdfModal();
+                        return false;
+                    };
+                    
+                    // Estrategia 2: addEventListener para click
+                    closeBtn.addEventListener('click', function(e) {
+                        console.log('[PDF Modal] click listener disparado');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.closePdfModal();
+                    }, { passive: false });
+                    
+                    // Estrategia 3: touchend para móviles (específico para touch)
+                    closeBtn.addEventListener('touchend', function(e) {
+                        console.log('[PDF Modal] touchend listener disparado');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        window.closePdfModal();
+                    }, { passive: false });
+                    
+                    // Hacer el botón más accesible al touch
+                    closeBtn.style.cursor = 'pointer';
+                    closeBtn.style.userSelect = 'none';
+                    closeBtn.style.webkitTapHighlightColor = 'transparent';
                 }
                 
                 // Cerrar al hacer click fuera del modal
@@ -2455,7 +2512,8 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 if (modal) {
                     modal.addEventListener('click', function(event) {
                         if (event.target.id === 'pdf-modal') {
-                            event.target.style.display = 'none';
+                            console.log('[PDF Modal] Click fuera del modal');
+                            window.closePdfModal();
                         }
                     });
                 }
