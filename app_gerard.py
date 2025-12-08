@@ -2041,6 +2041,172 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     # Mostrar respuesta
     st.success("✅ Análisis completado")
     
+    # Modal informando que la respuesta está lista
+    response_ready_modal = """
+    <script>
+    (function() {
+        // Inyectar modal de respuesta lista en el documento padre
+        function injectResponseReadyModal() {
+            const parentDoc = window.parent.document;
+            
+            // Verificar si ya existe el modal
+            if (parentDoc.getElementById('response-ready-modal')) {
+                return;
+            }
+            
+            // Inyectar estilos en el head del documento padre
+            const style = parentDoc.createElement('style');
+            style.textContent = `
+                #response-ready-modal {
+                    display: none;
+                    position: fixed;
+                    z-index: 9999999;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                    height: 100%;
+                    background-color: rgba(0, 0, 0, 0.85);
+                    animation: responseModalFadeIn 0.3s;
+                    overflow: auto;
+                }
+                #response-ready-modal-content {
+                    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+                    margin: 20% auto;
+                    padding: 35px;
+                    border: 3px solid #00d4ff;
+                    border-radius: 20px;
+                    width: 90%;
+                    max-width: 550px;
+                    box-shadow: 0 10px 40px rgba(0, 212, 255, 0.4);
+                    animation: responseModalSlideDown 0.5s;
+                    color: white;
+                    text-align: center;
+                }
+                #response-ready-modal h2 {
+                    color: #00ff41;
+                    margin-top: 0;
+                    font-size: 28px;
+                    margin-bottom: 20px;
+                }
+                #response-ready-modal p {
+                    font-size: 18px;
+                    line-height: 1.8;
+                    margin: 20px 0;
+                    color: #e0e0e0;
+                }
+                #response-ready-modal .highlight {
+                    color: #00d4ff;
+                    font-weight: bold;
+                    font-size: 20px;
+                }
+                #response-ready-modal-close {
+                    background: linear-gradient(45deg, #00d4ff, #0099cc);
+                    color: #000;
+                    border: none;
+                    padding: 15px 40px;
+                    border-radius: 10px;
+                    cursor: pointer;
+                    font-size: 18px;
+                    font-weight: bold;
+                    width: 100%;
+                    margin-top: 25px;
+                    transition: all 0.3s;
+                    box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+                }
+                #response-ready-modal-close:hover {
+                    transform: scale(1.05);
+                    box-shadow: 0 6px 20px rgba(0, 212, 255, 0.5);
+                }
+                @keyframes responseModalFadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes responseModalSlideDown {
+                    from { transform: translateY(-100px); opacity: 0; }
+                    to { transform: translateY(0); opacity: 1; }
+                }
+                @media (max-width: 600px) {
+                    #response-ready-modal-content {
+                        margin: 30% auto;
+                        padding: 25px;
+                        width: 90%;
+                    }
+                    #response-ready-modal h2 {
+                        font-size: 22px;
+                    }
+                    #response-ready-modal p {
+                        font-size: 16px;
+                    }
+                }
+            `;
+            parentDoc.head.appendChild(style);
+            
+            // Crear el modal en el body del documento padre
+            const modalDiv = parentDoc.createElement('div');
+            modalDiv.id = 'response-ready-modal';
+            modalDiv.innerHTML = `
+                <div id="response-ready-modal-content">
+                    <h2>🎉 ¡Respuesta Lista!</h2>
+                    <p>✨ Tu consulta ha sido procesada exitosamente</p>
+                    <p class="highlight">👇 Desliza hacia abajo para ver tu respuesta</p>
+                    <p style="font-size: 16px; color: #a0a0a0; margin-top: 15px;">💡 Usa scroll o desliza para navegar</p>
+                    <button id="response-ready-modal-close">VER RESPUESTA</button>
+                </div>
+            `;
+            parentDoc.body.appendChild(modalDiv);
+            
+            // Event listeners para el modal en el documento padre
+            const closeBtn = parentDoc.getElementById('response-ready-modal-close');
+            if (closeBtn) {
+                const newCloseBtn = closeBtn.cloneNode(true);
+                closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+                
+                newCloseBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const modal = parentDoc.getElementById('response-ready-modal');
+                    if (modal) {
+                        modal.style.display = 'none';
+                        // Scroll automático a la respuesta después de cerrar
+                        setTimeout(function() {
+                            window.parent.scrollTo({
+                                top: document.body.scrollHeight,
+                                behavior: 'smooth'
+                            });
+                        }, 200);
+                    }
+                });
+            }
+            
+            // Cerrar al hacer click fuera del modal
+            const modal = parentDoc.getElementById('response-ready-modal');
+            if (modal) {
+                modal.addEventListener('click', function(event) {
+                    if (event.target.id === 'response-ready-modal') {
+                        event.target.style.display = 'none';
+                    }
+                });
+            }
+        }
+        
+        function showResponseReadyModal() {
+            const parentDoc = window.parent.document;
+            const modal = parentDoc.getElementById('response-ready-modal');
+            if (modal) {
+                modal.style.display = 'block';
+            }
+        }
+        
+        // Inyectar y mostrar modal después de un breve delay
+        setTimeout(function() {
+            injectResponseReadyModal();
+            setTimeout(showResponseReadyModal, 300);
+        }, 100);
+    })();
+    </script>
+    """
+    st.components.v1.html(response_ready_modal, height=0)
+    
     # Animación de globos lenta
     st.balloons()
     st.markdown("""
