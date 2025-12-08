@@ -1186,7 +1186,7 @@ Eres un Agente Analítico Forense especializado en la extracción de informació
 
 **FORMATO OBLIGATORIO para CADA cita:**
 
-**[Documento: nombre_archivo.srt | Timestamp: HH:MM:SS --> HH:MM:SS]**
+**[VIDEO / AUDIO: nombre_archivo.srt | Timestamp: HH:MM:SS --> HH:MM:SS]**
 "TEXTO LITERAL EXACTO DEL SUBTÍTULO QUE DEBE APARECER AQUÍ SIEMPRE"
 
 **REGLAS CRÍTICAS DE CITACIÓN:**
@@ -1211,7 +1211,7 @@ Eres un Agente Analítico Forense especializado en la extracción de informació
 Cuando el usuario pregunta específicamente por un **documento, archivo, audio o video** usando su título o ID:
 
 **PASO 1: VERIFICACIÓN**
-- Revisa el campo `[Documento: nombre_archivo.srt]` de cada fragmento del contexto
+- Revisa el campo `[VIDEO / AUDIO: nombre_archivo.srt]` de cada fragmento del contexto
 - Identifica si los fragmentos pertenecen al documento mencionado por el usuario
 - Los usuarios pueden referirse a los documentos como: "documento", "archivo", "audio", "video"
 
@@ -1228,7 +1228,7 @@ Cuando el usuario pregunta específicamente por un **documento, archivo, audio o
 
 **PASO 3: RESPUESTA**
 - Cada cita DEBE incluir el nombre del archivo fuente
-- Mantén el mismo formato de citación obligatorio: `**[Documento: ...]** "texto literal"`
+- Mantén el mismo formato de citación obligatorio: `**[VIDEO / AUDIO: ...]** "texto literal"`
 - Agrupa la información temáticamente si hay múltiples fragmentos
 
 **EJEMPLO DE RESPUESTA CORRECTA:**
@@ -1238,10 +1238,10 @@ Y el contexto contiene fragmentos de ese audio, responde:
 ```
 **INFORMACIÓN SOBRE MARÍA MAGDALENA EN EL AUDIO SOLICITADO**
 
-**[Documento: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Timestamp: 00:05:23 --> 00: 05:45]**
+**[VIDEO / AUDIO: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Timestamp: 00:05:23 --> 00: 05:45]**
 "maría magdalena era una gran maestra espiritual que acompañó al maestro jesús..."
 
-**[Documento: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Timestamp: 00:12:10 --> 00:12:33]**
+**[VIDEO / AUDIO: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Timestamp: 00:12:10 --> 00:12:33]**
 "ella fue la única mujer entre los discípulos..."
 ```
 
@@ -1252,7 +1252,7 @@ Y el contexto contiene fragmentos de ese audio, responde:
 1. **PROCESA TODOS LOS FRAGMENTOS**: El contexto contiene MÚLTIPLES documentos separados por "---". Debes analizarlos TODOS.
 2. **LISTA EXHAUSTIVA CON TEXTO**: Si un término aparece en múltiples fragmentos, lista TODOS los que tengan contenido textual útil.
 3. **FORMATO OBLIGATORIO**: Cada mención debe tener:
-   - Referencia: **[Documento: ... | Timestamp: ...]**
+   - Referencia: **[VIDEO / AUDIO: ... | Timestamp: ...]**
    - Seguida INMEDIATAMENTE por: "texto literal entre comillas"
 4. **OMITE REFERENCIAS VACÍAS**: Si un fragmento solo tiene nombre de archivo sin texto útil, NO lo incluyas.
 5. Agrupa la información por temas, pero SIEMPRE con citas textuales completas.
@@ -1304,7 +1304,7 @@ def format_docs(docs):
             content = timestamp_header + content
         
         # Formatear con el título del documento y el contenido (ahora con timestamps)
-        formatted_docs.append(f"Documento: {doc_title}\n{content}")
+        formatted_docs.append(f"VIDEO / AUDIO: {doc_title}\n{content}")
     
     return "\n\n---\n\n".join(formatted_docs)
 
@@ -1314,7 +1314,7 @@ def colorize_citations(text: str) -> str:
     Colorea las citas bibliográficas con la paleta One Dark Pro y
     mejora el formato visual con estructura de reporte forense:
     - "texto citado" en AZUL #61AFEF con fuente Merriweather 18px
-    - [Documento: ... | Timestamp: ...] en VERDE OSCURO #2E7D32 con fuente Merriweather 19px NEGRITA
+    - [VIDEO / AUDIO: ... | Timestamp: ...] en VERDE OSCURO #2E7D32 con fuente Merriweather 19px NEGRITA
     - Timestamp: HH:MM:SS --> HH:MM:SS en ROJO #FF0000 con fuente Merriweather 17px
     - Encabezados de sección en AMARILLO #E5C07B
     - Agrega separadores visuales y cajas de evidencia
@@ -1395,7 +1395,7 @@ def colorize_citations(text: str) -> str:
     
     # 3. LUEGO colorear la parte del documento (hasta el |, sin incluir timestamp)
     # VERDE OSCURO INTENSO: #2E7D32 (Material Design Dark Green)
-    citation_pattern = r'(\*\*\[Documento:[^\|]+\|)'
+    citation_pattern = r'(\*\*\[VIDEO / AUDIO:[^\|]+\|)'
     
     text = re.sub(
         citation_pattern,
