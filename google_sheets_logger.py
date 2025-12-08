@@ -284,6 +284,7 @@ class GoogleSheetsLogger:
             "ID",
             "Fecha/Hora",
             "Usuario",
+            "Email",
             "Pregunta",
             "Respuesta",
             "Dispositivo",
@@ -297,10 +298,10 @@ class GoogleSheetsLogger:
             "Error"
         ]
         
-        self.worksheet.update('A1:N1', [headers])
+        self.worksheet.update('A1:O1', [headers])
         
         # Formatear encabezados (negrita, fondo gris)
-        self.worksheet.format('A1:N1', {
+        self.worksheet.format('A1:O1', {
             'textFormat': {'bold': True},
             'backgroundColor': {'red': 0.9, 'green': 0.9, 'blue': 0.9}
         })
@@ -315,7 +316,8 @@ class GoogleSheetsLogger:
         location_info: Optional[Dict] = None,
         timing: Optional[Dict] = None,
         success: bool = True,
-        error: Optional[str] = None
+        error: Optional[str] = None,
+        user_email: Optional[str] = None
     ):
         """
         Registra una interaccion en Google Sheets.
@@ -330,6 +332,7 @@ class GoogleSheetsLogger:
             timing: Informacion de tiempos
             success: Si fue exitosa
             error: Mensaje de error si aplica
+            user_email: Email del usuario (opcional)
         """
         if not self.enabled:
             return
@@ -376,6 +379,7 @@ class GoogleSheetsLogger:
                 interaction_id,
                 timestamp_str,
                 user,
+                user_email if user_email else "No disponible",
                 question,
                 answer_full,  # Respuesta completa
                 device_type,
