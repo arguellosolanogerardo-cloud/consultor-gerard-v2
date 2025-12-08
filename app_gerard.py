@@ -1444,7 +1444,12 @@ def colorize_citations(text: str) -> str:
 
 
 
-
+# Header con logo (Solo mostrar ANTES del login)
+if not st.session_state.get('user_name'):
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.image("assets/gerardfull.png", use_container_width=True)
+    st.markdown('<div class="subtitle">v3.69 | ASISTENTE</div>', unsafe_allow_html=True)
 
 # CSS Global para colorización de respuestas
 st.markdown("""
