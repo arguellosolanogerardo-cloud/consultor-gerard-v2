@@ -1186,7 +1186,7 @@ Eres un Agente Analítico Forense especializado en la extracción de informació
 
 **FORMATO OBLIGATORIO para CADA cita:**
 
-**[VIDEO / AUDIO: nombre_archivo.srt | Timestamp: HH:MM:SS --> HH:MM:SS]**
+**[VIDEO / AUDIO: nombre_archivo.srt | Minuto: HH:MM:SS --> HH:MM:SS]**
 "TEXTO LITERAL EXACTO DEL SUBTÍTULO QUE DEBE APARECER AQUÍ SIEMPRE"
 
 **REGLAS CRÍTICAS DE CITACIÓN:**
@@ -1238,10 +1238,10 @@ Y el contexto contiene fragmentos de ese audio, responde:
 ```
 **INFORMACIÓN SOBRE MARÍA MAGDALENA EN EL AUDIO SOLICITADO**
 
-**[VIDEO / AUDIO: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Timestamp: 00:05:23 --> 00: 05:45]**
+**[VIDEO / AUDIO: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Minuto: 00:05:23 --> 00: 05:45]**
 "maría magdalena era una gran maestra espiritual que acompañó al maestro jesús..."
 
-**[VIDEO / AUDIO: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Timestamp: 00:12:10 --> 00:12:33]**
+**[VIDEO / AUDIO: Para que se dejo Donald trump como presidente [nPNE9qHlUfY].es.srt | Minuto: 00:12:10 --> 00:12:33]**
 "ella fue la única mujer entre los discípulos..."
 ```
 
@@ -1252,7 +1252,7 @@ Y el contexto contiene fragmentos de ese audio, responde:
 1. **PROCESA TODOS LOS FRAGMENTOS**: El contexto contiene MÚLTIPLES documentos separados por "---". Debes analizarlos TODOS.
 2. **LISTA EXHAUSTIVA CON TEXTO**: Si un término aparece en múltiples fragmentos, lista TODOS los que tengan contenido textual útil.
 3. **FORMATO OBLIGATORIO**: Cada mención debe tener:
-   - Referencia: **[VIDEO / AUDIO: ... | Timestamp: ...]**
+   - Referencia: **[VIDEO / AUDIO: ... | Minuto: ...]**
    - Seguida INMEDIATAMENTE por: "texto literal entre comillas"
 4. **OMITE REFERENCIAS VACÍAS**: Si un fragmento solo tiene nombre de archivo sin texto útil, NO lo incluyas.
 5. Agrupa la información por temas, pero SIEMPRE con citas textuales completas.
@@ -1314,8 +1314,8 @@ def colorize_citations(text: str) -> str:
     Colorea las citas bibliográficas con la paleta One Dark Pro y
     mejora el formato visual con estructura de reporte forense:
     - "texto citado" en AZUL #61AFEF con fuente Merriweather 18px
-    - [VIDEO / AUDIO: ... | Timestamp: ...] en VERDE OSCURO #2E7D32 con fuente Merriweather 19px NEGRITA
-    - Timestamp: HH:MM:SS --> HH:MM:SS en ROJO #FF0000 con fuente Merriweather 17px
+    - [VIDEO / AUDIO: ... | Minuto: ...] en VERDE OSCURO #2E7D32 con fuente Merriweather 19px NEGRITA
+    - Minuto: HH:MM:SS --> HH:MM:SS en ROJO #FF0000 con fuente Merriweather 17px
     - Encabezados de sección en AMARILLO #E5C07B
     - Agrega separadores visuales y cajas de evidencia
     
@@ -1383,9 +1383,9 @@ def colorize_citations(text: str) -> str:
         flags=re.IGNORECASE
     )
     
-    # 3. LUEGO colorear los timestamps COMPLETOS (incluyendo "Timestamp:")
+    # 3. LUEGO colorear los timestamps COMPLETOS (incluyendo "Minuto:")
     # ROJO INTENSO: #FF0000
-    timestamp_pattern = r'(Timestamp:\s*\d{2}:\d{2}:\d{2}\s*-->\s*\d{2}:\d{2}:\d{2})'
+    timestamp_pattern = r'(Minuto:\s*\d{2}:\d{2}:\d{2}\s*-->\s*\d{2}:\d{2}:\d{2})'
     
     text = re.sub(
         timestamp_pattern,
