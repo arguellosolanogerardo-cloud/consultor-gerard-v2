@@ -2265,16 +2265,34 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 parentDoc.body.appendChild(modalDiv);
                 
                 // Event listeners para el modal en el documento padre
-                parentDoc.getElementById('pdf-modal-close').addEventListener('click', function() {
-                    parentDoc.getElementById('pdf-modal').style.display = 'none';
-                });
+                const closeBtn = parentDoc.getElementById('pdf-modal-close');
+                if (closeBtn) {
+                    // Remover listeners anteriores si existen
+                    const newCloseBtn = closeBtn.cloneNode(true);
+                    closeBtn.parentNode.replaceChild(newCloseBtn, closeBtn);
+                    
+                    // Agregar nuevo listener
+                    newCloseBtn.addEventListener('click', function(e) {
+                        console.log('Botón ENTENDIDO clickeado');
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const modal = parentDoc.getElementById('pdf-modal');
+                        if (modal) {
+                            modal.style.display = 'none';
+                            console.log('Modal cerrado');
+                        }
+                    });
+                }
                 
                 // Cerrar al hacer click fuera del modal
-                parentDoc.getElementById('pdf-modal').addEventListener('click', function(event) {
-                    if (event.target.id === 'pdf-modal') {
-                        parentDoc.getElementById('pdf-modal').style.display = 'none';
-                    }
-                });
+                const modal = parentDoc.getElementById('pdf-modal');
+                if (modal) {
+                    modal.addEventListener('click', function(event) {
+                        if (event.target.id === 'pdf-modal') {
+                            event.target.style.display = 'none';
+                        }
+                    });
+                }
             }
             
             function showModal() {
