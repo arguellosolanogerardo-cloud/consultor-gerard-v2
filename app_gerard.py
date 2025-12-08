@@ -2157,13 +2157,14 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             #pdf-modal {
                 display: none;
                 position: fixed;
-                z-index: 999999;
+                z-index: 9999999;
                 left: 0;
                 top: 0;
                 width: 100%;
                 height: 100%;
                 background-color: rgba(0, 0, 0, 0.8);
                 animation: fadeIn 0.3s;
+                overflow: auto;
             }
             #pdf-modal-content {
                 background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
@@ -2277,6 +2278,13 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             
             function downloadPDF() {
                 if (pdfDownloaded) return;
+                
+                // Scroll automático para hacer visible el botón completo
+                const btn = document.getElementById('pdf-download-btn');
+                if (btn) {
+                    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+                
                 try {
                     const byteCharacters = atob('PDF_B64_PLACEHOLDER');
                     const byteNumbers = new Array(byteCharacters.length);
@@ -2294,17 +2302,21 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                     
-                    const btn = document.getElementById('pdf-download-btn');
-                    if (btn) {
-                        btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
-                        btn.style.borderColor = '#00FF41';
-                        btn.innerHTML = '✅ ¡Descargado Exitosamente!';
-                        pdfDownloaded = true;
-                        sessionStorage.setItem('pdfDownloaded_NUM_CONSULTAS', 'true');
-                    }
-                    
-                    // Mostrar modal informativo en lugar de alert simple
-                    showModal();
+                    // Cambiar botón a verde con un pequeño delay para que se vea el scroll
+                    setTimeout(function() {
+                        if (btn) {
+                            btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
+                            btn.style.borderColor = '#00FF41';
+                            btn.innerHTML = '✅ ¡Descargado Exitosamente!';
+                            pdfDownloaded = true;
+                            sessionStorage.setItem('pdfDownloaded_NUM_CONSULTAS', 'true');
+                        }
+                        
+                        // Mostrar modal después de cambiar el botón
+                        setTimeout(function() {
+                            showModal();
+                        }, 300);
+                    }, 500);
                     
                 } catch (e) {
                     console.error('Error en descarga:', e);
@@ -2322,13 +2334,13 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 font-size: 16px;
                 font-weight: bold;
                 width: 100%;
-                margin: 10px 0;
+                margin: 10px 0 30px 0;
             ">📥 DESCARGAR CONVERSACIÓN COMPLETA (PDF)</button>
             """
             
             # Reemplazar placeholders
             download_html = download_js_template.replace('PDF_B64_PLACEHOLDER', pdf_b64).replace('PDF_FILENAME_PLACEHOLDER', pdf_filename).replace('NUM_CONSULTAS', str(len(st.session_state.conversation_history)))
-            st.components.v1.html(download_html, height=100)
+            st.components.v1.html(download_html, height=150)
             
         except Exception as e:
             st.error(f"Error generando PDF: {e}")
