@@ -2667,6 +2667,8 @@ if user_name:
                                 justify-content: center;
                                 align-items: center;
                                 pointer-events: none;
+                                touch-action: auto;
+                                overflow: hidden;
                             `;
                             
                             const container = targetDoc.createElement('div');
@@ -2674,7 +2676,7 @@ if user_name:
                             container.style.cssText = `
                                 width: 400px;
                                 height: 400px;
-                                pointer-events: auto;
+                                pointer-events: none;
                             `;
                             
                             overlay.appendChild(container);
