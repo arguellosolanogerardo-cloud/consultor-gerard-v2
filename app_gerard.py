@@ -1546,6 +1546,10 @@ if not st.session_state.get('user_name'):
 if 'user_name' not in st.session_state:
     st.session_state.user_name = ""
 
+# Campo de email del usuario (se llena con login de Google)
+if 'user_email' not in st.session_state:
+    st.session_state.user_email = ""
+
 # Inicializar flag de procesamiento OAuth (previene bucles infinitos)
 if 'oauth_processing' not in st.session_state:
     st.session_state.oauth_processing = False
