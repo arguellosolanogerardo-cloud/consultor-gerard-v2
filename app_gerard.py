@@ -2150,8 +2150,116 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             
             # JavaScript para descarga
             download_js_template = """
+            <style>
+            #pdf-modal {
+                display: none;
+                position: fixed;
+                z-index: 999999;
+                left: 0;
+                top: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.8);
+                animation: fadeIn 0.3s;
+            }
+            #pdf-modal-content {
+                background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+                margin: 15% auto;
+                padding: 30px;
+                border: 3px solid #00ff41;
+                border-radius: 15px;
+                width: 90%;
+                max-width: 500px;
+                box-shadow: 0 8px 32px rgba(0, 255, 65, 0.3);
+                animation: slideDown 0.4s;
+                color: white;
+            }
+            #pdf-modal h2 {
+                color: #00ff41;
+                margin-top: 0;
+                text-align: center;
+                font-size: 24px;
+            }
+            #pdf-modal p {
+                font-size: 16px;
+                line-height: 1.6;
+                margin: 15px 0;
+            }
+            #pdf-modal .highlight {
+                color: #00d4ff;
+                font-weight: bold;
+            }
+            #pdf-modal-close {
+                background: linear-gradient(45deg, #00ff41, #00cc33);
+                color: #000;
+                border: none;
+                padding: 12px 30px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                width: 100%;
+                margin-top: 20px;
+                transition: transform 0.2s;
+            }
+            #pdf-modal-close:hover {
+                transform: scale(1.05);
+            }
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            @keyframes slideDown {
+                from { transform: translateY(-50px); opacity: 0; }
+                to { transform: translateY(0); opacity: 1; }
+            }
+            @media (max-width: 600px) {
+                #pdf-modal-content {
+                    margin: 25% auto;
+                    padding: 20px;
+                    width: 85%;
+                }
+                #pdf-modal h2 {
+                    font-size: 20px;
+                }
+                #pdf-modal p {
+                    font-size: 14px;
+                }
+            }
+            </style>
+            
+            <div id="pdf-modal">
+                <div id="pdf-modal-content">
+                    <h2>✅ ¡PDF Descargado!</h2>
+                    <p>📄 Tu conversación completa ha sido descargada exitosamente.</p>
+                    <p><strong>📱 Para encontrar tu archivo:</strong></p>
+                    <p>🔹 <span class="highlight">Android:</span> Abre la app "Descargas" o "Archivos" → Busca en la carpeta "Download"</p>
+                    <p>🔹 <span class="highlight">iPhone/iPad:</span> Abre la app "Archivos" → Toca "Descargas"</p>
+                    <p>🔹 <span class="highlight">Computadora:</span> Revisa tu carpeta de Descargas</p>
+                    <p style="text-align: center; color: #00ff41; margin-top: 20px;">💡 También puedes revisar las notificaciones de tu navegador</p>
+                    <button id="pdf-modal-close" onclick="closeModal()">ENTENDIDO</button>
+                </div>
+            </div>
+            
             <script>
             var pdfDownloaded = false;
+            
+            function closeModal() {
+                document.getElementById('pdf-modal').style.display = 'none';
+            }
+            
+            function showModal() {
+                document.getElementById('pdf-modal').style.display = 'block';
+            }
+            
+            // Cerrar modal al hacer click fuera de él
+            window.onclick = function(event) {
+                const modal = document.getElementById('pdf-modal');
+                if (event.target == modal) {
+                    closeModal();
+                }
+            }
+            
             window.addEventListener('DOMContentLoaded', function() {
                 const btn = document.getElementById('pdf-download-btn');
                 if (sessionStorage.getItem('pdfDownloaded_NUM_CONSULTAS') === 'true') {
@@ -2163,6 +2271,7 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                     }
                 }
             });
+            
             function downloadPDF() {
                 if (pdfDownloaded) return;
                 try {
@@ -2190,10 +2299,13 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                         pdfDownloaded = true;
                         sessionStorage.setItem('pdfDownloaded_NUM_CONSULTAS', 'true');
                     }
-                    alert('✅ PDF descargado exitosamente.');
+                    
+                    // Mostrar modal informativo en lugar de alert simple
+                    showModal();
+                    
                 } catch (e) {
                     console.error('Error en descarga:', e);
-                    alert('❌ Error al descargar PDF.');
+                    alert('❌ Error al descargar PDF. Por favor, inténtalo nuevamente.');
                 }
             }
             </script>
