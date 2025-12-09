@@ -3186,7 +3186,7 @@ if user_name:
                         except Exception:
                             pass
 
-                    # Limpiar respuesta
+                    # Limpiar respuesta (solo para otros usos, NO para Sheets)
                     answer_clean = _strip_html_tags(response)
                     
                     if st.session_state.sheets_logger.enabled:
@@ -3194,11 +3194,12 @@ if user_name:
                             interaction_id=interaction_id,
                             user=user_name.upper(),
                             question=query,
-                            answer=answer_clean,
+                            answer=response,  # ← CAMBIADO: Pasar HTML con colores, NO answer_clean
                             device_info=device_info,
                             location_info=location_info,
                             timing={"total_time": total_time},
-                            success=True
+                            success=True,
+                            user_email=st.session_state.get('user_email', 'No disponible')  # ← AGREGADO: Email
                         )
                 except Exception as e_log:
                     print(f"Error logging: {e_log}")
