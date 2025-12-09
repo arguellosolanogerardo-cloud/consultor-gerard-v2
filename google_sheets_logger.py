@@ -319,78 +319,96 @@ class GoogleSheetsLogger:
             }
         return {'red': 0, 'green': 0, 'blue': 0}  # Negro por defecto
     
-    def _parse_html_to_rich_text(self, html_text: str) -> List[Dict]:
+    def _parse_html_to_rich_text(self, plain_text: str) -> List[Dict]:
         """
-        Convierte HTML con colores a formato de texto enriquecido de Google Sheets.
+        Detecta patrones en texto plano y aplica formato rico.
+        
+        Patrones detectados:
+        - **[VIDEO / AUDIO: archivo.srt |  → Verde oscuro
+        - Minuto: 00:00:00 --> 00:00:00]** → Rojo
+        - "texto entre comillas" → Azul
+        - ### Encabezados → Amarillo
         
         Args:
-            html_text: Texto HTML con tags <span style="color: #XXXXXX">
+            plain_text: Texto plano de la respuesta
         
         Returns:
-            Lista de segmentos con formato:
-            [
-                {"text": "texto", "format": {"foregroundColor": {"red": 0, "green": 1, "blue": 0}}},
-                ...
-            ]
+            Lista de segmentos con formato para Google Sheets API
         """
-        if not html_text:
+        if not plain_text:
             return [{"text": "", "format": {}}]
         
+        # Definir colores
+        COLOR_GREEN = self._hex_to_rgb("#2E7D32")  # Verde oscuro: VIDEO / AUDIO
+        COLOR_RED = self._hex_to_rgb("#FF0000")    # Rojo: Minutos/timestamps
+        COLOR_BLUE = self._hex_to_rgb("#61AFEF")   # Azul: Citas textuales
+        COLOR_YELLOW = self._hex_to_rgb("#E5C07B") # Amarillo: Encabezados
+        
         segments = []
+        current_pos = 0
         
-        # Patrón para encontrar spans con color
-        # Captura: <span style="...color: #XXXXXX...">contenido</span>
-        pattern = r'<span[^>]*style="[^"]*color:\s*([^;"]+)[^"]*"[^>]*>(.*?)</span>'
+        # Patrones a detectar (en orden de prioridad)
+        patterns = [
+            # 1. VIDEO / AUDIO con archivo (verde)
+            (r'\*\*\[VIDEO / AUDIO:[^\]]+\|', COLOR_GREEN),
+            
+            # 2. Timestamps/Minutos (rojo)
+            (r'Minuto:\s*\d{2}:\d{2}:\d{2}\s*-->\s*\d{2}:\d{2}:\d{2}\]\*\*', COLOR_RED),
+            
+            # 3. Encabezados con ### o #### (amarillo)
+            (r'^#{3,4}\s+\*\*[^\*]+\*\*', COLOR_YELLOW),
+            
+            # 4. Texto entre comillas (azul) - solo si tiene más de 10 caracteres
+            (r'"[^"]{10,}"', COLOR_BLUE),
+        ]
         
-        last_end = 0
+        # Encontrar todas las coincidencias con sus posiciones
+        matches = []
+        for pattern, color in patterns:
+            for match in re.finditer(pattern, plain_text, re.MULTILINE):
+                matches.append({
+                    'start': match.start(),
+                    'end': match.end(),
+                    'text': match.group(),
+                    'color': color
+                })
         
-        for match in re.finditer(pattern, html_text, re.DOTALL):
-            # Texto antes del span (sin formato)
-            before_text = html_text[last_end:match.start()]
-            if before_text:
-                # Limpiar cualquier tag HTML residual
-                clean_before = re.sub(r'<[^>]+>', '', before_text)
-                if clean_before.strip():
+        # Ordenar por posición
+        matches.sort(key=lambda x: x['start'])
+        
+        # Construir segmentos
+        for match in matches:
+            # Texto antes del match (sin formato)
+            if current_pos < match['start']:
+                before_text = plain_text[current_pos:match['start']]
+                if before_text:
                     segments.append({
-                        "text": clean_before,
+                        "text": before_text,
                         "format": {}
                     })
             
-            # Texto dentro del span (con color)
-            color = match.group(1).strip()
-            text = match.group(2)
+            # Texto del match (con color)
+            segments.append({
+                "text": match['text'],
+                "format": {
+                    "foregroundColor": match['color']
+                }
+            })
             
-            # Limpiar tags HTML internos si existen
-            clean_text = re.sub(r'<[^>]+>', '', text)
-            
-            if clean_text:
-                # Convertir color hex a RGB
-                rgb_color = self._hex_to_rgb(color)
-                
-                segments.append({
-                    "text": clean_text,
-                    "format": {
-                        "foregroundColor": rgb_color
-                    }
-                })
-            
-            last_end = match.end()
+            current_pos = match['end']
         
-        # Texto después del último span (sin formato)
-        after_text = html_text[last_end:]
-        if after_text:
-            clean_after = re.sub(r'<[^>]+>', '', after_text)
-            if clean_after.strip():
+        # Texto final (sin formato)
+        if current_pos < len(plain_text):
+            final_text = plain_text[current_pos:]
+            if final_text:
                 segments.append({
-                    "text": clean_after,
+                    "text": final_text,
                     "format": {}
                 })
         
-        # Si no encontramos ningún span, devolver todo el texto sin formato
+        # Si no hay matches, devolver todo sin formato
         if not segments:
-            # Limpiar todos los tags HTML
-            clean_text = re.sub(r'<[^>]+>', '', html_text)
-            segments = [{"text": clean_text, "format": {}}]
+            segments = [{"text": plain_text, "format": {}}]
         
         return segments
     
@@ -550,16 +568,16 @@ class GoogleSheetsLogger:
             # Agregar fila a la hoja
             self.worksheet.append_row(row)
             
-            # Aplicar formato rico a la respuesta si contiene HTML con colores
+            # Aplicar formato rico a la respuesta basándose en patrones de texto
             try:
-                # Verificar si la respuesta tiene tags de color (<span style="color:...)
-                if answer_full and '<span' in answer_full and 'color:' in answer_full:
+                # Siempre intentar aplicar formato rico si hay respuesta
+                if answer_full and len(answer_full) > 10:
                     # Obtener el número de fila recién agregada
                     # Las filas empiezan en 1, y la primera fila es el header
                     all_rows = self.worksheet.get_all_values()
                     row_index = len(all_rows) - 1  # 0-indexed, última fila agregada
                     
-                    # Parsear HTML a segmentos con formato
+                    # Parsear texto plano a segmentos con formato
                     rich_segments = self._parse_html_to_rich_text(answer_full)
                     
                     # Aplicar formato a la columna de respuesta (columna F, índice 5)
