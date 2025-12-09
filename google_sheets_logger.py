@@ -350,11 +350,8 @@ class GoogleSheetsLogger:
         
         # Patrones a detectar (en orden de prioridad)
         patterns = [
-            # 1. VIDEO / AUDIO con archivo (verde)
-            (r'\*\*\[VIDEO / AUDIO:[^\]]+\|', COLOR_GREEN),
-            
-            # 2. Timestamps/Minutos (rojo)
-            (r'Minuto:\s*\d{2}:\d{2}:\d{2}\s*-->\s*\d{2}:\d{2}:\d{2}\]\*\*', COLOR_RED),
+            # 1. VIDEO / AUDIO completo con timestamp (verde) - DEBE IR PRIMERO
+            (r'\*\*\[VIDEO / AUDIO:.*?\]\*\*', COLOR_GREEN),
             
             # 3. Encabezados con ### o #### (amarillo)
             (r'^#{3,4}\s+\*\*[^\*]+\*\*', COLOR_YELLOW),
