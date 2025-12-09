@@ -23,6 +23,7 @@ Configuracion:
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
+from zoneinfo import ZoneInfo
 from typing import Dict, Optional, List
 import json
 import os
@@ -510,8 +511,8 @@ class GoogleSheetsLogger:
             return
         
         try:
-            # Preparar datos
-            timestamp = datetime.now()
+            # Preparar datos con zona horaria de Bogotá, Colombia (UTC-5)
+            timestamp = datetime.now(ZoneInfo("America/Bogota"))
             timestamp_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
             
             # Informacion del dispositivo
