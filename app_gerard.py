@@ -1606,10 +1606,13 @@ if not st.session_state.user_name:
                     
                     if user_info:
                         print(f"[INFO] ✅ Usuario autenticado: {user_info.get('name', 'Desconocido')}")
+                        print(f"[DEBUG] user_info completo: {user_info}")  # Ver qué contiene user_info
                         
                         # CRÍTICO: Guardar datos en session_state ANTES de limpiar query_params
                         st.session_state.user_name = user_info.get('name', 'Usuario Google')
                         st.session_state.user_email = user_info.get('email', '')
+                        
+                        print(f"[DEBUG] Email capturado: '{st.session_state.user_email}'")  # Ver si se capturó
                         
                         # Función para validar si un string es una IP válida
                         def is_valid_ip(ip_string):
@@ -3190,6 +3193,9 @@ if user_name:
                     answer_clean = _strip_html_tags(response)
                     
                     if st.session_state.sheets_logger.enabled:
+                        user_email_value = st.session_state.get('user_email', 'No disponible')
+                        print(f"[DEBUG] Email al guardar en Sheets: '{user_email_value}'")  # Debuggear
+                        
                         st.session_state.sheets_logger.log_interaction(
                             interaction_id=interaction_id,
                             user=user_name.upper(),
@@ -3199,7 +3205,7 @@ if user_name:
                             location_info=location_info,
                             timing={"total_time": total_time},
                             success=True,
-                            user_email=st.session_state.get('user_email', 'No disponible')  # ← AGREGADO: Email
+                            user_email=user_email_value  # ← AGREGADO: Email
                         )
                 except Exception as e_log:
                     print(f"Error logging: {e_log}")
