@@ -38,7 +38,7 @@ class GoogleSheetsLogger:
         self,
         credentials_file: str = "google_credentials.json",
         spreadsheet_name: str = "GERARD - Logs de Usuarios",
-        worksheet_name: str = "Interacciones",
+        worksheet_name: str = "Interacciones_v2",
         spreadsheet_key: str = "1O92R7BmxXfIOBO-qA3T0XpF1M2ena19bxqn8OrsqB2E"
     ):
         """
@@ -285,7 +285,6 @@ class GoogleSheetsLogger:
             "ID",
             "Fecha/Hora",
             "Usuario",
-            "Email",
             "Pregunta",
             "Respuesta",
             "Dispositivo",
@@ -296,7 +295,8 @@ class GoogleSheetsLogger:
             "IP",
             "Tiempo Respuesta (s)",
             "Estado",
-            "Error"
+            "Error",
+            "Email"
         ]
         
         self.worksheet.update('A1:O1', [headers])
@@ -551,7 +551,6 @@ class GoogleSheetsLogger:
                 interaction_id,
                 timestamp_str,
                 user,
-                user_email if user_email else "No disponible",
                 question,
                 answer_full,  # Respuesta completa
                 device_type,
@@ -562,7 +561,8 @@ class GoogleSheetsLogger:
                 ip,
                 f"{response_time:.2f}",
                 status,
-                error_msg
+                error_msg,
+                user_email if user_email else "No disponible"
             ]
             
             # Agregar fila a la hoja
@@ -580,8 +580,8 @@ class GoogleSheetsLogger:
                     # Parsear texto plano a segmentos con formato
                     rich_segments = self._parse_html_to_rich_text(answer_full)
                     
-                    # Aplicar formato a la columna de respuesta (columna F, índice 5)
-                    col_index = 5  # 0-indexed: A=0, B=1, C=2, D=3, E=4, F=5
+                    # Aplicar formato a la columna de respuesta (columna E, índice 4)
+                    col_index = 4  # 0-indexed: A=0, B=1, C=2, D=3, E=4
                     self._apply_rich_text_format(row_index, col_index, rich_segments)
                     
                     print(f"[OK] Formato rico aplicado a la respuesta ({len(rich_segments)} segmentos)")
