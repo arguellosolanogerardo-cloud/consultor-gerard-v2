@@ -23,9 +23,10 @@ Configuracion:
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 import json
 import os
+import re
 
 
 class GoogleSheetsLogger:
@@ -306,6 +307,159 @@ class GoogleSheetsLogger:
             'backgroundColor': {'red': 0.9, 'green': 0.9, 'blue': 0.9}
         })
     
+    def _hex_to_rgb(self, hex_color: str) -> Dict[str, float]:
+        """Convierte color hex a RGB normalizado para Google Sheets (0.0-1.0)."""
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) == 6:
+            r, g, b = tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
+            return {
+                'red': r / 255.0,
+                'green': g / 255.0,
+                'blue': b / 255.0
+            }
+        return {'red': 0, 'green': 0, 'blue': 0}  # Negro por defecto
+    
+    def _parse_html_to_rich_text(self, html_text: str) -> List[Dict]:
+        """
+        Convierte HTML con colores a formato de texto enriquecido de Google Sheets.
+        
+        Args:
+            html_text: Texto HTML con tags <span style="color: #XXXXXX">
+        
+        Returns:
+            Lista de segmentos con formato:
+            [
+                {"text": "texto", "format": {"foregroundColor": {"red": 0, "green": 1, "blue": 0}}},
+                ...
+            ]
+        """
+        if not html_text:
+            return [{"text": "", "format": {}}]
+        
+        segments = []
+        
+        # Patrón para encontrar spans con color
+        # Captura: <span style="...color: #XXXXXX...">contenido</span>
+        pattern = r'<span[^>]*style="[^"]*color:\s*([^;"]+)[^"]*"[^>]*>(.*?)</span>'
+        
+        last_end = 0
+        
+        for match in re.finditer(pattern, html_text, re.DOTALL):
+            # Texto antes del span (sin formato)
+            before_text = html_text[last_end:match.start()]
+            if before_text:
+                # Limpiar cualquier tag HTML residual
+                clean_before = re.sub(r'<[^>]+>', '', before_text)
+                if clean_before.strip():
+                    segments.append({
+                        "text": clean_before,
+                        "format": {}
+                    })
+            
+            # Texto dentro del span (con color)
+            color = match.group(1).strip()
+            text = match.group(2)
+            
+            # Limpiar tags HTML internos si existen
+            clean_text = re.sub(r'<[^>]+>', '', text)
+            
+            if clean_text:
+                # Convertir color hex a RGB
+                rgb_color = self._hex_to_rgb(color)
+                
+                segments.append({
+                    "text": clean_text,
+                    "format": {
+                        "foregroundColor": rgb_color
+                    }
+                })
+            
+            last_end = match.end()
+        
+        # Texto después del último span (sin formato)
+        after_text = html_text[last_end:]
+        if after_text:
+            clean_after = re.sub(r'<[^>]+>', '', after_text)
+            if clean_after.strip():
+                segments.append({
+                    "text": clean_after,
+                    "format": {}
+                })
+        
+        # Si no encontramos ningún span, devolver todo el texto sin formato
+        if not segments:
+            # Limpiar todos los tags HTML
+            clean_text = re.sub(r'<[^>]+>', '', html_text)
+            segments = [{"text": clean_text, "format": {}}]
+        
+        return segments
+    
+    def _apply_rich_text_format(self, row_index: int, col_index: int, rich_text_segments: List[Dict]):
+        """
+        Aplica formato de texto enriquecido a una celda específica usando batch_update.
+        
+        Args:
+            row_index: Índice de la fila (0-indexed)
+            col_index: Índice de la columna (0-indexed, ej: 5 para columna F)
+            rich_text_segments: Lista de segmentos con formato
+        """
+        if not rich_text_segments or not self.worksheet:
+            return
+        
+        try:
+            # Construir textFormatRuns para la API
+            runs = []
+            start_index = 0
+            
+            for segment in rich_text_segments:
+                text = segment.get("text", "")
+                fmt = segment.get("format", {})
+                
+                if text:
+                    run = {"startIndex": start_index}
+                    
+                    if fmt and "foregroundColor" in fmt:
+                        run["format"] = {"foregroundColor": fmt["foregroundColor"]}
+                    
+                    runs.append(run)
+                    start_index += len(text)
+            
+            # Si no hay runs con formato, no hacer nada
+            if not runs:
+                return
+            
+            # Obtener el spreadsheet ID
+            spreadsheet_id = self.worksheet.spreadsheet.id
+            sheet_id = self.worksheet.id
+            
+            # Preparar el batch update
+            requests = [{
+                "updateCells": {
+                    "rows": [{
+                        "values": [{
+                            "userEnteredValue": {
+                                "stringValue": "".join([seg["text"] for seg in rich_text_segments])
+                            },
+                            "textFormatRuns": runs
+                        }]
+                    }],
+                    "fields": "userEnteredValue,textFormatRuns",
+                    "range": {
+                        "sheetId": sheet_id,
+                        "startRowIndex": row_index,
+                        "endRowIndex": row_index + 1,
+                        "startColumnIndex": col_index,
+                        "endColumnIndex": col_index + 1
+                    }
+                }
+            }]
+            
+            # Ejecutar batch update
+            self.worksheet.spreadsheet.batch_update({"requests": requests})
+            
+        except Exception as e:
+            print(f"[WARNING] No se pudo aplicar formato rico: {e}")
+    
     def log_interaction(
         self,
         interaction_id: str,
@@ -395,6 +549,27 @@ class GoogleSheetsLogger:
             
             # Agregar fila a la hoja
             self.worksheet.append_row(row)
+            
+            # Aplicar formato rico a la respuesta si contiene HTML con colores
+            try:
+                # Verificar si la respuesta tiene tags de color (<span style="color:...)
+                if answer_full and '<span' in answer_full and 'color:' in answer_full:
+                    # Obtener el número de fila recién agregada
+                    # Las filas empiezan en 1, y la primera fila es el header
+                    all_rows = self.worksheet.get_all_values()
+                    row_index = len(all_rows) - 1  # 0-indexed, última fila agregada
+                    
+                    # Parsear HTML a segmentos con formato
+                    rich_segments = self._parse_html_to_rich_text(answer_full)
+                    
+                    # Aplicar formato a la columna de respuesta (columna F, índice 5)
+                    col_index = 5  # 0-indexed: A=0, B=1, C=2, D=3, E=4, F=5
+                    self._apply_rich_text_format(row_index, col_index, rich_segments)
+                    
+                    print(f"[OK] Formato rico aplicado a la respuesta ({len(rich_segments)} segmentos)")
+            except Exception as e:
+                # Si falla el formato rico, continuar (ya tenemos el texto guardado)
+                print(f"[WARNING] No se pudo aplicar formato rico: {e}")
             
             print(f"[OK] Interaccion registrada en Google Sheets: {user} - {question[:50]}...")
             
