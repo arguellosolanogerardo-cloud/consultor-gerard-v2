@@ -372,7 +372,7 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 
 ### 8️⃣ BÚSQUEDAS POR NÚMERO DE MEDITACIÓN/MENSAJE
 
-**🎯 MEJORADO:** GERARD ahora detecta correctamente números de meditaciones y mensajes en cualquier formato.
+**🎯 CORREGIDO Y MEJORADO:** GERARD ahora filtra correctamente por número de meditación/mensaje, garantizando que **SOLO** retorna documentos con ese número específico.
 
 #### ✅ FORMATO ÓPTIMO:
 ```
@@ -380,12 +380,13 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 "¿Qué dice el mensaje [NÚMERO] sobre [TEMA]?"
 "Meditacion numero [NÚMERO] [PREGUNTA]"
 "MEDITACION [NÚMERO]" (mayúsculas/minúsculas)
+"busca solo En el video MEDITACIÓN [NÚMERO] y el mensaje [NÚMERO]"
 ```
 
 #### 🎯 Ejemplos de Alta Precisión:
 ```
 ✓ "En el video meditacion 725 que informacion hay sobre jesus"
-✓ "¿Qué dice el mensaje 725 sobre [TEMA]?"
+✓ "¿Qué dice el mensaje 725 sobre la evacuación?"
 ✓ "Meditacion numero 50 que dice"
 ✓ "MEDITACION 1"
 ✓ "mensaje 600"
@@ -403,25 +404,31 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 - **Meditaciones:** 1 - 1113 (desde un solo dígito hasta 4 dígitos)
 - **Mensajes:** 400+ y 600+ (principalmente desde el 600 al 1113)
 
-#### 🔍 Cómo Funciona:
-GERARD ahora **prioriza los números** al extraer keywords, asegurando que:
-- ✅ Números de 1-4 dígitos se preservan correctamente
-- ✅ Auto-detecta si buscas "meditacion" o "mensaje"
-- ✅ Insensible a mayúsculas/minúsculas
-- ✅ Funciona con variaciones "meditación" (con acento) o "meditacion"
+#### 🔍 Cómo Funciona (MEJORADO):
+GERARD ahora usa un sistema inteligente de **filtrado por número obligatorio**:
+- ✅ **Prioridad absoluta a números:** Si detecta un número (ej: "725"), es OBLIGATORIO que esté en el nombre del archivo
+- ✅ **Solo resultados exactos:** Retorna ÚNICAMENTE archivos con "725" en el nombre
+- ✅ **Sin falsos positivos:** NO mezcla documentos de otras meditaciones/mensajes
+- ✅ **Auto-detecta tipo:** Reconoce si buscas "meditacion" o "mensaje"
+- ✅ **Insensible a formato:** Funciona con/sin acentos, mayúsculas/minúsculas
+- ✅ **Múltiples archivos:** Si hay varios archivos con el mismo número, encuentra TODOS
 
 #### 📝 Mensaje del Sistema:
 Cuando uses esta funcionalidad, verás:
 ```
-📑 Búsqueda híbrida con filtro de título activada
-Keywords detectadas: ['725', 'meditacion']
-Documentos recuperados: 4
+[TITLE FILTER] 🎯 Título detectado en query
+[TITLE FILTER]    Numeric keywords (obligatorios): ['725']
+[TITLE FILTER]    Documentos filtrados: 156 de 87,431
+[TITLE FILTER]    ✅ Retornando 10 documentos filtrados (sin FAISS)
 ```
 
-#### ⚠️ IMPORTANTE:
+#### ⚠️ GARANTÍA DE PRECISIÓN:
+**ANTES (problema):** Podía retornar documentos sin el número especificado  
+**AHORA (corregido):** ✅ **100% garantizado** - Solo archivos con "725" en el nombre
+
 Para meditaciones/mensajes numerados específicos, **siempre incluye el número** en tu pregunta.
 Si existen múltiples archivos con el mismo número (ej: "725 antes y despues", "MEDITACION 725", "MENSAJE 725"),
-GERARD encontrará **TODOS** los archivos relacionados.
+GERARD encontrará **TODOS** los archivos relacionados automáticamente.
 
 ---
 
