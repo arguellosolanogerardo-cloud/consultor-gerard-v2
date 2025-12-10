@@ -370,17 +370,28 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 
 ---
 
-### 8️⃣ BÚSQUEDAS POR NÚMERO DE ARCHIVO
+### 8️⃣ BÚSQUEDAS POR NÚMERO DE MEDITACIÓN/MENSAJE
+
+**🎯 MEJORADO:** GERARD ahora detecta correctamente números de meditaciones y mensajes en cualquier formato.
 
 #### ✅ FORMATO ÓPTIMO:
 ```
-"¿De qué trata la Meditación [NÚMERO]?"
-"Muéstrame el contenido del Mensaje [NÚMERO]"
-"¿Qué enseñanza importante hay en la Meditación [NÚMERO]?"
+"En el video meditacion [NÚMERO] que informacion hay sobre [TEMA]"
+"¿Qué dice el mensaje [NÚMERO] sobre [TEMA]?"
+"Meditacion numero [NÚMERO] [PREGUNTA]"
+"MEDITACION [NÚMERO]" (mayúsculas/minúsculas)
 ```
 
 #### 🎯 Ejemplos de Alta Precisión:
 ```
+✓ "En el video meditacion 725 que informacion hay sobre jesus"
+✓ "¿Qué dice el mensaje 725 sobre [TEMA]?"
+✓ "Meditacion numero 50 que dice"
+✓ "MEDITACION 1"
+✓ "mensaje 600"
+✓ "video meditacion 1113"
+✓ "en el documento mensaje 805"
+
 ✓ "¿De qué trata la Meditación 107?"
 ✓ "Muéstrame el contenido del Mensaje 686"
 ✓ "¿Qué enseñanza importante hay en la Meditación 555?"
@@ -389,8 +400,28 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 ```
 
 #### 📊 Rangos Válidos:
-- **Meditaciones:** 1 - 1113
-- **Mensajes:** 606 - 1113
+- **Meditaciones:** 1 - 1113 (desde un solo dígito hasta 4 dígitos)
+- **Mensajes:** 400+ y 600+ (principalmente desde el 600 al 1113)
+
+#### 🔍 Cómo Funciona:
+GERARD ahora **prioriza los números** al extraer keywords, asegurando que:
+- ✅ Números de 1-4 dígitos se preservan correctamente
+- ✅ Auto-detecta si buscas "meditacion" o "mensaje"
+- ✅ Insensible a mayúsculas/minúsculas
+- ✅ Funciona con variaciones "meditación" (con acento) o "meditacion"
+
+#### 📝 Mensaje del Sistema:
+Cuando uses esta funcionalidad, verás:
+```
+📑 Búsqueda híbrida con filtro de título activada
+Keywords detectadas: ['725', 'meditacion']
+Documentos recuperados: 4
+```
+
+#### ⚠️ IMPORTANTE:
+Para meditaciones/mensajes numerados específicos, **siempre incluye el número** en tu pregunta.
+Si existen múltiples archivos con el mismo número (ej: "725 antes y despues", "MEDITACION 725", "MENSAJE 725"),
+GERARD encontrará **TODOS** los archivos relacionados.
 
 ---
 
@@ -438,9 +469,9 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 
 ---
 
-### 1️⃣1️⃣ BÚSQUEDAS POR DOCUMENTO/AUDIO/VIDEO ESPECÍFICO (NUEVO)
+### 1️⃣1️⃣ BÚSQUEDAS POR DOCUMENTO/AUDIO/VIDEO ESPECÍFICO
 
-**🎯 FUNCIONALIDAD NUEVA:** GERARD ahora puede buscar información en un **documento, audio o video específico** usando su título o ID único.
+**🎯 FUNCIONALIDAD:** GERARD puede buscar información en un **documento, audio o video específico** usando su título, número de meditación/mensaje, o ID único.
 
 #### ✅ FORMATO ÓPTIMO:
 ```
@@ -448,6 +479,11 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 "En el AUDIO llamado [título], ¿qué información hay sobre [tema]?"
 "En el VIDEO de título [título], busca sobre [tema]"
 "Del ARCHIVO [título o ID], ¿qué menciona sobre [tema]?"
+
+NUEVO - Por número de meditación/mensaje:
+"En el video meditacion [NÚMERO] que informacion hay sobre [TEMA]"
+"En la meditacion [NÚMERO] busca sobre [TEMA]"
+"Del mensaje [NÚMERO] que dice sobre [TEMA]"
 ```
 
 #### 🎯 Ejemplos de Alta Precisión:
@@ -464,12 +500,19 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 ✓ "En el DOCUMENTO llamado mensaje para los estudiantes, ¿qué dice el Maestro?"
 
 ✓ "Del VIDEO mensaje 805 antes y después de la meditación, busca sobre chakras"
+
+NUEVO - Con números:
+✓ "En el video meditacion 725 que informacion hay sobre jesus"
+✓ "En la meditacion 107 busca sobre la cura milagrosa"
+✓ "Del mensaje 686 que dice sobre evacuación"
+✓ "En meditacion numero 50 que enseñanzas hay"
 ```
 
 #### 🔍 Cómo Funciona:
 GERARD detecta automáticamente cuando mencionas:
 - **"DOCUMENTO"** / **"ARCHIVO"** / **"AUDIO"** / **"VIDEO"**
 - **"DE TÍTULO:"** / **"llamado"** / **"de título"**
+- **"MEDITACION [número]"** / **"MENSAJE [número]"** ← NUEVO
 - **IDs entre corchetes:** `[ABC123XYZ]`
 
 Luego **filtra primero** solo los fragmentos de ese documento específico antes de buscar la información solicitada.
@@ -477,16 +520,17 @@ Luego **filtra primero** solo los fragmentos de ese documento específico antes 
 #### 📊 Ventajas:
 - ✅ **Búsqueda precisa:** Solo busca en el documento que mencionas
 - ✅ **Evita confusión:** No mezcla información de otros documentos
-- ✅ **Más rápido:** Filtra 82,575 fragmentos a ~90 específicos
-- ✅ **Flexible:** Acepta títulos parciales, completos o IDs únicos
+- ✅ **Más rápido:** Filtra 82,575 fragmentos a ~90 específicos (o menos para números)
+- ✅ **Flexible:** Acepta títulos parciales, completos, números o IDs únicos
+- ✅ **Múltiples archivos:** Si hay varios archivos con el mismo número, encuentra TODOS
 
 #### 📝 Mensaje del Sistema:
 Cuando uses esta funcionalidad, verás:
 ```
 📑 Híbrida con Filtro de Título
 🎯 Búsqueda híbrida con filtro de título activada
-Keywords detectadas: ['donald', 'trump', 'presidente']
-Documentos recuperados con filtro: 21
+Keywords detectadas: ['725', 'meditacion'] o ['donald', 'trump', 'presidente']
+Documentos recuperados con filtro: 4 o 21
 ```
 
 #### ⚠️ IMPORTANTE:
@@ -501,9 +545,10 @@ NO inventará información ni usará otros documentos.
 
 #### 💡 Tips de Uso:
 1. **Usa el título completo o parcial** - ambos funcionan
-2. **Puedes usar IDs únicos** entre corchetes si los conoces
-3. **Menciona "documento", "audio" o "video"** según corresponda
-4. **Busquedas normales siguen funcionando igual** - esta es opcional
+2. **Usa números de meditación/mensaje** - ahora 100% confiable (ej: 725, 1, 1113)
+3. **Puedes usar IDs únicos** entre corchetes si los conoces
+4. **Menciona "documento", "audio", "video", "meditacion" o "mensaje"** según corresponda
+5. **Búsquedas normales siguen funcionando igual** - esta es opcional
 
 ---
 

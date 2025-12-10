@@ -38,19 +38,22 @@ def detect_title_in_query(query: str) -> Dict[str, Any]:
     # Patrones para detectar títulos (ordenados por especificidad)
     patterns = [
         # Patrón explícito con "DE TITULO:" o "DE TÍTULO:"
-        r'(?:documento|archivo|audio|video)\s+de\s+t[ií]tulo\s*:\s*(.+?)(?:\.|¿|\?|$)',
+        r'(?:documento|archivo|audio|video|meditaci[oó]n|mensaje)\s+de\s+t[ií]tulo\s*:\s*(.+?)(?:\.|¿|\?|$)',
         
         # Patrón "llamado [título]"
-        r'(?:documento|archivo|audio|video)\s+llamado\s+(.+?)(?:\.|¿|\?|$)',
+        r'(?:documento|archivo|audio|video|meditaci[oó]n|mensaje)\s+llamado\s+(.+?)(?:\.|¿|\?|$)',
         
         # Patrón "en el [tipo] [título]"
-        r'en\s+el\s+(?:documento|archivo|audio|video)\s+(.+?)(?:\.|¿|\?|$)',
+        r'en\s+el\s+(?:documento|archivo|audio|video|meditaci[oó]n|mensaje)\s+(.+?)(?:\.|¿|\?|$)',
         
         # Patrón "del [tipo] [título]"
-        r'del\s+(?:documento|archivo|audio|video)\s+(.+?)(?:\.|¿|\?|$)',
+        r'del\s+(?:documento|archivo|audio|video|meditaci[oó]n|mensaje)\s+(.+?)(?:\.|¿|\?|$)',
+        
+        # Patrón NUEVO: "meditacion/mensaje [numero] [numero]" - sin prefijo
+        r'(?:meditaci[oó]n|mensaje)\s+(?:n[uú]mero\s+)?(\d+)(?:\s|¿|\?|$)',
         
         # Patrón simple "[tipo] [título]"
-        r'^(?:documento|archivo|audio|video)\s+(.+?)(?:\.|¿|\?|$)',
+        r'^(?:documento|archivo|audio|video|meditaci[oó]n|mensaje)\s+(.+?)(?:\.|¿|\?|$)',
     ]
     
     title_found = None
@@ -84,10 +87,40 @@ def detect_title_in_query(query: str) -> Dict[str, Any]:
     
     # Si no hay IDs pero se encontró un título
     if title_found:
-        # Extraer palabras clave significativas (>3 letras)
-        keywords = [w for w in title_found.split() if len(w) > 3]
+        # NUEVO: Detectar números (alta prioridad para meditaciones/mensajes)
+        numeric_keywords = [w for w in title_found.split() if w.isdigit()]
         
-        # Limitar a las 6 palabras más significativas para evitar ruido
+        # Detectar tipo de documento de la query original (para pattern_5)
+        doc_type = None
+        if pattern_matched == 'pattern_5':
+            # Extraer si es meditacion o mensaje de la query original
+            if re.search(r'meditaci[oó]n', query_lower):
+                doc_type = 'meditacion'
+            elif re.search(r'mensaje', query_lower):
+                doc_type = 'mensaje'
+        
+        # Palabras clave importantes (meditacion, mensaje, etc.)
+        important_words = ['meditacion', 'meditación', 'mensaje', 'audio', 'video', 'documento', 'archivo', 'número', 'numero']
+        type_keywords = [w for w in title_found.split() if w.lower() in important_words]
+        
+        # Si pattern_5 y tenemos doc_type, agregarlo
+        if doc_type and doc_type not in [k.lower() for k in type_keywords]:
+            type_keywords.insert(0, doc_type)
+        
+        # Palabras significativas (>3 letras) excluyendo stopwords comunes
+        stopwords = {'para', 'como', 'sobre', 'desde', 'hasta', 'cuando', 'donde', 'porque', 'cual', 'esta', 'este', 'estan', 'están'}
+        text_keywords = [w for w in title_found.split() 
+                        if len(w) > 3 and w.lower() not in stopwords and not w.isdigit()]
+        
+        # PRIORIDAD: números primero, luego tipos, luego texto significativo
+        # Esto es crítico para "meditacion 725" → ['725', 'meditacion']
+        keywords = numeric_keywords + type_keywords + text_keywords[:4]
+        
+        # Eliminar duplicados preservando orden
+        seen = set()
+        keywords = [w for w in keywords if not (w.lower() in seen or seen.add(w.lower()))]
+        
+        # Limitar a 6 palabras clave
         keywords = keywords[:6]
         
         return {
