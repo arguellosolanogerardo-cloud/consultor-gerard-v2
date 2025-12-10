@@ -1,5 +1,6 @@
 """
 Retriever híbrido que combina búsqueda semántica (FAISS) y léxica (BM25)
+Con soporte para filtrado por título de documento
 """
 import pickle
 import re
@@ -8,6 +9,7 @@ from typing import List
 from langchain_core.documents import Document
 from langchain_core.retrievers import BaseRetriever
 from langchain_core.callbacks import CallbackManagerForRetrieverRun
+from document_title_filter import detect_title_in_query, filter_docs_by_title
 
 
 def tokenize_clean(text: str) -> List[str]:
@@ -90,7 +92,56 @@ class HybridRetriever(BaseRetriever):
     def _get_relevant_documents(
         self, query: str, *, run_manager: CallbackManagerForRetrieverRun = None
     ) -> List[Document]:
-        """Obtiene documentos combinando FAISS y BM25"""
+        """Obtiene documentos combinando FAISS y BM25, con filtrado opcional por título"""
+        
+        # ===== PASO 0: Detectar si la query menciona un título específico de documento =====
+        title_info = detect_title_in_query(query)
+        title_filtered_indices = None  # Índices filtrados por título
+        
+        if title_info['has_title']:
+            print(f"[TITLE FILTER] 🎯 Título detectado en query")
+            print(f"[TITLE FILTER]    Keywords: {title_info['keywords']}")
+            print(f"[TITLE FILTER]    Patrón: {title_info['pattern_matched']}")
+            
+            # Filtrar documentos BM25 por título (metadatos de source)
+            title_filtered_indices = []
+            
+            # Separar keywords numéricas y no-numéricas
+            numeric_keywords = [kw for kw in title_info['keywords'] if kw.isdigit()]
+            non_numeric_keywords = [kw for kw in title_info['keywords'] if not kw.isdigit()]
+            
+            print(f"[TITLE FILTER]    Numeric keywords (obligatorios): {numeric_keywords}")
+            print(f"[TITLE FILTER]    Non-numeric keywords (opcionales): {non_numeric_keywords}")
+            
+            for idx, metadata in enumerate(self.bm25_metadatas):
+                source = metadata.get('source', '').lower()
+                
+                # ESTRATEGIA: Si hay números, SOLO los números son obligatorios
+                if numeric_keywords:
+                    # Todos los números deben estar presentes
+                    numeric_matches = sum(1 for kw in numeric_keywords if kw.lower() in source)
+                    if numeric_matches == len(numeric_keywords):
+                        title_filtered_indices.append(idx)
+                else:
+                    # Si NO hay números, usar lógica normal de keywords
+                    if len(title_info['keywords']) <= 3:
+                        # Pocas keywords: todas deben estar
+                        matches = sum(1 for kw in title_info['keywords'] if kw.lower() in source)
+                        if matches == len(title_info['keywords']):
+                            title_filtered_indices.append(idx)
+                    else:
+                        # Muchas keywords: al menos 50%
+                        matches = sum(1 for kw in title_info['keywords'] if kw.lower() in source)
+                        if matches >= len(title_info['keywords']) * 0.5:
+                            title_filtered_indices.append(idx)
+            
+            print(f"[TITLE FILTER]    Documentos filtrados: {len(title_filtered_indices)} de {len(self.bm25_docs)}")
+            
+            # Si no hay documentos filtrados, advertir pero continuar con búsqueda normal
+            if len(title_filtered_indices) == 0:
+                print(f"[TITLE FILTER]    ⚠️ WARNING: No se encontraron documentos con ese título")
+                print(f"[TITLE FILTER]    Continuando con búsqueda normal...")
+                title_filtered_indices = None  # Reset para búsqueda normal
         
         # Detectar términos que sugieren búsqueda exacta (nombres, apellidos, lugares)
         # Palabras capitalizadas O palabras comunes de nombres propios
@@ -115,12 +166,28 @@ class HybridRetriever(BaseRetriever):
         
         use_bm25_only = has_proper_nouns or has_name_keywords or asks_for_names
         
-        # 1. Búsqueda léxica (BM25) con tokenización mejorada
+        # ===== PASO 1: Búsqueda léxica (BM25) con tokenización mejorada =====
         query_tokens = tokenize_clean(query)
         bm25_scores = self.bm25_index.get_scores(query_tokens)
         
+        # Si hay filtrado por título, restringir la búsqueda SOLO a esos documentos
+        if title_filtered_indices is not None:
+            print(f"[TITLE FILTER]    Aplicando filtro de título a búsqueda BM25...")
+            
+            # Crear array de scores filtrado (poner -inf a los no filtrados)
+            filtered_bm25_scores = np.full_like(bm25_scores, -np.inf)
+            for idx in title_filtered_indices:
+                filtered_bm25_scores[idx] = bm25_scores[idx]
+            
+            # Usar scores filtrados para el resto del procesamiento
+            bm25_scores = filtered_bm25_scores
+            
+            # Obtener top-k solo de los documentos filtrados
+            top_bm25_indices = np.argsort(bm25_scores)[::-1][:min(self.k * 2, len(title_filtered_indices))]
+            print(f"[TITLE FILTER]    Top BM25 indices seleccionados: {len(top_bm25_indices)}")
+            
         # ESTRATEGIA ESPECIAL: Si pregunta por "guardianes" o "maestros", buscar TODOS los nombres
-        if asks_for_names and ('guardianes' in query_lower or 'maestros' in query_lower):
+        elif asks_for_names and ('guardianes' in query_lower or 'maestros' in query_lower):
             # Lista de los 9 maestros guardianes
             maestros_guardianes = ['alaniso', 'axel', 'alan', 'azen', 'aviatar', 'aladim', 'adiel', 'azoes', 'aliestro']
             
@@ -155,6 +222,12 @@ class HybridRetriever(BaseRetriever):
                     metadata=self.bm25_metadatas[idx]
                 )
                 bm25_docs.append(doc)
+        
+        # ===== RETORNO TEMPRANO si hay filtrado por título =====
+        # NUNCA mezclar con FAISS cuando buscamos título específico
+        if title_filtered_indices is not None:
+            print(f"[TITLE FILTER]    ✅ Retornando {len(bm25_docs)} documentos filtrados (sin FAISS)")
+            return bm25_docs[:self.k]
         
         # Si detectamos nombres propios Y BM25 encontró resultados, usar SOLO BM25
         if use_bm25_only and len(bm25_docs) >= self.k // 2:
