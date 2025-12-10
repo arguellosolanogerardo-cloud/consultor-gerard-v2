@@ -10,17 +10,15 @@ from langchain_core.documents import Document
 
 def detect_title_in_query(query: str) -> Dict[str, Any]:
     """
-    Detecta si la pregunta del usuario menciona un título específico de documento.
+    Detecta si la pregunta del usuario menciona uno o más títulos específicos de documentos.
+    NUEVO: Soporta detección de MÚLTIPLES títulos en una misma query.
     
     Patrones detectados:
+    - "MEDITACIÓN 725 y mensaje 725" → detecta ambos
     - "EN EL DOCUMENTO DE TITULO: [título]"
     - "en el documento llamado [título]"
     - "en el archivo [título]"
-    - "en el audio [título]"
-    - "en el video [título]"
-    - "documento [título]"
-    - "audio de título [título]"
-    - "video llamado [título]"
+    - "en el audio [título]" / "en el video [título]"
     - IDs entre corchetes: [ABC123XYZ]
     
     Args:
@@ -28,14 +26,56 @@ def detect_title_in_query(query: str) -> Dict[str, Any]:
         
     Returns:
         dict con:
-            - has_title: bool, True si se detectó un título
-            - keywords: list[str], palabras clave del título detectado
-            - pattern_matched: str, patrón que coincidió
-            - raw_title: str, título sin procesar
+            - has_title: bool, True si se detectó al menos un título
+            - titles: list[dict], lista de títulos detectados, cada uno con:
+                - keywords: list[str], palabras clave del título
+                - pattern_matched: str, patrón que coincidió
+                - raw_title: str, título sin procesar
+                - doc_type: str, tipo de documento ('meditacion', 'mensaje', etc.)
+            - keywords: list[str], DEPRECATED: keywords del primer título (compatibilidad)
+            - pattern_matched: str, DEPRECATED: patrón del primer título (compatibilidad)
+            - raw_title: str, DEPRECATED: título del primer título (compatibilidad)
     """
     query_lower = query.lower()
     
-    # Patrones para detectar títulos (ordenados por especificidad)
+    # NUEVO: Patrón específico para "meditación/mensaje [número]"
+    # Usa finditer() para encontrar TODAS las ocurrencias
+    specific_pattern = r'(meditaci[oó]n|mensaje)\s+(?:n[uú]mero\s+)?(\d+)'
+    specific_matches = list(re.finditer(specific_pattern, query_lower, re.IGNORECASE))
+    
+    titles_detected = []
+    
+    # Procesar matches específicos de meditación/mensaje
+    if specific_matches:
+        for match in specific_matches:
+            doc_type = match.group(1).lower()
+            if 'meditaci' in doc_type:
+                doc_type = 'meditacion'
+            number = match.group(2)
+            
+            # Keywords: número + tipo
+            keywords = [number, doc_type]
+            
+            titles_detected.append({
+                'keywords': keywords,
+                'pattern_matched': 'specific_meditacion_mensaje',
+                'raw_title': f"{doc_type} {number}",
+                'doc_type': doc_type
+            })
+    
+    # Si ya encontramos títulos específicos, retornar
+    if titles_detected:
+        # Mantener compatibilidad con versión anterior
+        first_title = titles_detected[0]
+        return {
+            'has_title': True,
+            'titles': titles_detected,
+            'keywords': first_title['keywords'],
+            'pattern_matched': first_title['pattern_matched'],
+            'raw_title': first_title['raw_title']
+        }
+    
+    # FALLBACK: Patrones generales (comportamiento original)
     patterns = [
         # Patrón explícito con "DE TITULO:" o "DE TÍTULO:"
         r'(?:documento|archivo|audio|video|meditaci[oó]n|mensaje)\s+de\s+t[ií]tulo\s*:\s*(.+?)(?:\.|¿|\?|$)',
@@ -48,9 +88,6 @@ def detect_title_in_query(query: str) -> Dict[str, Any]:
         
         # Patrón "del [tipo] [título]"
         r'del\s+(?:documento|archivo|audio|video|meditaci[oó]n|mensaje)\s+(.+?)(?:\.|¿|\?|$)',
-        
-        # Patrón NUEVO: "meditacion/mensaje [numero] [numero]" - sin prefijo
-        r'(?:meditaci[oó]n|mensaje)\s+(?:n[uú]mero\s+)?(\d+)(?:\s|¿|\?|$)',
         
         # Patrón simple "[tipo] [título]"
         r'^(?:documento|archivo|audio|video|meditaci[oó]n|mensaje)\s+(.+?)(?:\.|¿|\?|$)',
@@ -80,31 +117,39 @@ def detect_title_in_query(query: str) -> Dict[str, Any]:
         
         return {
             'has_title': True,
+            'titles': [{
+                'keywords': keywords,
+                'pattern_matched': 'id_brackets',
+                'raw_title': ' '.join(id_matches),
+                'doc_type': 'unknown'
+            }],
             'keywords': keywords,
             'pattern_matched': 'id_brackets',
             'raw_title': ' '.join(id_matches)
         }
     
-    # Si no hay IDs pero se encontró un título
+    # Si no hay IDs pero se encontró un título con patrones generales
     if title_found:
         # NUEVO: Detectar números (alta prioridad para meditaciones/mensajes)
         numeric_keywords = [w for w in title_found.split() if w.isdigit()]
         
-        # Detectar tipo de documento de la query original (para pattern_5)
-        doc_type = None
-        if pattern_matched == 'pattern_5':
-            # Extraer si es meditacion o mensaje de la query original
-            if re.search(r'meditaci[oó]n', query_lower):
-                doc_type = 'meditacion'
-            elif re.search(r'mensaje', query_lower):
-                doc_type = 'mensaje'
+        # Detectar tipo de documento de la query original
+        doc_type = 'unknown'
+        if re.search(r'meditaci[oó]n', query_lower):
+            doc_type = 'meditacion'
+        elif re.search(r'mensaje', query_lower):
+            doc_type = 'mensaje'
+        elif re.search(r'audio', query_lower):
+            doc_type = 'audio'
+        elif re.search(r'video', query_lower):
+            doc_type = 'video'
         
         # Palabras clave importantes (meditacion, mensaje, etc.)
         important_words = ['meditacion', 'meditación', 'mensaje', 'audio', 'video', 'documento', 'archivo', 'número', 'numero']
         type_keywords = [w for w in title_found.split() if w.lower() in important_words]
         
-        # Si pattern_5 y tenemos doc_type, agregarlo
-        if doc_type and doc_type not in [k.lower() for k in type_keywords]:
+        # Si tenemos doc_type, agregarlo
+        if doc_type != 'unknown' and doc_type not in [k.lower() for k in type_keywords]:
             type_keywords.insert(0, doc_type)
         
         # Palabras significativas (>3 letras) excluyendo stopwords comunes
@@ -113,7 +158,6 @@ def detect_title_in_query(query: str) -> Dict[str, Any]:
                         if len(w) > 3 and w.lower() not in stopwords and not w.isdigit()]
         
         # PRIORIDAD: números primero, luego tipos, luego texto significativo
-        # Esto es crítico para "meditacion 725" → ['725', 'meditacion']
         keywords = numeric_keywords + type_keywords + text_keywords[:4]
         
         # Eliminar duplicados preservando orden
@@ -125,6 +169,12 @@ def detect_title_in_query(query: str) -> Dict[str, Any]:
         
         return {
             'has_title': True,
+            'titles': [{
+                'keywords': keywords,
+                'pattern_matched': pattern_matched,
+                'raw_title': title_found,
+                'doc_type': doc_type
+            }],
             'keywords': keywords,
             'pattern_matched': pattern_matched,
             'raw_title': title_found
@@ -133,6 +183,7 @@ def detect_title_in_query(query: str) -> Dict[str, Any]:
     # No se detectó título
     return {
         'has_title': False,
+        'titles': [],
         'keywords': [],
         'pattern_matched': None,
         'raw_title': ''
@@ -174,6 +225,42 @@ def filter_docs_by_title(all_docs: List[Document], title_keywords: List[str]) ->
     return filtered
 
 
+def filter_docs_by_multiple_titles(all_docs: List[Document], titles_info: List[Dict[str, Any]]) -> Dict[str, List[Document]]:
+    """
+    NUEVO: Filtra documentos para múltiples títulos simultáneamente.
+    
+    Args:
+        all_docs: Lista de todos los documentos disponibles
+        titles_info: Lista de diccionarios con información de títulos, cada uno con:
+            - keywords: list[str]
+            - raw_title: str
+            - doc_type: str
+            
+    Returns:
+        Dict con títulos como keys y listas de documentos como values:
+        {
+            'meditacion 725': [doc1, doc2, ...],
+            'mensaje 725': [doc3, doc4, ...]
+        }
+    """
+    results = {}
+    
+    for title_info in titles_info:
+        keywords = title_info.get('keywords', [])
+        raw_title = title_info.get('raw_title', 'unknown')
+        
+        # Filtrar documentos para este título específico
+        filtered_docs = filter_docs_by_title(all_docs, keywords)
+        
+        # Guardar resultados con el raw_title como key
+        results[raw_title] = filtered_docs
+        
+        print(f"[INFO] Título '{raw_title}' - Keywords: {keywords} - Documentos encontrados: {len(filtered_docs)}")
+    
+    return results
+
+
+
 def hybrid_search_with_title(
     faiss_vs,
     query: str,
@@ -183,90 +270,92 @@ def hybrid_search_with_title(
 ) -> List[Document]:
     """
     Búsqueda híbrida que combina filtrado por título + búsqueda semántica.
+    NUEVO: Soporta búsqueda en MÚLTIPLES títulos simultáneamente.
     
     Estrategia:
-    1. Filtra documentos por título (si se detectó)
-    2. Realiza búsqueda semántica SOLO en esos documentos filtrados
-    3. Si no hay suficientes resultados, expande a búsqueda normal
+    1. Detecta uno o más títulos en la query
+    2. Filtra documentos para cada título
+    3. Combina todos los documentos filtrados
+    4. Realiza búsqueda semántica en el conjunto combinado
     
     Args:
         faiss_vs: Vector store de FAISS
         query: Pregunta del usuario
         all_docs: Todos los documentos disponibles
         k: Número de documentos a retornar
-        title_keywords: Keywords del título (opcional, se auto-detecta si no se provee)
+        title_keywords: DEPRECATED, se ignora (se auto-detecta desde query)
         
     Returns:
         Lista de documentos más relevantes
     """
-    # Auto-detectar título si no se proveyó
-    if title_keywords is None:
-        title_info = detect_title_in_query(query)
-        if not title_info['has_title']:
-            # No hay título específico, búsqueda semántica normal
-            return faiss_vs.similarity_search(query, k=k)
-        title_keywords = title_info['keywords']
+    # Auto-detectar títulos
+    title_info = detect_title_in_query(query)
     
-    # Filtrar documentos por título
-    filtered_docs = filter_docs_by_title(all_docs, title_keywords)
+    if not title_info['has_title']:
+        # No hay título específico, búsqueda semántica normal
+        return faiss_vs.similarity_search(query, k=k)
+    
+    # Obtener lista de títulos detectados
+    titles_detected = title_info.get('titles', [])
+    
+    if len(titles_detected) == 0:
+        # Fallback por compatibilidad
+        return faiss_vs.similarity_search(query, k=k)
     
     print(f"[INFO] Búsqueda híbrida activada")
-    print(f"[INFO] Keywords de título: {title_keywords}")
-    print(f"[INFO] Documentos filtrados: {len(filtered_docs)} de {len(all_docs)}")
+    print(f"[INFO] Número de títulos detectados: {len(titles_detected)}")
     
-    if len(filtered_docs) == 0:
-        # No se encontraron documentos con ese título
-        print(f"[WARNING] No se encontraron documentos con título matching")
+    # Filtrar documentos para cada título
+    filtered_by_title = filter_docs_by_multiple_titles(all_docs, titles_detected)
+    
+    # Combinar todos los documentos filtrados (sin duplicados)
+    all_filtered_docs = []
+    seen_docs = set()
+    
+    for title, docs in filtered_by_title.items():
+        for doc in docs:
+            # Usar source + page_content[:100] como identificador único
+            doc_id = (doc.metadata.get('source', ''), doc.page_content[:100])
+            if doc_id not in seen_docs:
+                seen_docs.add(doc_id)
+                all_filtered_docs.append(doc)
+    
+    print(f"[INFO] Total de documentos únicos filtrados: {len(all_filtered_docs)} de {len(all_docs)}")
+    
+    # Reportar títulos que NO se encontraron
+    for title, docs in filtered_by_title.items():
+        if len(docs) == 0:
+            print(f"[WARNING] ⚠️ Título '{title}' NO ENCONTRADO en la base de datos")
+    
+    if len(all_filtered_docs) == 0:
+        # No se encontró ningún documento para ningún título
+        print(f"[WARNING] No se encontraron documentos para ninguno de los títulos especificados")
         # Retornar búsqueda semántica normal como fallback
         return faiss_vs.similarity_search(query, k=k)
     
-    if len(filtered_docs) <= k:
-        # Hay pocos documentos filtrados, retornarlos todos priorizando por similitud semántica
-        # Crear un vector store temporal SOLO con los documentos filtrados
-        # y hacer búsqueda semántica en ellos
-        try:
-            # Extraer page_content para similitud
-            filtered_texts = [doc.page_content for doc in filtered_docs]
-            filtered_metadatas = [doc.metadata for doc in filtered_docs]
-            
-            # Crear FAISS temporal con documentos filtrados
-            from langchain_community.vectorstores import FAISS
-            temp_vs = FAISS.from_texts(
-                filtered_texts,
-                embedding=faiss_vs.embedding_function,
-                metadatas=filtered_metadatas
-            )
-            
-            # Búsqueda semántica en el subset filtrado
-            results = temp_vs.similarity_search(query, k=min(k, len(filtered_docs)))
-            print(f"[INFO] Retornando {len(results)} documentos del subset filtrado")
-            return results
-            
-        except Exception as e:
-            print(f"[ERROR] Error en búsqueda semántica del subset: {e}")
-            # Fallback: retornar los filtrados en orden original
-            return filtered_docs[:k]
-    
-    else:
-        # Hay suficientes documentos filtrados, hacer búsqueda semántica en ellos
-        try:
-            filtered_texts = [doc.page_content for doc in filtered_docs]
-            filtered_metadatas = [doc.metadata for doc in filtered_docs]
-            
-            from langchain_community.vectorstores import FAISS
-            temp_vs = FAISS.from_texts(
-                filtered_texts,
-                embedding=faiss_vs.embedding_function,
-                metadatas=filtered_metadatas
-            )
-            
-            results = temp_vs.similarity_search(query, k=k)
-            print(f"[INFO] Retornando top-{k} de {len(filtered_docs)} documentos filtrados")
-            return results
-            
-        except Exception as e:
-            print(f"[ERROR] Error en búsqueda semántica del subset: {e}")
-            return filtered_docs[:k]
+    # Búsqueda semántica en el subset filtrado
+    try:
+        filtered_texts = [doc.page_content for doc in all_filtered_docs]
+        filtered_metadatas = [doc.metadata for doc in all_filtered_docs]
+        
+        # Crear FAISS temporal con documentos filtrados
+        from langchain_community.vectorstores import FAISS
+        temp_vs = FAISS.from_texts(
+            filtered_texts,
+            embedding=faiss_vs.embedding_function,
+            metadatas=filtered_metadatas
+        )
+        
+        # Búsqueda semántica en el subset filtrado
+        results = temp_vs.similarity_search(query, k=min(k, len(all_filtered_docs)))
+        print(f"[INFO] Retornando {len(results)} documentos más relevantes del subset filtrado")
+        return results
+        
+    except Exception as e:
+        print(f"[ERROR] Error en búsqueda semántica del subset: {e}")
+        # Fallback: retornar los filtrados en orden original
+        return all_filtered_docs[:k]
+
 
 
 # Función de utilidad para testing
