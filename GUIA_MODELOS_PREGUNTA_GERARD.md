@@ -374,16 +374,26 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 
 **🎯 CORREGIDO Y MEJORADO:** GERARD ahora filtra correctamente por número de meditación/mensaje, garantizando que **SOLO** retorna documentos con ese número específico.
 
-#### ✅ FORMATO ÓPTIMO:
+**✨ NUEVO (Dic 2024):** Ahora puedes buscar en **MÚLTIPLES videos/audios simultáneamente** en una sola pregunta.
+
+#### ✅ FORMATO ÓPTIMO - UN SOLO VIDEO:
 ```
 "En el video meditacion [NÚMERO] que informacion hay sobre [TEMA]"
 "¿Qué dice el mensaje [NÚMERO] sobre [TEMA]?"
 "Meditacion numero [NÚMERO] [PREGUNTA]"
 "MEDITACION [NÚMERO]" (mayúsculas/minúsculas)
-"busca solo En el video MEDITACIÓN [NÚMERO] y el mensaje [NÚMERO]"
+```
+
+#### ✨ FORMATO ÓPTIMO - MÚLTIPLES VIDEOS (NUEVO):
+```
+"busca solo En el video MEDITACIÓN [NÚMERO] y el video mensaje [NÚMERO] que INFORMACIÓN hay sobre [TEMA]"
+"En meditación [NÚMERO] y mensaje [NÚMERO] busca información sobre [TEMA]"
+"¿Qué dicen meditación [NÚMERO] y meditación [NÚMERO2] sobre [TEMA]?"
 ```
 
 #### 🎯 Ejemplos de Alta Precisión:
+
+**UN SOLO VIDEO:**
 ```
 ✓ "En el video meditacion 725 que informacion hay sobre jesus"
 ✓ "¿Qué dice el mensaje 725 sobre la evacuación?"
@@ -400,31 +410,68 @@ GERARD detecta automáticamente cuando buscas nombres propios y **prioriza BM25*
 ✓ "¿Qué dice el Mensaje 1006 sobre las cosas grandes que vienen?"
 ```
 
+**MÚLTIPLES VIDEOS (NUEVO):** ✨
+```
+✓ "busca solo En los videos, video MEDITACIÓN 725 y el video mensaje 725 que INFORMACIÓN hay sobre JESÚS"
+✓ "En meditación 107 y mensaje 686 busca información sobre sanación"
+✓ "¿Qué dicen meditación 50 y meditación 51 sobre evacuación?"
+✓ "Compara lo que dice meditación 1 y mensaje 1 sobre el amor"
+✓ "En los audios meditación 835 y mensaje 805 que información hay sobre Navidad"
+```
+
 #### 📊 Rangos Válidos:
 - **Meditaciones:** 1 - 1113 (desde un solo dígito hasta 4 dígitos)
 - **Mensajes:** 400+ y 600+ (principalmente desde el 600 al 1113)
 
 #### 🔍 Cómo Funciona (MEJORADO):
-GERARD ahora usa un sistema inteligente de **filtrado por número obligatorio**:
+GERARD ahora usa un sistema inteligente de **filtrado por número obligatorio** con soporte para **múltiples títulos**:
 - ✅ **Prioridad absoluta a números:** Si detecta un número (ej: "725"), es OBLIGATORIO que esté en el nombre del archivo
 - ✅ **Solo resultados exactos:** Retorna ÚNICAMENTE archivos con "725" en el nombre
 - ✅ **Sin falsos positivos:** NO mezcla documentos de otras meditaciones/mensajes
 - ✅ **Auto-detecta tipo:** Reconoce si buscas "meditacion" o "mensaje"
 - ✅ **Insensible a formato:** Funciona con/sin acentos, mayúsculas/minúsculas
 - ✅ **Múltiples archivos:** Si hay varios archivos con el mismo número, encuentra TODOS
+- ✨ **MÚLTIPLES TÍTULOS (NUEVO):** Detecta y busca en varios videos/audios en una sola pregunta
 
-#### 📝 Mensaje del Sistema:
+#### 📝 Mensaje del Sistema (UN TÍTULO):
 Cuando uses esta funcionalidad, verás:
 ```
-[TITLE FILTER] 🎯 Título detectado en query
-[TITLE FILTER]    Numeric keywords (obligatorios): ['725']
-[TITLE FILTER]    Documentos filtrados: 156 de 87,431
-[TITLE FILTER]    ✅ Retornando 10 documentos filtrados (sin FAISS)
+[INFO] Búsqueda híbrida activada
+[INFO] Número de títulos detectados: 1
+[INFO] Título 'meditacion 725' - Keywords: ['725', 'meditacion'] - Documentos encontrados: 156
+```
+
+#### 📝 Mensaje del Sistema (MÚLTIPLES TÍTULOS) ✨:
+```
+[INFO] Búsqueda híbrida activada
+[INFO] Número de títulos detectados: 2
+[INFO] Título 'meditacion 725' - Keywords: ['725', 'meditacion'] - Documentos encontrados: 78
+[INFO] Título 'mensaje 725' - Keywords: ['725', 'mensaje'] - Documentos encontrados: 65
+[INFO] Total de documentos únicos filtrados: 143
 ```
 
 #### ⚠️ GARANTÍA DE PRECISIÓN:
 **ANTES (problema):** Podía retornar documentos sin el número especificado  
 **AHORA (corregido):** ✅ **100% garantizado** - Solo archivos con "725" en el nombre
+
+**MÚLTIPLES TÍTULOS:** ✨ Ahora el sistema encuentra y combina información de **TODOS los videos/audios** que menciones en tu pregunta.
+
+#### 💡 Ejemplo de Respuesta con Múltiples Títulos:
+
+**Tu pregunta:**
+```
+busca solo En los videos, video MEDITACIÓN 725 y el video mensaje 725 
+que INFORMACIÓN hay sobre JESÚS
+```
+
+**Respuesta de GERARD:**
+```
+En el archivo: 🚩MEDITACION 725🟢CUANDO SE PREGUNTAN PORQUE EXISTE EL BIEN Y EL MAL
+[Información sobre Jesús con timestamps específicos]
+
+En el archivo: 🔴MENSAJE 725 🗓️29_05_2015 💥MAESTRO AZEN
+[Información sobre Jesús con timestamps específicos]
+```
 
 Para meditaciones/mensajes numerados específicos, **siempre incluye el número** en tu pregunta.
 Si existen múltiples archivos con el mismo número (ej: "725 antes y despues", "MEDITACION 725", "MENSAJE 725"),
