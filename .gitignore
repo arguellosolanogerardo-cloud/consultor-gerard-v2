@@ -1,4 +1,4 @@
-Ôªø# Byte-compiled / cached
+# Byte-compiled / cached
 __pycache__/
 *.py[cod]
 *$py.class
@@ -14,12 +14,9 @@ Thumbs.db
 # Data and large artifacts
 chroma_db/
 chroma_db_backup_*/
-faiss_index_backup_*/
 
 # FAISS index - INCLUIDO en repo para Streamlit Cloud (317 MB)
-# √çndice actualizado: chunk_size=800, overlap=150, 84,266 docs
-# faiss_index/index.faiss
-# faiss_index/index.pkl
+# Õndice actualizado: chunk_size=800, overlap=150, 84,266 docs
 
 # BM25 index - demasiado grande para GitHub (143MB)
 # Se regenera en cloud con crear_indice_bm25.py
@@ -27,7 +24,6 @@ bm25_index.pkl
 
 # Backups and caches
 *_backup_*/
-faiss_index_backup*/
 
 # SQLite databases
 *.sqlite3
@@ -44,12 +40,10 @@ venv/
 gerard_log.txt
 gerard_web_log.txt
 
-# √çndice FAISS (se construye autom√°ticamente)
-faiss_index/
-faiss_index*.zip
+# Õndice FAISS (se construye autom·ticamente)
 *.zip
 
-# Archivos grandes que exceden l√≠mite de GitHub (100MB)
+# Archivos grandes que exceden lÌmite de GitHub (100MB)
 OllamaSetup.exe
 
 # Secrets
