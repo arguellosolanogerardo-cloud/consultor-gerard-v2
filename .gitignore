@@ -52,3 +52,19 @@ credentials.json
 google_credentials.json
 
 faiss_index/
+
+# Archivos FAISS grandes (>50MB) - exceden límites de GitHub
+index.faiss
+index.pkl
+faiss_index*.zip
+chroma_db.zip
+faiss_index_backup/
+faiss_download_v3/
+faiss_index_new/
+
+# Archivos con credenciales bloqueados por GitHub
+boton-google.json
+
+# Backups y archivos de prueba con posibles credenciales
+.streamlit_backup/
+test_credentials.json
