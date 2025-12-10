@@ -12,7 +12,7 @@ from pathlib import Path
 # Configuración del Repositorio
 REPO_OWNER = "arguellosolanogerardo-cloud"
 REPO_NAME = "consultor-gerard-v2"  # Corregido: era v3, ahora apunta al repo correcto
-TAG = "faiss-index-v1"
+TAG = "faiss-index-v2"  # Nuevo tag para release actualizado
 
 def download_file(url, filepath):
     """Descarga un archivo individual con barra de progreso"""
