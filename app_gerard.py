@@ -1585,7 +1585,7 @@ if not st.session_state.user_name:
                 redirect_uri = "http://localhost:8501/"
                 print("[INFO] Entorno detectado: LOCAL (Windows)")
             else:
-                redirect_uri = "https://consultor-gerard-v3-zrg5ejmgryrttxhtxwqlxz.streamlit.app/"
+                redirect_uri = "https://consultor-gerard-v2-zrg5ejmgryrttxhtxwqlxz.streamlit.app/"
                 print("[INFO] Entorno detectado: CLOUD (Linux/Otro)")
             
             print(f"[INFO] Usando redirect_uri: {redirect_uri}")
