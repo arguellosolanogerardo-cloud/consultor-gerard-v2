@@ -2382,6 +2382,7 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                         height: 100%;
                         background-color: rgba(0, 0, 0, 0.8);
                         animation: pdfModalFadeIn 0.3s;
+                        transition: opacity 0.2s ease-out;
                         overflow: auto;
                     }
                     #pdf-modal-content {
@@ -2468,13 +2469,51 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 `;
                 parentDoc.body.appendChild(modalDiv);
                 
-                // Función para cerrar el modal
+                // Función para cerrar el modal - Mejorada para Chrome
                 window.closePdfModal = function() {
                     console.log('[PDF Modal] Cerrando modal...');
-                    const modal = parentDoc.getElementById('pdf-modal');
-                    if (modal) {
-                        modal.remove(); // Eliminar completamente del DOM
-                        console.log('[PDF Modal] Modal eliminado');
+                    try {
+                        // Intentar múltiples estrategias para acceder al documento
+                        let targetDoc = null;
+                        
+                        // Estrategia 1: Usar window.parent (iframe)
+                        try {
+                            if (window.parent && window.parent.document) {
+                                targetDoc = window.parent.document;
+                            }
+                        } catch(e) {
+                            console.log('[PDF Modal] window.parent no accesible:', e);
+                        }
+                        
+                        // Estrategia 2: Usar window.top
+                        if (!targetDoc) {
+                            try {
+                                if (window.top && window.top.document) {
+                                    targetDoc = window.top.document;
+                                }
+                            } catch(e) {
+                                console.log('[PDF Modal] window.top no accesible:', e);
+                            }
+                        }
+                        
+                        // Estrategia 3: Usar document directo
+                        if (!targetDoc) {
+                            targetDoc = document;
+                        }
+                        
+                        // Buscar y eliminar el modal
+                        const modal = targetDoc.getElementById('pdf-modal');
+                        if (modal) {
+                            modal.style.opacity = '0';
+                            setTimeout(function() {
+                                modal.remove();
+                                console.log('[PDF Modal] Modal eliminado exitosamente');
+                            }, 200);
+                        } else {
+                            console.warn('[PDF Modal] Modal no encontrado en DOM');
+                        }
+                    } catch(e) {
+                        console.error('[PDF Modal] Error al cerrar modal:', e);
                     }
                 };
                 
@@ -2483,46 +2522,45 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 if (closeBtn) {
                     console.log('[PDF Modal] Configurando event listeners...');
                     
-                    // Estrategia 1: onclick inline (más confiable en móviles)
+                    // Usar solo onclick - más simple y confiable
                     closeBtn.onclick = function(e) {
-                        console.log('[PDF Modal] onclick disparado');
-                        e.preventDefault();
-                        e.stopPropagation();
+                        console.log('[PDF Modal] Botón ENTENDIDO presionado');
+                        if (e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }
                         window.closePdfModal();
                         return false;
                     };
                     
-                    // Estrategia 2: addEventListener para click
-                    closeBtn.addEventListener('click', function(e) {
-                        console.log('[PDF Modal] click listener disparado');
-                        e.preventDefault();
-                        e.stopPropagation();
-                        window.closePdfModal();
-                    }, { passive: false });
-                    
-                    // Estrategia 3: touchend para móviles (específico para touch)
-                    closeBtn.addEventListener('touchend', function(e) {
-                        console.log('[PDF Modal] touchend listener disparado');
-                        e.preventDefault();
-                        e.stopPropagation();
-                        window.closePdfModal();
-                    }, { passive: false });
-                    
-                    // Hacer el botón más accesible al touch
+                    // Asegurar que el botón sea completamente clickeable
                     closeBtn.style.cursor = 'pointer';
                     closeBtn.style.userSelect = 'none';
                     closeBtn.style.webkitTapHighlightColor = 'transparent';
+                    closeBtn.style.pointerEvents = 'auto';
+                    closeBtn.style.touchAction = 'manipulation';
                 }
                 
                 // Cerrar al hacer click fuera del modal
                 const modal = parentDoc.getElementById('pdf-modal');
                 if (modal) {
-                    modal.addEventListener('click', function(event) {
+                    // Hacer el overlay clickeable
+                    modal.style.pointerEvents = 'auto';
+                    
+                    modal.onclick = function(event) {
                         if (event.target.id === 'pdf-modal') {
                             console.log('[PDF Modal] Click fuera del modal');
                             window.closePdfModal();
                         }
-                    });
+                    };
+                    
+                    // Asegurarse que el contenido no cierre el modal
+                    const modalContent = parentDoc.getElementById('pdf-modal-content');
+                    if (modalContent) {
+                        modalContent.onclick = function(e) {
+                            e.stopPropagation();
+                        };
+                    }
                 }
             }
             
