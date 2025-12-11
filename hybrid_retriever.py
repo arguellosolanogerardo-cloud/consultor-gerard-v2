@@ -187,23 +187,11 @@ class HybridRetriever(BaseRetriever):
         use_bm25_only = has_proper_nouns or has_name_keywords or asks_for_names
         
         # ===== PASO 1: Búsqueda léxica (BM25) con tokenización mejorada =====
-        # NUEVO: Normalizar números escritos en letras a dígitos
-        # Esto mejora el matching cuando la query usa "nueve" pero el doc tiene "9"
-        numero_map = {
-            'cero': '0', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4',
-            'cinco': '5', 'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9',
-            'diez': '10', 'once': '11', 'doce': '12', 'trece': '13', 'catorce': '14',
-            'quince': '15', 'dieciséis': '16', 'diecisiete': '17', 'dieciocho': '18',
-            'diecinueve': '19', 'veinte': '20'
-        }
+        # ===== PASO 1: Búsqueda léxica (BM25) con tokenización mejorada =====
+        # [CORREGIDO] Se elimina normalización numérica forzada que rompía búsquedas exactas como "somos nueve"
         
-        query_normalized = query.lower()
-        for palabra, digito in numero_map.items():
-            # Usar word boundaries para evitar reemplazar dentro de otras palabras
-            query_normalized = re.sub(rf'\b{palabra}\b', digito, query_normalized)
-        
-        # Tokenizar la query normalizada
-        query_tokens = tokenize_clean(query_normalized)
+        # Tokenizar la query original
+        query_tokens = tokenize_clean(query)
         bm25_scores = self.bm25_index.get_scores(query_tokens)
         
         # Si hay filtrado por título, restringir la búsqueda SOLO a esos documentos
