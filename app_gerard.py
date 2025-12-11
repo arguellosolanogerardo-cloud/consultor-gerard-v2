@@ -3039,18 +3039,18 @@ if user_name:
                         # Modo exhaustivo: Híbrido con más documentos (Quirúrgico)
                         # Usa HybridRetriever.build para crear la instancia de forma segura
                         retriever = HybridRetriever.build(
-                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 200}),
+                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 250}),  # Aumentado de 200 a 250
                             documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
-                            k=200,
+                            k=250,  # Aumentado de 200 a 250 para mejor cobertura
                             alpha=0.6 
                         )
                         search_method = 'hybrid_surgical'
                     else:
                         # Modo normal: Híbrido estándar
                         retriever = HybridRetriever.build(
-                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 100}),
+                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 150}),  # Aumentado de 100 a 150
                             documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
-                            k=100
+                            k=150  # Aumentado de 100 a 150 para cubrir fragmentos como el del archivo 994 (posición 103)
                         )
                     
                     # Ejecutar búsqueda
