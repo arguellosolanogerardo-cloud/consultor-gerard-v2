@@ -94,7 +94,27 @@ class HybridRetriever(BaseRetriever):
     ) -> List[Document]:
         """Obtiene documentos combinando FAISS y BM25, con filtrado opcional por título"""
         
-        # ===== PASO 0: Detectar si la query menciona un título específico de documento =====
+        # ===== PASO 0A: BÚSQUEDA ADAPTATIVA - Detectar si necesitamos más documentos =====
+        # Patrones que indican búsqueda forense/específica (requieren alta cobertura)
+        query_lower = query.lower()
+        forensic_patterns = [
+            'se afirma', 'se dice', 'se menciona', 'dice que', 'afirma que',
+            'en que mensaje', 'en qué mensaje', 'en cual mensaje', 'en cuál mensaje',
+            'donde se dice', 'dónde se dice', 'donde dice', 'dónde dice',
+            'cual es el mensaje', 'cuál es el mensaje', 'que mensaje', 'qué mensaje'
+        ]
+        
+        # Detectar si la query contiene algún patrón forense
+        is_forensic_search = any(pattern in query_lower for pattern in forensic_patterns)
+        
+        # Ajustar k dinámicamente
+        if is_forensic_search:
+            effective_k = self.k * 2  # 150 → 300 para búsquedas forenses
+            print(f"[ADAPTIVE SEARCH] 🔬 Búsqueda forense detectada, k aumentado a {effective_k}")
+        else:
+            effective_k = self.k  # 150 (modo normal)
+        
+        # ===== PASO 0B: Detectar si la query menciona un título específico de documento =====
         title_info = detect_title_in_query(query)
         title_filtered_indices = None  # Índices filtrados por título
         
@@ -199,7 +219,7 @@ class HybridRetriever(BaseRetriever):
             bm25_scores = filtered_bm25_scores
             
             # Obtener top-k solo de los documentos filtrados
-            top_bm25_indices = np.argsort(bm25_scores)[::-1][:min(self.k * 2, len(title_filtered_indices))]
+            top_bm25_indices = np.argsort(bm25_scores)[::-1][:min(effective_k * 2, len(title_filtered_indices))]
             print(f"[TITLE FILTER]    Top BM25 indices seleccionados: {len(top_bm25_indices)}")
             
         # ESTRATEGIA ESPECIAL: Si pregunta por "guardianes" o "maestros", buscar TODOS los nombres
@@ -219,16 +239,16 @@ class HybridRetriever(BaseRetriever):
                         all_maestro_indices.add(idx)
             
             # Combinar con búsqueda original
-            top_bm25_indices = np.argsort(bm25_scores)[::-1][:self.k * 2]
+            top_bm25_indices = np.argsort(bm25_scores)[::-1][:effective_k * 2]
             combined_indices = list(all_maestro_indices.union(set(top_bm25_indices)))
             
             # Ordenar por score original
             combined_indices.sort(key=lambda idx: bm25_scores[idx], reverse=True)
-            top_bm25_indices = combined_indices[:self.k * 4]  # Más documentos para cubrir todos
+            top_bm25_indices = combined_indices[:effective_k * 4]  # Más documentos para cubrir todos
         else:
             # Obtener top-k de BM25 (más documentos si busca nombres)
             multiplier = 4 if use_bm25_only else 2
-            top_bm25_indices = np.argsort(bm25_scores)[::-1][:self.k * multiplier]
+            top_bm25_indices = np.argsort(bm25_scores)[::-1][:effective_k * multiplier]
         
         bm25_docs = []
         for idx in top_bm25_indices:
@@ -243,30 +263,30 @@ class HybridRetriever(BaseRetriever):
         # NUNCA mezclar con FAISS cuando buscamos título específico
         if title_filtered_indices is not None:
             print(f"[TITLE FILTER]    ✅ Retornando {len(bm25_docs)} documentos filtrados (sin FAISS)")
-            return bm25_docs[:self.k]
+            return bm25_docs[:effective_k]
         
         # Si detectamos nombres propios Y BM25 encontró resultados, usar SOLO BM25
-        if use_bm25_only and len(bm25_docs) >= self.k // 2:
-            return bm25_docs[:self.k]
+        if use_bm25_only and len(bm25_docs) >= effective_k // 2:
+            return bm25_docs[:effective_k]
         
         # 2. Búsqueda semántica (FAISS) - Solo si no hay nombres o BM25 no encontró suficiente
         try:
             faiss_docs = self.faiss_retriever.invoke(query)
         except Exception as e:
             # Si FAISS falla, usar solo BM25
-            return bm25_docs[:self.k]
+            return bm25_docs[:effective_k]
         
         # 3. Fusionar resultados usando Reciprocal Rank Fusion (RRF)
         # Alpha más bajo para nombres propios (más peso a BM25)
         effective_alpha = 0.05 if use_bm25_only else self.alpha
         
         merged_docs = self._reciprocal_rank_fusion(
-            faiss_docs[:self.k * 2],
-            bm25_docs[:self.k * 2],
+            faiss_docs[:effective_k * 2],
+            bm25_docs[:effective_k * 2],
             effective_alpha
         )
         
-        return merged_docs[:self.k]
+        return merged_docs[:effective_k]
     
     def _reciprocal_rank_fusion(
         self,
