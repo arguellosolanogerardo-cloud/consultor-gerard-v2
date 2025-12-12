@@ -271,11 +271,13 @@ class HybridRetriever(BaseRetriever):
         # NUNCA mezclar con FAISS cuando buscamos título específico
         if title_filtered_indices is not None:
             print(f"[TITLE FILTER]    ✅ Retornando {len(bm25_docs)} documentos filtrados (sin FAISS)")
-            return bm25_docs[:effective_k]
+            # [FIX] Asignar relevance_score usando BM25 scores normalizados
+            return self._assign_bm25_scores(bm25_docs[:effective_k], bm25_scores, top_bm25_indices)
         
         # Si detectamos nombres propios Y BM25 encontró resultados, usar SOLO BM25
         if use_bm25_only and len(bm25_docs) >= effective_k // 2:
-            return bm25_docs[:effective_k]
+            # [FIX] Asignar relevance_score usando BM25 scores normalizados
+            return self._assign_bm25_scores(bm25_docs[:effective_k], bm25_scores, top_bm25_indices)
         
         # 2. Búsqueda semántica (FAISS) - Solo si no hay nombres o BM25 no encontró suficiente
         try:
@@ -295,6 +297,45 @@ class HybridRetriever(BaseRetriever):
         )
         
         return merged_docs[:effective_k]
+    
+    def _assign_bm25_scores(
+        self,
+        docs: List[Document],
+        all_scores: np.ndarray,
+        indices: np.ndarray
+    ) -> List[Document]:
+        """
+        Asigna scores de relevancia normalizados a documentos basados en BM25.
+        Normaliza los scores al rango 0.0-1.0 para visualización en UI.
+        """
+        if len(docs) == 0:
+            return docs
+        
+        # Obtener scores SOLO de los índices usados
+        valid_scores = [all_scores[idx] for idx in indices if all_scores[idx] > 0]
+        
+        if len(valid_scores) == 0:
+            # Si no hay scores válidos, asignar 0.5 a todos
+            for doc in docs:
+                doc.metadata['relevance_score'] = 0.5
+            return docs
+        
+        max_score = max(valid_scores)
+        min_score = min(valid_scores)
+        score_range = max_score - min_score if max_score != min_score else 1.0
+        
+        # Mapear cada documento a su score normalizado
+        for i, doc in enumerate(docs):
+            if i < len(indices):
+                idx = indices[i]
+                raw_score = all_scores[idx]
+                # Normalizar al rango 0.0-1.0 (con mínimo base de 0.4 para documentos recuperados)
+                normalized = ((raw_score - min_score) / score_range) * 0.55 + 0.45
+                doc.metadata['relevance_score'] = min(normalized, 1.0)
+            else:
+                doc.metadata['relevance_score'] = 0.45  # Score base para docs sin índice
+        
+        return docs
     
     def _reciprocal_rank_fusion(
         self,
