@@ -109,8 +109,8 @@ class HybridRetriever(BaseRetriever):
         
         # Ajustar k dinámicamente
         if is_forensic_search:
-            effective_k = self.k * 2  # 150 → 300 para búsquedas forenses
-            print(f"[ADAPTIVE SEARCH] 🔬 Búsqueda forense detectada, k aumentado a {effective_k}")
+            effective_k = self.k * 3  # Aumentar retrieval para asegurar cobertura (ej: 10*3 = 30)
+            print(f"[ADAPTIVE SEARCH] Busqueda forense detectada, k aumentado a {effective_k}")
         else:
             effective_k = self.k  # 150 (modo normal)
         
@@ -188,11 +188,31 @@ class HybridRetriever(BaseRetriever):
         
         # ===== PASO 1: Búsqueda léxica (BM25) con tokenización mejorada =====
         # ===== PASO 1: Búsqueda léxica (BM25) con tokenización mejorada =====
-        # [CORREGIDO] Se elimina normalización numérica forzada que rompía búsquedas exactas como "somos nueve"
+        # [MEJORA] Estrategia de Expansión: Buscar tanto la palabra ("nueve") como el dígito ("9")
+        # Esto asegura recuperar todos los documentos independientemente de cómo esté escrito.
         
-        # Tokenizar la query original
+        numero_map = {
+            'cero': '0', 'uno': '1', 'dos': '2', 'tres': '3', 'cuatro': '4',
+            'cinco': '5', 'seis': '6', 'siete': '7', 'ocho': '8', 'nueve': '9',
+            'diez': '10', 'once': '11', 'doce': '12', 'trece': '13', 'catorce': '14',
+            'quince': '15', 'dieciséis': '16', 'diecisiete': '17', 'dieciocho': '18',
+            'diecinueve': '19', 'veinte': '20'
+        }
+        
+        # 1. Obtener tokens originales
         query_tokens = tokenize_clean(query)
-        bm25_scores = self.bm25_index.get_scores(query_tokens)
+        
+        # 2. Agregar tokens numéricos si existen palabras de número
+        query_lower_for_check = query.lower()
+        expanded_tokens = list(query_tokens)
+        
+        for palabra, digito in numero_map.items():
+             # Chequeo simple de token completo
+             if palabra in expanded_tokens:
+                 expanded_tokens.append(digito)
+        
+        # Usar tokens expandidos para BM25
+        bm25_scores = self.bm25_index.get_scores(expanded_tokens)
         
         # Si hay filtrado por título, restringir la búsqueda SOLO a esos documentos
         if title_filtered_indices is not None:
@@ -313,12 +333,21 @@ class HybridRetriever(BaseRetriever):
                     'score': 0
                 }
         
-        # Calcular score combinado
+        # Calcular score combinado y normalizar para visualización (0.0 - 1.0)
         k = 60  # Constante RRF
         for key, data in doc_scores.items():
             faiss_score = alpha / (data['faiss_rank'] + k) if data['faiss_rank'] is not None else 0
             bm25_score = (1 - alpha) / (data['bm25_rank'] + k) if data['bm25_rank'] is not None else 0
-            data['score'] = faiss_score + bm25_score
+            
+            raw_score = faiss_score + bm25_score
+            data['score'] = raw_score
+            
+            # Normalización para UI: Multiplicar por k (60) para tener escala ~0.0-1.0
+            # Rank 0 -> 1.0 (Perfecto)
+            # Rank 10 -> 0.85 (Muy buena)
+            # Rank 20 -> 0.75 (Relevante)
+            normalized_score = min(raw_score * k, 1.0)
+            data['doc'].metadata['relevance_score'] = normalized_score
         
         # Ordenar por score descendente
         sorted_docs = sorted(doc_scores.values(), key=lambda x: x['score'], reverse=True)
