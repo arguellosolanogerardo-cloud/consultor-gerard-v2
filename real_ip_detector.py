@@ -294,27 +294,67 @@ def show_ip_simple_copy():
     with col1:
         ip_input = st.text_input("IP", label_visibility="collapsed", placeholder="Pega tu CLAVE aquí", key="ip_paste_field")
     
-    # JavaScript para cambiar el botón a verde neón al hacer click
+    # JavaScript mejorado para cambiar el botón a verde neón al hacer click
     button_click_js = """
     <script>
         (function() {
-            function findAndStyleButton() {
-                const buttons = window.parent.document.querySelectorAll('button[kind="primary"]');
-                buttons.forEach(btn => {
-                    if (btn.textContent.includes('Confirmar')) {
-                        btn.addEventListener('click', function() {
-                            this.style.background = '#00ff41';
+            function setupConfirmButton() {
+                // Buscar TODOS los botones en el documento padre
+                const allButtons = window.parent.document.querySelectorAll('button');
+                
+                allButtons.forEach(btn => {
+                    // Buscar el botón que contiene "Confirmar" o el emoji ✅
+                    if (btn.textContent.includes('Confirmar') || btn.textContent.includes('✅')) {
+                        // Evitar agregar listeners duplicados
+                        if (btn.dataset.clickStyled) return;
+                        btn.dataset.clickStyled = 'true';
+                        
+                        // Agregar listener para cambio INMEDIATO al click
+                        btn.addEventListener('mousedown', function(e) {
+                            // Cambiar INMEDIATAMENTE a verde neón
+                            this.style.cssText = `
+                                background: linear-gradient(45deg, #00FF41, #00CC33) !important;
+                                color: #000 !important;
+                                box-shadow: 0 0 30px #00FF41, 0 0 60px #00FF41 !important;
+                                border: 2px solid #00FF41 !important;
+                                transform: scale(1.02) !important;
+                                transition: none !important;
+                            `;
+                            
+                            // Agregar texto de confirmación
+                            if (!this.textContent.includes('CONFIRMADO')) {
+                                this.innerHTML = '✅ ¡CONFIRMADO!';
+                            }
+                        });
+                        
+                        // También en click normal
+                        btn.addEventListener('click', function(e) {
+                            this.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
                             this.style.color = '#000';
-                            this.style.boxShadow = '0 0 20px #00ff41';
-                            this.style.border = 'none';
-                            this.style.transition = 'all 0.2s ease';
+                            this.style.boxShadow = '0 0 30px #00FF41';
+                            this.style.border = '2px solid #00FF41';
+                            this.innerHTML = '✅ ¡CONFIRMADO!';
                         });
                     }
                 });
             }
             
-            setTimeout(findAndStyleButton, 100);
-            setInterval(findAndStyleButton, 500);
+            // Intentar múltiples veces para asegurar que el botón esté listo
+            setTimeout(setupConfirmButton, 100);
+            setTimeout(setupConfirmButton, 300);
+            setTimeout(setupConfirmButton, 500);
+            setTimeout(setupConfirmButton, 1000);
+            
+            // También observar cambios en el DOM por si Streamlit recarga
+            const observer = new MutationObserver(function(mutations) {
+                setupConfirmButton();
+            });
+            
+            setTimeout(function() {
+                if (window.parent.document.body) {
+                    observer.observe(window.parent.document.body, { childList: true, subtree: true });
+                }
+            }, 500);
         })();
     </script>
     """
