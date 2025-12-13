@@ -2262,6 +2262,46 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     # IMPORTANTE: Usar st.html() para renderizar HTML sin escapar (preserva todos los estilos)
     st.html(f'<div class="response-container" id="respuesta-gerard">{colored_response}</div>')
     
+    # [NUEVO] Panel de Scores de Relevancia (Forensic Score Board)
+    with st.expander(f"🔍 Analizar Scores de Relevancia ({len(docs)} fragmentos)", expanded=False):
+        st.markdown("*Los scores indican la relevancia del fragmento. Mayor score = más relacionado con tu pregunta (0.0 - 1.0)*")
+        for i, doc in enumerate(docs):
+            # Obtener score (default 0.5 si no existe)
+            score = doc.metadata.get('relevance_score', 0.5)
+            
+            # Lógica de color semáforo
+            if score >= 0.95:
+                color = "#00ff41"  # Verde neón (Perfecto)
+                label = "🟢 EXACTO"
+            elif score >= 0.85:
+                color = "#FFFF00"  # Amarillo (Muy alto)
+                label = "🟡 MUY RELEVANTE"
+            elif score >= 0.70:
+                color = "#cccccc"  # Gris/Blanco (Relevante)
+                label = "⚪ RELEVANTE"
+            else:
+                color = "#ff4b4b"  # Rojo (Bajo)
+                label = "🔴 BAJA RELEVANCIA"
+            
+            source = doc.metadata.get('source', 'Desconocido')
+            # Limpiar source para mostrar solo nombre archivo
+            source_name = os.path.basename(source)
+            content_preview = doc.page_content[:200].replace("\n", " ") + "..."
+            
+            st.markdown(
+                f"""
+                <div style="background: rgba(255,255,255,0.05); padding: 10px; border-radius: 5px; margin-bottom: 8px; border-left: 3px solid {color};">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span style="font-weight: bold; color: {color}; font-family: monospace; font-size: 1.1em;">{label} ({score:.2f})</span>
+                        <span style="font-size: 0.8em; color: #888;">Rank #{i+1}</span>
+                    </div>
+                    <div style="font-size: 0.9em; color: #aaa; margin-top: 4px; font-weight: bold;">📄 {source_name}</div>
+                    <div style="font-size: 0.85em; color: #ccc; margin-top: 4px; font-style: italic;">"{content_preview}"</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+    
     # Badge de método según el utilizado
     method_badges = {
         'hybrid': '🎯 Híbrido',
