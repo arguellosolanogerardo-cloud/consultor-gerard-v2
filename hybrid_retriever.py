@@ -107,10 +107,23 @@ class HybridRetriever(BaseRetriever):
         # Detectar si la query contiene algún patrón forense
         is_forensic_search = any(pattern in query_lower for pattern in forensic_patterns)
         
-        # Ajustar k dinámicamente
-        if is_forensic_search:
-            effective_k = self.k * 3  # Aumentar retrieval para asegurar cobertura (ej: 10*3 = 30)
-            print(f"[ADAPTIVE SEARCH] Busqueda forense detectada, k aumentado a {effective_k}")
+        # ===== NUEVO: Detectar búsqueda EXHAUSTIVA ("toda la información", "dame todo", etc.) =====
+        exhaustive_patterns = [
+            'toda la información', 'toda la informacion',
+            'dame toda', 'dame todo', 'todo sobre', 'todo lo que',
+            'muéstrame todo', 'muestrame todo', 'quiero todo',
+            'información existente', 'informacion existente',
+            'todo lo existente', 'dame toda la info', 'toda info'
+        ]
+        is_exhaustive_search = any(pattern in query_lower for pattern in exhaustive_patterns)
+        
+        # Ajustar k dinámicamente según el tipo de búsqueda
+        if is_exhaustive_search:
+            effective_k = min(self.k * 4, 400)  # Máxima cobertura para "toda la información"
+            print(f"[EXHAUSTIVE SEARCH] Búsqueda exhaustiva detectada, k aumentado a {effective_k}")
+        elif is_forensic_search:
+            effective_k = self.k * 3  # Aumentar retrieval para asegurar cobertura
+            print(f"[ADAPTIVE SEARCH] Búsqueda forense detectada, k aumentado a {effective_k}")
         else:
             effective_k = self.k  # 150 (modo normal)
         
