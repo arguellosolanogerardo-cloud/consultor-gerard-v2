@@ -2926,10 +2926,12 @@ if user_name:
         
         #mic-status {
             text-align: center;
-            font-size: 0.9em;
+            font-size: 1.1em;
             color: #00ff41;
-            margin-top: 5px;
-            min-height: 20px;
+            margin-top: 8px;
+            min-height: 25px;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
         }
         
         #mic-status.error {
@@ -2951,7 +2953,7 @@ if user_name:
         <button id="mic-button" onclick="toggleRecording()" title="Haz clic para hablar tu pregunta">
             <span id="mic-icon">🎤</span>
         </button>
-        <div id="mic-status">Haz clic en el micrófono para hablar</div>
+        <div id="mic-status">🎙️ Puedes clickear en el micrófono para hacer tu pregunta con voz</div>
     </div>
     
     <script>
