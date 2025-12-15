@@ -2876,6 +2876,225 @@ if user_name:
         key="query_input"
     )
     
+    # ============================================================================
+    # BOTÓN DE MICRÓFONO - Reconocimiento de voz
+    # ============================================================================
+    
+    # Inicializar estado del micrófono
+    if 'voice_text' not in st.session_state:
+        st.session_state.voice_text = ""
+    
+    # CSS para el botón de micrófono
+    st.markdown("""
+    <style>
+        /* Botón de micrófono */
+        #mic-button {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border: 2px solid #00ff41;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
+            margin: 10px auto;
+        }
+        
+        #mic-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 25px rgba(0, 255, 65, 0.6);
+        }
+        
+        #mic-button.recording {
+            background: linear-gradient(135deg, #ff4b4b 0%, #ff6b6b 100%);
+            border-color: #ff4b4b;
+            box-shadow: 0 0 25px rgba(255, 75, 75, 0.6);
+            animation: pulse-recording 1s infinite;
+        }
+        
+        @keyframes pulse-recording {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 25px rgba(255, 75, 75, 0.6); }
+            50% { transform: scale(1.05); box-shadow: 0 0 35px rgba(255, 75, 75, 0.9); }
+        }
+        
+        #mic-icon {
+            font-size: 28px;
+        }
+        
+        #mic-status {
+            text-align: center;
+            font-size: 0.9em;
+            color: #00ff41;
+            margin-top: 5px;
+            min-height: 20px;
+        }
+        
+        #mic-status.error {
+            color: #ff4b4b;
+        }
+        
+        .mic-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 10px 0;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # JavaScript para reconocimiento de voz con Web Speech API
+    voice_recognition_html = """
+    <div class="mic-container">
+        <button id="mic-button" onclick="toggleRecording()" title="Haz clic para hablar tu pregunta">
+            <span id="mic-icon">🎤</span>
+        </button>
+        <div id="mic-status">Haz clic en el micrófono para hablar</div>
+    </div>
+    
+    <script>
+        let recognition = null;
+        let isRecording = false;
+        
+        // Verificar soporte de Web Speech API
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'es-ES'; // Español
+            
+            recognition.onstart = function() {
+                isRecording = true;
+                document.getElementById('mic-button').classList.add('recording');
+                document.getElementById('mic-icon').textContent = '🔴';
+                document.getElementById('mic-status').textContent = '🎙️ Escuchando... Habla ahora';
+                document.getElementById('mic-status').classList.remove('error');
+            };
+            
+            recognition.onend = function() {
+                isRecording = false;
+                document.getElementById('mic-button').classList.remove('recording');
+                document.getElementById('mic-icon').textContent = '🎤';
+                if (!document.getElementById('mic-status').classList.contains('error')) {
+                    document.getElementById('mic-status').textContent = 'Haz clic para hablar de nuevo';
+                }
+            };
+            
+            recognition.onresult = function(event) {
+                let finalTranscript = '';
+                let interimTranscript = '';
+                
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const transcript = event.results[i][0].transcript;
+                    if (event.results[i].isFinal) {
+                        finalTranscript += transcript;
+                    } else {
+                        interimTranscript += transcript;
+                    }
+                }
+                
+                // Mostrar texto interim
+                if (interimTranscript) {
+                    document.getElementById('mic-status').textContent = '📝 ' + interimTranscript;
+                }
+                
+                // Si hay texto final, insertarlo en el textarea
+                if (finalTranscript) {
+                    try {
+                        // Buscar el textarea de Streamlit
+                        const parentDoc = window.parent.document;
+                        const textareas = parentDoc.querySelectorAll('textarea');
+                        
+                        // Buscar el textarea correcto (el de consulta)
+                        for (let textarea of textareas) {
+                            if (textarea.placeholder && (
+                                textarea.placeholder.includes('CONSULTA') || 
+                                textarea.placeholder.includes('información') ||
+                                textarea.placeholder.includes('DIGITA')
+                            )) {
+                                // Agregar texto al contenido existente
+                                const currentValue = textarea.value || '';
+                                const newValue = currentValue + (currentValue ? ' ' : '') + finalTranscript.toUpperCase();
+                                
+                                // Usar nativeInputValueSetter para cambiar el valor
+                                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                                nativeInputValueSetter.call(textarea, newValue);
+                                
+                                // Disparar evento input para que Streamlit lo detecte
+                                const inputEvent = new Event('input', { bubbles: true });
+                                textarea.dispatchEvent(inputEvent);
+                                
+                                document.getElementById('mic-status').textContent = '✅ Texto agregado: ' + finalTranscript.toUpperCase().substring(0, 30) + '...';
+                                
+                                // Detener grabación después de detectar silencio
+                                setTimeout(() => {
+                                    if (isRecording) {
+                                        recognition.stop();
+                                    }
+                                }, 2000);
+                                
+                                break;
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error insertando texto:', e);
+                    }
+                }
+            };
+            
+            recognition.onerror = function(event) {
+                console.error('Error de reconocimiento:', event.error);
+                document.getElementById('mic-status').classList.add('error');
+                
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    document.getElementById('mic-status').textContent = '❌ Permiso de micrófono denegado. Habilítalo en la configuración del navegador.';
+                } else if (event.error === 'no-speech') {
+                    document.getElementById('mic-status').textContent = '⚠️ No se detectó voz. Intenta de nuevo.';
+                    document.getElementById('mic-status').classList.remove('error');
+                } else if (event.error === 'network') {
+                    document.getElementById('mic-status').textContent = '❌ Error de red. Verifica tu conexión.';
+                } else {
+                    document.getElementById('mic-status').textContent = '❌ Error: ' + event.error;
+                }
+                
+                isRecording = false;
+                document.getElementById('mic-button').classList.remove('recording');
+                document.getElementById('mic-icon').textContent = '🎤';
+            };
+        } else {
+            document.getElementById('mic-status').textContent = '❌ Tu navegador no soporta reconocimiento de voz';
+            document.getElementById('mic-status').classList.add('error');
+            document.getElementById('mic-button').style.opacity = '0.5';
+            document.getElementById('mic-button').style.cursor = 'not-allowed';
+        }
+        
+        function toggleRecording() {
+            if (!recognition) {
+                alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome, Edge o Safari.');
+                return;
+            }
+            
+            if (isRecording) {
+                recognition.stop();
+            } else {
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Error al iniciar reconocimiento:', e);
+                    document.getElementById('mic-status').textContent = '⚠️ Haz clic de nuevo para reintentar';
+                }
+            }
+        }
+    </script>
+    """
+    
+    # Renderizar componente de voz
+    st.components.v1.html(voice_recognition_html, height=120)
+    
     # Checkbox de búsqueda exhaustiva
     col_checkbox, col_info = st.columns([1, 3])
     with col_checkbox:
@@ -3117,18 +3336,18 @@ if user_name:
                         # Modo exhaustivo: Híbrido con más documentos (Quirúrgico)
                         # Usa HybridRetriever.build para crear la instancia de forma segura
                         retriever = HybridRetriever.build(
-                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 250}),  # Aumentado de 200 a 250
+                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 400}),  # Aumentado a 400 para capturar docs cortos
                             documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
-                            k=250,  # Aumentado de 200 a 250 para mejor cobertura
+                            k=400,  # Aumentado a 400 para encontrar chunks únicos en docs pequeños
                             alpha=0.6 
                         )
                         search_method = 'hybrid_surgical'
                     else:
                         # Modo normal: Híbrido estándar
                         retriever = HybridRetriever.build(
-                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 150}),  # Aumentado de 100 a 150
+                            faiss_retriever=faiss_vs.as_retriever(search_kwargs={"k": 300}),  # Aumentado a 300 para capturar docs cortos
                             documents=st.session_state.all_docs if 'all_docs' in st.session_state else None,
-                            k=150  # Aumentado de 100 a 150 para cubrir fragmentos como el del archivo 994 (posición 103)
+                            k=300  # Aumentado a 300 para encontrar chunks únicos como 'cuerpo crístico ya se formó'
                         )
                     
                     # Ejecutar búsqueda

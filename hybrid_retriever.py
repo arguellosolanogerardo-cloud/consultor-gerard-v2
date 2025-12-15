@@ -309,6 +309,64 @@ class HybridRetriever(BaseRetriever):
             effective_alpha
         )
         
+        # ===== PASO 4: BOOST PARA CHUNKS ÚNICOS =====
+        # Priorizar documentos que contienen información diferente/única
+        # Por ejemplo: "ya se formó" vs "se va a formar"
+        
+        unique_info_patterns = {
+            # Patrón: boost multiplier
+            'ya se formó': 2.0,
+            'ya se formo': 2.0,
+            'que se formó': 1.8,
+            'que se formo': 1.8,
+            'está completo': 1.8,
+            'esta completo': 1.8,
+            'ya está': 1.5,
+            'ya esta': 1.5,
+            'nombre original': 1.8,
+            'verdadero nombre': 1.8,
+            'en realidad': 1.3,
+            'la verdad': 1.3,
+        }
+        
+        # Contar frecuencia de cada source (archivo)
+        source_counts = {}
+        for doc in merged_docs:
+            source = doc.metadata.get('source', 'unknown')
+            source_counts[source] = source_counts.get(source, 0) + 1
+        
+        # Calcular boost para cada documento
+        for doc in merged_docs:
+            content_lower = doc.page_content.lower()
+            boost = 1.0
+            
+            # 1. Boost por patrones únicos en contenido
+            for pattern, pattern_boost in unique_info_patterns.items():
+                if pattern in content_lower:
+                    boost *= pattern_boost
+                    print(f"[UNIQUE BOOST] Patrón '{pattern}' encontrado, boost: {pattern_boost}")
+                    break  # Solo aplicar un boost de patrón
+            
+            # 2. Boost por rareza de fuente (documentos menos comunes)
+            source = doc.metadata.get('source', 'unknown')
+            source_count = source_counts.get(source, 1)
+            if source_count <= 2:  # Documento poco común
+                rarity_boost = 1.5
+                boost *= rarity_boost
+                print(f"[RARITY BOOST] Fuente rara ({source_count} chunks), boost: {rarity_boost}")
+            
+            # Aplicar boost al score de relevancia
+            doc.metadata['relevance_score'] = min(
+                doc.metadata.get('relevance_score', 0.5) * boost, 
+                1.0
+            )
+        
+        # Reordenar por score boosteado
+        merged_docs.sort(
+            key=lambda d: d.metadata.get('relevance_score', 0),
+            reverse=True
+        )
+        
         return merged_docs[:effective_k]
     
     def _assign_bm25_scores(
