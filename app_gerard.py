@@ -2957,18 +2957,21 @@ if user_name:
     <script>
         let recognition = null;
         let isRecording = false;
+        let fullTranscript = '';  // Almacenar transcripción completa
         
         // Verificar soporte de Web Speech API
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
-            recognition.continuous = true;
-            recognition.interimResults = true;
+            recognition.continuous = false;  // CAMBIO: Solo una frase, no continuo
+            recognition.interimResults = true;  // Mantener para mostrar progreso visual
             recognition.lang = 'es-ES'; // Español
+            recognition.maxAlternatives = 1;
             
             recognition.onstart = function() {
                 isRecording = true;
+                fullTranscript = '';  // Resetear al iniciar
                 document.getElementById('mic-button').classList.add('recording');
                 document.getElementById('mic-icon').textContent = '🔴';
                 document.getElementById('mic-status').textContent = '🎙️ Escuchando... Habla ahora';
@@ -2979,72 +2982,69 @@ if user_name:
                 isRecording = false;
                 document.getElementById('mic-button').classList.remove('recording');
                 document.getElementById('mic-icon').textContent = '🎤';
-                if (!document.getElementById('mic-status').classList.contains('error')) {
+                
+                // Si tenemos texto final, insertarlo ahora
+                if (fullTranscript) {
+                    insertTextIntoTextarea(fullTranscript);
+                    document.getElementById('mic-status').textContent = '✅ Listo: ' + fullTranscript.substring(0, 40) + (fullTranscript.length > 40 ? '...' : '');
+                } else if (!document.getElementById('mic-status').classList.contains('error')) {
                     document.getElementById('mic-status').textContent = 'Haz clic para hablar de nuevo';
                 }
             };
             
             recognition.onresult = function(event) {
-                let finalTranscript = '';
+                // Construir la transcripción completa desde todos los resultados
                 let interimTranscript = '';
+                fullTranscript = '';  // Resetear para reconstruir
                 
-                for (let i = event.resultIndex; i < event.results.length; i++) {
+                for (let i = 0; i < event.results.length; i++) {
                     const transcript = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
+                        fullTranscript += transcript;
                     } else {
                         interimTranscript += transcript;
                     }
                 }
                 
-                // Mostrar texto interim
-                if (interimTranscript) {
-                    document.getElementById('mic-status').textContent = '📝 ' + interimTranscript;
-                }
-                
-                // Si hay texto final, insertarlo en el textarea
-                if (finalTranscript) {
-                    try {
-                        // Buscar el textarea de Streamlit
-                        const parentDoc = window.parent.document;
-                        const textareas = parentDoc.querySelectorAll('textarea');
-                        
-                        // Buscar el textarea correcto (el de consulta)
-                        for (let textarea of textareas) {
-                            if (textarea.placeholder && (
-                                textarea.placeholder.includes('CONSULTA') || 
-                                textarea.placeholder.includes('información') ||
-                                textarea.placeholder.includes('DIGITA')
-                            )) {
-                                // Agregar texto al contenido existente
-                                const currentValue = textarea.value || '';
-                                const newValue = currentValue + (currentValue ? ' ' : '') + finalTranscript.toUpperCase();
-                                
-                                // Usar nativeInputValueSetter para cambiar el valor
-                                const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
-                                nativeInputValueSetter.call(textarea, newValue);
-                                
-                                // Disparar evento input para que Streamlit lo detecte
-                                const inputEvent = new Event('input', { bubbles: true });
-                                textarea.dispatchEvent(inputEvent);
-                                
-                                document.getElementById('mic-status').textContent = '✅ Texto agregado: ' + finalTranscript.toUpperCase().substring(0, 30) + '...';
-                                
-                                // Detener grabación después de detectar silencio
-                                setTimeout(() => {
-                                    if (isRecording) {
-                                        recognition.stop();
-                                    }
-                                }, 2000);
-                                
-                                break;
-                            }
-                        }
-                    } catch (e) {
-                        console.error('Error insertando texto:', e);
-                    }
+                // Mostrar progreso mientras habla
+                const displayText = fullTranscript || interimTranscript;
+                if (displayText) {
+                    document.getElementById('mic-status').textContent = '📝 ' + displayText.toUpperCase();
                 }
             };
+            
+            // Función para insertar texto en el textarea de Streamlit
+            function insertTextIntoTextarea(text) {
+                try {
+                    const parentDoc = window.parent.document;
+                    const textareas = parentDoc.querySelectorAll('textarea');
+                    
+                    for (let textarea of textareas) {
+                        if (textarea.placeholder && (
+                            textarea.placeholder.includes('CONSULTA') || 
+                            textarea.placeholder.includes('información') ||
+                            textarea.placeholder.includes('DIGITA')
+                        )) {
+                            // CAMBIO: Reemplazar texto completamente (no concatenar)
+                            const newValue = text.toUpperCase();
+                            
+                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+                            nativeInputValueSetter.call(textarea, newValue);
+                            
+                            const inputEvent = new Event('input', { bubbles: true });
+                            textarea.dispatchEvent(inputEvent);
+                            
+                            // También disparar change para asegurar que Streamlit lo detecte
+                            const changeEvent = new Event('change', { bubbles: true });
+                            textarea.dispatchEvent(changeEvent);
+                            
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error insertando texto:', e);
+                }
+            }
             
             recognition.onerror = function(event) {
                 console.error('Error de reconocimiento:', event.error);
