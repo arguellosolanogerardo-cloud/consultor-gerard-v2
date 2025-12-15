@@ -3303,7 +3303,7 @@ if user_name:
     """
     
     # Renderizar componente de voz
-    st.components.v1.html(voice_recognition_html, height=120)
+    st.components.v1.html(voice_recognition_html, height=180)
     
     # Checkbox de búsqueda exhaustiva
     col_checkbox, col_info = st.columns([1, 3])
@@ -3367,7 +3367,10 @@ if user_name:
             st.rerun()
     
     # Procesar consulta (Si se activó el trigger en la recarga anterior)
-    if st.session_state.trigger_search and query:
+    # IMPORTANTE: Usamos last_executed_query porque después del rerun, el textarea
+    # podría estar vacío (especialmente cuando se usa el micrófono con JavaScript)
+    query_to_process = st.session_state.get('last_executed_query', '')
+    if st.session_state.trigger_search and query_to_process:
         # Desactivar trigger para evitar bucles, pero mantenemos question_executed
         st.session_state.trigger_search = False
         
@@ -3507,7 +3510,7 @@ if user_name:
             # 1. Búsqueda de documentos
             with st.spinner("🔍 Buscando información relevante..."):
                 # NUEVO: Detectar si la pregunta menciona un título específico
-                title_info = detect_title_in_query(query)
+                title_info = detect_title_in_query(query_to_process)
                 
                 if title_info['has_title']:
                     # Búsqueda con filtro por título
@@ -3516,12 +3519,12 @@ if user_name:
                     print(f"[INFO] Patrón detectado: {title_info['pattern_matched']}")
                     
                     # Determinar K según complejidad de la pregunta
-                    k_optimal = get_optimal_k(query, force_exhaustive=exhaustive_search)
+                    k_optimal = get_optimal_k(query_to_process, force_exhaustive=exhaustive_search)
                     
                     # Usar búsqueda híbrida con filtro por título
                     docs = hybrid_search_with_title(
                         faiss_vs=faiss_vs,
-                        query=query,
+                        query=query_to_process,
                         all_docs=st.session_state.all_docs if 'all_docs' in st.session_state else [],
                         k=k_optimal['k'],
                         title_keywords=title_info['keywords']
@@ -3561,7 +3564,7 @@ if user_name:
                         )
                     
                     # Ejecutar búsqueda
-                    docs = retriever.invoke(query)
+                    docs = retriever.invoke(query_to_process)
                 
                 # Filtrar por umbral de relevancia (simulado)
                 relevant_docs = docs 
@@ -3677,7 +3680,7 @@ if user_name:
                 )
                 
                 # Ejecutar
-                response = chain.invoke({"input": query})
+                response = chain.invoke({"input": query_to_process})
             
             # Limpiar mensaje de estado
             status_placeholder.empty()
@@ -3694,7 +3697,7 @@ if user_name:
             st.session_state.conversation_history.append({
                 'timestamp': query_end_time.strftime("%Y-%m-%d %H:%M:%S"),
                 'user': user_name.upper(),
-                'query': query,
+                'query': query_to_process,
                 'response': response
             })
             
@@ -3746,7 +3749,7 @@ if user_name:
                         st.session_state.sheets_logger.log_interaction(
                             interaction_id=interaction_id,
                             user=user_name.upper(),
-                            question=query,
+                            question=query_to_process,
                             answer=response,  # ← CAMBIADO: Pasar HTML con colores, NO answer_clean
                             device_info=device_info,
                             location_info=location_info,
@@ -3775,7 +3778,8 @@ if user_name:
             st.error(f"❌ Error durante el análisis: {str(e)}")
 
     # MOSTRAR RESULTADOS PERSISTENTES (Fuera del if search_button)
-    if st.session_state.question_executed and query and query == st.session_state.last_executed_query and 'last_results' in st.session_state:
+    # Nota: Usamos last_executed_query porque query podría estar vacío después del rerun (especialmente con micrófono)
+    if st.session_state.question_executed and st.session_state.get('last_executed_query') and 'last_results' in st.session_state:
         res = st.session_state.last_results
         display_analysis_result(
             res['response'], 
