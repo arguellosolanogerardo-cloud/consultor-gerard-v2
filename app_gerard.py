@@ -2949,6 +2949,28 @@ if user_name:
     
     # JavaScript para reconocimiento de voz con Web Speech API
     voice_recognition_html = """
+    <style>
+        .mic-container {
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            margin: 10px 0 !important;
+        }
+        #mic-status {
+            text-align: center !important;
+            font-size: 1.2em !important;
+            color: #00ff41 !important;
+            margin-top: 10px !important;
+            min-height: 30px !important;
+            font-weight: bold !important;
+            text-shadow: 0 0 15px rgba(0, 255, 65, 0.7) !important;
+            background: transparent !important;
+        }
+        #mic-status.error {
+            color: #ff4b4b !important;
+            text-shadow: 0 0 15px rgba(255, 75, 75, 0.7) !important;
+        }
+    </style>
     <div class="mic-container">
         <button id="mic-button" onclick="toggleRecording()" title="Haz clic para hablar tu pregunta">
             <span id="mic-icon">🎤</span>
