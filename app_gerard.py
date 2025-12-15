@@ -3227,30 +3227,49 @@ if user_name:
             function insertTextIntoTextarea(text) {
                 try {
                     const parentDoc = window.parent.document;
-                    const textareas = parentDoc.querySelectorAll('textarea');
+                    const newValue = text.toUpperCase();
                     
+                    // 1. Actualizar el textarea principal de consulta
+                    const textareas = parentDoc.querySelectorAll('textarea');
                     for (let textarea of textareas) {
                         if (textarea.placeholder && (
                             textarea.placeholder.includes('CONSULTA') || 
                             textarea.placeholder.includes('información') ||
                             textarea.placeholder.includes('DIGITA')
                         )) {
-                            // CAMBIO: Reemplazar texto completamente (no concatenar)
-                            const newValue = text.toUpperCase();
-                            
                             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
                             nativeInputValueSetter.call(textarea, newValue);
                             
                             const inputEvent = new Event('input', { bubbles: true });
                             textarea.dispatchEvent(inputEvent);
                             
-                            // También disparar change para asegurar que Streamlit lo detecte
                             const changeEvent = new Event('change', { bubbles: true });
                             textarea.dispatchEvent(changeEvent);
-                            
                             break;
                         }
                     }
+                    
+                    // 2. IMPORTANTE: También actualizar el campo de voz oculto (voice_input_field)
+                    // Buscar por placeholder que contiene "micrófono"
+                    const allInputs = parentDoc.querySelectorAll('input[type="text"]');
+                    for (let input of allInputs) {
+                        if (input.placeholder && input.placeholder.includes('micrófono')) {
+                            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                            nativeInputValueSetter.call(input, newValue);
+                            
+                            const inputEvent = new Event('input', { bubbles: true });
+                            input.dispatchEvent(inputEvent);
+                            
+                            const changeEvent = new Event('change', { bubbles: true });
+                            input.dispatchEvent(changeEvent);
+                            
+                            // También simular blur para forzar actualización de Streamlit
+                            const blurEvent = new Event('blur', { bubbles: true });
+                            input.dispatchEvent(blurEvent);
+                            break;
+                        }
+                    }
+                    
                 } catch (e) {
                     console.error('Error insertando texto:', e);
                 }
@@ -3304,6 +3323,28 @@ if user_name:
     
     # Renderizar componente de voz (height=220 para acomodar texto en móviles)
     st.components.v1.html(voice_recognition_html, height=220)
+    
+    # Campo oculto para recibir la transcripción de voz (el JavaScript lo actualizará)
+    # Usamos un text_input con label colapsado que el micrófono actualizará
+    voice_col1, voice_col2 = st.columns([4, 1])
+    with voice_col1:
+        voice_input = st.text_input(
+            "🎤 Texto de voz (editable):",
+            value=st.session_state.get('voice_transcript', ''),
+            key="voice_input_field",
+            placeholder="El texto del micrófono aparecerá aquí...",
+            label_visibility="collapsed"
+        )
+    with voice_col2:
+        if st.button("📋", key="copy_voice_btn", help="Copiar texto de voz al campo de consulta"):
+            if voice_input:
+                st.session_state.last_query = voice_input
+                st.session_state.voice_transcript = voice_input
+                st.rerun()
+    
+    # Actualizar session_state con el valor del campo de voz
+    if voice_input:
+        st.session_state.voice_transcript = voice_input
     
     # Checkbox de búsqueda exhaustiva
     col_checkbox, col_info = st.columns([1, 3])
@@ -3362,7 +3403,9 @@ if user_name:
         # 3. Recargar la página (RERUN) para mostrar el botón rojo ANTES de procesar
         if search_button:
             st.session_state.question_executed = True
-            st.session_state.last_executed_query = query
+            # IMPORTANTE: Si query está vacío (caso micrófono), usar voice_transcript
+            effective_query = query if query.strip() else st.session_state.get('voice_transcript', '')
+            st.session_state.last_executed_query = effective_query
             st.session_state.trigger_search = True
             st.rerun()
     
