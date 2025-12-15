@@ -3159,7 +3159,7 @@ if user_name:
                 <span id="mic-icon">🎤</span>
             </button>
         </div>
-        <div id="mic-status">🎙️ Puedes clickear en el micrófono para hacer tu pregunta con voz</div>
+        <div id="mic-status">🎙️ Toca el micrófono para preguntar con voz</div>
     </div>
     
     <script>
@@ -3302,8 +3302,8 @@ if user_name:
     </script>
     """
     
-    # Renderizar componente de voz
-    st.components.v1.html(voice_recognition_html, height=180)
+    # Renderizar componente de voz (height=220 para acomodar texto en móviles)
+    st.components.v1.html(voice_recognition_html, height=220)
     
     # Checkbox de búsqueda exhaustiva
     col_checkbox, col_info = st.columns([1, 3])
