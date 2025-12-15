@@ -2887,41 +2887,131 @@ if user_name:
     # CSS para el botón de micrófono
     st.markdown("""
     <style>
-        /* Botón de micrófono */
-        #mic-button {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            border: 2px solid #00ff41;
+        /* Contenedor del micrófono con anillos */
+        .mic-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 15px 0;
+            position: relative;
+        }
+        
+        /* Anillos externos animados */
+        .mic-rings {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mic-rings::before,
+        .mic-rings::after {
+            content: '';
+            position: absolute;
             border-radius: 50%;
-            width: 60px;
-            height: 60px;
+            border: 2px solid transparent;
+            animation: rotate-ring 3s linear infinite;
+        }
+        
+        .mic-rings::before {
+            width: 90px;
+            height: 90px;
+            border-top-color: #00ff41;
+            border-right-color: #00d4ff;
+            animation-duration: 2s;
+        }
+        
+        .mic-rings::after {
+            width: 100px;
+            height: 100px;
+            border-bottom-color: #ff00ff;
+            border-left-color: #00ff41;
+            animation-duration: 3s;
+            animation-direction: reverse;
+        }
+        
+        @keyframes rotate-ring {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Botón de micrófono - Glassmorphism moderno */
+        #mic-button {
+            background: linear-gradient(135deg, rgba(0, 255, 65, 0.15) 0%, rgba(0, 212, 255, 0.1) 50%, rgba(255, 0, 255, 0.1) 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 2px solid rgba(0, 255, 65, 0.6);
+            border-radius: 50%;
+            width: 70px;
+            height: 70px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s ease;
-            box-shadow: 0 0 15px rgba(0, 255, 65, 0.3);
-            margin: 10px auto;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 
+                0 0 20px rgba(0, 255, 65, 0.4),
+                0 0 40px rgba(0, 255, 65, 0.2),
+                inset 0 0 20px rgba(0, 255, 65, 0.1);
+            position: relative;
+            z-index: 10;
         }
         
         #mic-button:hover {
-            transform: scale(1.1);
-            box-shadow: 0 0 25px rgba(0, 255, 65, 0.6);
+            transform: scale(1.15);
+            border-color: #00ff41;
+            box-shadow: 
+                0 0 30px rgba(0, 255, 65, 0.6),
+                0 0 60px rgba(0, 255, 65, 0.4),
+                0 0 90px rgba(0, 212, 255, 0.2),
+                inset 0 0 25px rgba(0, 255, 65, 0.2);
         }
         
         #mic-button.recording {
-            background: linear-gradient(135deg, #ff4b4b 0%, #ff6b6b 100%);
+            background: linear-gradient(135deg, rgba(255, 75, 75, 0.3) 0%, rgba(255, 0, 100, 0.2) 100%);
             border-color: #ff4b4b;
-            box-shadow: 0 0 25px rgba(255, 75, 75, 0.6);
-            animation: pulse-recording 1s infinite;
+            box-shadow: 
+                0 0 30px rgba(255, 75, 75, 0.7),
+                0 0 60px rgba(255, 75, 75, 0.4),
+                inset 0 0 20px rgba(255, 75, 75, 0.2);
+            animation: pulse-glow 1.5s ease-in-out infinite;
         }
         
-        @keyframes pulse-recording {
-            0%, 100% { transform: scale(1); box-shadow: 0 0 25px rgba(255, 75, 75, 0.6); }
-            50% { transform: scale(1.05); box-shadow: 0 0 35px rgba(255, 75, 75, 0.9); }
+        .mic-rings.recording::before,
+        .mic-rings.recording::after {
+            border-color: transparent;
+            border-top-color: #ff4b4b;
+            border-bottom-color: #ff0066;
+            animation-duration: 0.8s;
         }
         
+        @keyframes pulse-glow {
+            0%, 100% { 
+                transform: scale(1); 
+                box-shadow: 0 0 30px rgba(255, 75, 75, 0.7), 0 0 60px rgba(255, 75, 75, 0.4);
+            }
+            50% { 
+                transform: scale(1.08); 
+                box-shadow: 0 0 50px rgba(255, 75, 75, 0.9), 0 0 80px rgba(255, 75, 75, 0.6);
+            }
+        }
+        
+        /* Icono del micrófono SVG moderno */
         #mic-icon {
-            font-size: 28px;
+            font-size: 32px;
+            filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.8));
+            transition: all 0.3s ease;
+        }
+        
+        #mic-button:hover #mic-icon {
+            filter: drop-shadow(0 0 15px rgba(0, 255, 65, 1));
+            transform: scale(1.1);
+        }
+        
+        #mic-button.recording #mic-icon {
+            filter: drop-shadow(0 0 15px rgba(255, 75, 75, 1));
         }
         
         #mic-status {
@@ -2937,13 +3027,6 @@ if user_name:
         #mic-status.error {
             color: #ff4b4b;
         }
-        
-        .mic-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            margin: 10px 0;
-        }
     </style>
     """, unsafe_allow_html=True)
     
@@ -2954,27 +3037,128 @@ if user_name:
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
-            margin: 10px 0 !important;
+            margin: 15px 0 !important;
+            position: relative !important;
         }
+        
+        /* Anillos externos animados */
+        .mic-rings {
+            position: relative !important;
+            width: 100px !important;
+            height: 100px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+        }
+        
+        .mic-rings::before,
+        .mic-rings::after {
+            content: '' !important;
+            position: absolute !important;
+            border-radius: 50% !important;
+            border: 2px solid transparent !important;
+            animation: rotate-ring 3s linear infinite !important;
+        }
+        
+        .mic-rings::before {
+            width: 90px !important;
+            height: 90px !important;
+            border-top-color: #00ff41 !important;
+            border-right-color: #00d4ff !important;
+            animation-duration: 2s !important;
+        }
+        
+        .mic-rings::after {
+            width: 100px !important;
+            height: 100px !important;
+            border-bottom-color: #ff00ff !important;
+            border-left-color: #00ff41 !important;
+            animation-duration: 3s !important;
+            animation-direction: reverse !important;
+        }
+        
+        @keyframes rotate-ring {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .mic-rings.recording::before,
+        .mic-rings.recording::after {
+            border-color: transparent !important;
+            border-top-color: #ff4b4b !important;
+            border-bottom-color: #ff0066 !important;
+            animation-duration: 0.8s !important;
+        }
+        
+        /* Botón glassmorphism */
+        #mic-button {
+            background: linear-gradient(135deg, rgba(0, 255, 65, 0.15) 0%, rgba(0, 212, 255, 0.1) 50%, rgba(255, 0, 255, 0.1) 100%) !important;
+            backdrop-filter: blur(10px) !important;
+            -webkit-backdrop-filter: blur(10px) !important;
+            border: 2px solid rgba(0, 255, 65, 0.6) !important;
+            border-radius: 50% !important;
+            width: 70px !important;
+            height: 70px !important;
+            cursor: pointer !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.4), 0 0 40px rgba(0, 255, 65, 0.2), inset 0 0 20px rgba(0, 255, 65, 0.1) !important;
+            position: relative !important;
+            z-index: 10 !important;
+        }
+        
+        #mic-button:hover {
+            transform: scale(1.15) !important;
+            border-color: #00ff41 !important;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.6), 0 0 60px rgba(0, 255, 65, 0.4), 0 0 90px rgba(0, 212, 255, 0.2) !important;
+        }
+        
+        #mic-button.recording {
+            background: linear-gradient(135deg, rgba(255, 75, 75, 0.3) 0%, rgba(255, 0, 100, 0.2) 100%) !important;
+            border-color: #ff4b4b !important;
+            box-shadow: 0 0 30px rgba(255, 75, 75, 0.7), 0 0 60px rgba(255, 75, 75, 0.4) !important;
+            animation: pulse-glow 1.5s ease-in-out infinite !important;
+        }
+        
+        @keyframes pulse-glow {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 30px rgba(255, 75, 75, 0.7), 0 0 60px rgba(255, 75, 75, 0.4); }
+            50% { transform: scale(1.08); box-shadow: 0 0 50px rgba(255, 75, 75, 0.9), 0 0 80px rgba(255, 75, 75, 0.6); }
+        }
+        
+        #mic-icon {
+            font-size: 32px !important;
+            filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.8)) !important;
+            transition: all 0.3s ease !important;
+        }
+        
+        #mic-button.recording #mic-icon {
+            filter: drop-shadow(0 0 15px rgba(255, 75, 75, 1)) !important;
+        }
+        
         #mic-status {
             text-align: center !important;
             font-size: 1.2em !important;
             color: #00ff41 !important;
-            margin-top: 10px !important;
+            margin-top: 12px !important;
             min-height: 30px !important;
             font-weight: bold !important;
             text-shadow: 0 0 15px rgba(0, 255, 65, 0.7) !important;
             background: transparent !important;
         }
+        
         #mic-status.error {
             color: #ff4b4b !important;
             text-shadow: 0 0 15px rgba(255, 75, 75, 0.7) !important;
         }
     </style>
     <div class="mic-container">
-        <button id="mic-button" onclick="toggleRecording()" title="Haz clic para hablar tu pregunta">
-            <span id="mic-icon">🎤</span>
-        </button>
+        <div class="mic-rings" id="mic-rings">
+            <button id="mic-button" onclick="toggleRecording()" title="Haz clic para hablar tu pregunta">
+                <span id="mic-icon">🎤</span>
+            </button>
+        </div>
         <div id="mic-status">🎙️ Puedes clickear en el micrófono para hacer tu pregunta con voz</div>
     </div>
     
@@ -2997,6 +3181,7 @@ if user_name:
                 isRecording = true;
                 fullTranscript = '';  // Resetear al iniciar
                 document.getElementById('mic-button').classList.add('recording');
+                document.getElementById('mic-rings').classList.add('recording');
                 document.getElementById('mic-icon').textContent = '🔴';
                 document.getElementById('mic-status').textContent = '🎙️ Escuchando... Habla ahora';
                 document.getElementById('mic-status').classList.remove('error');
@@ -3005,6 +3190,7 @@ if user_name:
             recognition.onend = function() {
                 isRecording = false;
                 document.getElementById('mic-button').classList.remove('recording');
+                document.getElementById('mic-rings').classList.remove('recording');
                 document.getElementById('mic-icon').textContent = '🎤';
                 
                 // Si tenemos texto final, insertarlo ahora
