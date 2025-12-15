@@ -361,10 +361,16 @@ def show_ip_simple_copy():
     components.html(button_click_js, height=0)
     
     with col2:
-        if st.button("✅ Confirmar", type="primary", use_container_width=True):
+        confirm_button = st.button("✅ Confirmar", type="primary", use_container_width=True, key="confirm_ip_btn")
+        
+        if confirm_button:
             if ip_input and len(ip_input) > 5:
+                # Mostrar mensaje de confirmación visual inmediatamente
+                st.success("✅ ¡CONFIRMADO! Procesando...")
+                
                 # Buscar ciudad y país de esta IP usando múltiples APIs
                 import requests
+                import time
                 city = "Unknown"
                 country = "Unknown"
                 
@@ -400,6 +406,9 @@ def show_ip_simple_copy():
                 st.session_state.ip_needs_confirmation = False
                 
                 print(f"[INFO] ✅ IP REAL confirmada: {ip_input} | {city}, {country}")
+                
+                # Delay de 2 segundos para que el usuario vea la confirmación verde
+                time.sleep(2)
                 
                 st.rerun()
             else:
