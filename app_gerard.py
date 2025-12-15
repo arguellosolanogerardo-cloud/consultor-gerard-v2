@@ -3352,7 +3352,7 @@ if user_name:
         exhaustive_search = st.checkbox(
             "🔬 Exhaustiva", 
             value=st.session_state.get('exhaustive_search', False),
-            help="Activa búsqueda exhaustiva (recupera hasta 200 documentos en lugar del modo adaptativo)"
+            help="Activa búsqueda exhaustiva (recupera hasta 400 documentos en lugar del modo adaptativo)"
         )
         # Guardar estado
         st.session_state.exhaustive_search = exhaustive_search
@@ -3360,7 +3360,7 @@ if user_name:
     with col_info:
         if exhaustive_search:
             st.markdown(
-                '<div style="color: #00ff41; font-size: 0.9em; padding: 5px;">⚡ Modo exhaustivo: se recuperarán 200 documentos (~+2s tiempo)</div>',
+                '<div style="color: #00ff41; font-size: 0.9em; padding: 5px;">⚡ Modo exhaustivo: se recuperarán 400 documentos (~+2s tiempo)</div>',
                 unsafe_allow_html=True
             )
     
