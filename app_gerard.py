@@ -2316,7 +2316,35 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
         
         # Mostrar reproductor si hay audio generado
         if tts_key in st.session_state and st.session_state[tts_key]:
+            # Generar nombre del archivo de audio (igual que el PDF pero con "AUDIO" al inicio)
+            timestamp_str = datetime.now().strftime("%Y%m%d_%H%M")
+            safe_username = "".join(c for c in user_name if c.isalnum() or c in (' ', '_', '-')).strip().replace(' ', '_')
+            
+            # Construir nombre con TODAS las preguntas (igual que el PDF)
+            question_parts = []
+            for entry in st.session_state.conversation_history:
+                clean_q = "".join(c for c in entry["query"] if c.isalnum() or c in (' ', '_', '-', '?')).strip()
+                clean_q = clean_q.replace(' ', '_')
+                if clean_q:
+                    question_parts.append(clean_q)
+            
+            if question_parts:
+                questions_str = "_".join(f"{q}?" for q in question_parts)
+                audio_filename = f"AUDIO_CONSULTA_DE_{safe_username}_{questions_str}_{timestamp_str}.mp3"
+            else:
+                audio_filename = f"AUDIO_CONSULTA_DE_{safe_username}_{timestamp_str}.mp3"
+            
+            # Mostrar reproductor de audio
             st.audio(st.session_state[tts_key], format="audio/mp3")
+            
+            # Botón de descarga con nombre personalizado
+            st.download_button(
+                label="⬇️ Descargar Audio",
+                data=st.session_state[tts_key],
+                file_name=audio_filename,
+                mime="audio/mp3",
+                use_container_width=True
+            )
     else:
         st.info("ℹ️ TTS no disponible. Instala google-cloud-texttospeech para habilitar lectura en voz alta.")
     
