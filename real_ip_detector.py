@@ -111,7 +111,7 @@ def show_ip_simple_copy():
                         
                         pageLottieAnimation.addEventListener('complete', function() {{
                             pagePlayCount++;
-                            if (pagePlayCount < 2) {{
+                            if (pagePlayCount < 1) {{
                                 pageLottieAnimation.goToAndPlay(0);
                             }} else {{
                                 targetDoc.getElementById('lottie-page-overlay').style.display = 'none';
