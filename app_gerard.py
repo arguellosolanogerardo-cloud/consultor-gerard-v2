@@ -2780,17 +2780,32 @@ if user_name:
                             z-index: 999999;
                             justify-content: center;
                             align-items: center;
+                            cursor: pointer;
                         `;
+                        
+                        // Permitir cerrar haciendo clic
+                        overlay.addEventListener('click', function() {{
+                            this.remove();
+                        }});
                         
                         const container = targetDoc.createElement('div');
                         container.id = 'question-container';
                         container.style.cssText = `
                             width: 400px;
                             height: 400px;
+                            pointer-events: none;
                         `;
                         
                         overlay.appendChild(container);
                         targetDoc.body.appendChild(overlay);
+                        
+                        // SEGURIDAD: Eliminar overlay después de 5 segundos máximo
+                        setTimeout(function() {{
+                            const overlay = targetDoc.getElementById('question-overlay');
+                            if (overlay) {{
+                                overlay.remove();
+                            }}
+                        }}, 5000);
                         
                         try {{
                             questionAnimation = lottie.loadAnimation({{
@@ -2813,6 +2828,11 @@ if user_name:
                             
                         }} catch (error) {{
                             console.error('[ERROR] Error con animación question:', error);
+                            // Si hay error, eliminar el overlay
+                            const overlay = targetDoc.getElementById('question-overlay');
+                            if (overlay) {{
+                                overlay.remove();
+                            }}
                         }}
                     }}
                     
