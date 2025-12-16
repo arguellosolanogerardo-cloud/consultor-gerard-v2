@@ -2284,74 +2284,95 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     if len(texto_para_leer) > 5000:
         texto_para_leer = texto_para_leer[:5000] + '... y más.'
     
-    # Botón visible en Streamlit usando st.button
-    tts_col1, tts_col2, tts_col3 = st.columns([1, 1, 2])
-    with tts_col1:
-        leer_btn = st.button("🔊 Leer Respuesta", key="tts_leer_btn", type="primary", use_container_width=True)
-    with tts_col2:
-        detener_btn = st.button("⏹️ Detener", key="tts_detener_btn", use_container_width=True)
-    
-    # JavaScript para TTS que se ejecuta en window.top
-    tts_script = f'''
+    # Botones HTML puros para TTS (NO usan st.button para evitar rerun)
+    tts_html = f'''
+    <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap;">
+        <button id="tts-leer-btn" style="
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+        ">
+            🔊 Leer Respuesta
+        </button>
+        <button id="tts-detener-btn" style="
+            background: linear-gradient(45deg, #ff4b4b, #cc0000);
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        ">
+            ⏹️ Detener
+        </button>
+        <span id="tts-status" style="
+            color: #00ff41;
+            font-size: 14px;
+            align-self: center;
+            margin-left: 10px;
+        "></span>
+    </div>
     <script>
-    (function() {{
-        const synth = window.top.speechSynthesis || window.speechSynthesis;
-        
-        // Guardar funciones en window.top para acceso global
-        window.top.ttsTexto = '{texto_para_leer}';
-        
-        window.top.leerRespuesta = function() {{
-            if (synth.speaking) {{
-                synth.cancel();
+        (function() {{
+            const synth = window.speechSynthesis;
+            const texto = `{texto_para_leer}`;
+            let utterance = null;
+            
+            // Esperar a que las voces estén disponibles
+            function getSpanishVoice() {{
+                const voices = synth.getVoices();
+                let googleEs = voices.find(v => v.name.toLowerCase().includes('google') && v.lang.includes('es'));
+                if (googleEs) return googleEs;
+                let anyEs = voices.find(v => v.lang.includes('es'));
+                return anyEs || voices[0];
             }}
             
-            const texto = window.top.ttsTexto;
-            const utterance = new SpeechSynthesisUtterance(texto);
+            // Precarga de voces
+            if (synth.onvoiceschanged !== undefined) {{
+                synth.onvoiceschanged = getSpanishVoice;
+            }}
             
-            // Buscar voz en español
-            const voices = synth.getVoices();
-            let vozEspanol = voices.find(v => v.name.toLowerCase().includes('google') && v.lang.includes('es'));
-            if (!vozEspanol) vozEspanol = voices.find(v => v.lang.includes('es'));
-            if (vozEspanol) utterance.voice = vozEspanol;
+            document.getElementById('tts-leer-btn').onclick = function() {{
+                if (synth.speaking) {{
+                    synth.cancel();
+                }}
+                
+                document.getElementById('tts-status').textContent = '🔊 Leyendo...';
+                
+                utterance = new SpeechSynthesisUtterance(texto);
+                utterance.voice = getSpanishVoice();
+                utterance.lang = 'es-ES';
+                utterance.rate = 1.0;
+                
+                utterance.onend = function() {{
+                    document.getElementById('tts-status').textContent = '✅ Lectura completada';
+                    setTimeout(() => {{ document.getElementById('tts-status').textContent = ''; }}, 3000);
+                }};
+                
+                utterance.onerror = function(e) {{
+                    document.getElementById('tts-status').textContent = '❌ Error: ' + e.error;
+                    console.error('[TTS] Error:', e);
+                }};
+                
+                synth.speak(utterance);
+            }};
             
-            utterance.lang = 'es-ES';
-            utterance.rate = 1.0;
-            
-            synth.speak(utterance);
-            console.log('[TTS] Leyendo respuesta...');
-        }};
-        
-        window.top.detenerTTS = function() {{
-            synth.cancel();
-            console.log('[TTS] Detenido');
-        }};
-    }})();
+            document.getElementById('tts-detener-btn').onclick = function() {{
+                synth.cancel();
+                document.getElementById('tts-status').textContent = '⏹️ Detenido';
+                setTimeout(() => {{ document.getElementById('tts-status').textContent = ''; }}, 2000);
+            }};
+        }})();
     </script>
     '''
-    st.components.v1.html(tts_script, height=0)
-    
-    # Activar TTS cuando se hace clic en los botones
-    if leer_btn:
-        st.components.v1.html('''
-        <script>
-            if (window.top.leerRespuesta) {{
-                window.top.leerRespuesta();
-            }} else {{
-                alert('TTS no disponible. Recarga la página.');
-            }}
-        </script>
-        ''', height=0)
-        st.info("🔊 Leyendo respuesta... (Si no escuchas, permite el audio en tu navegador)")
-    
-    if detener_btn:
-        st.components.v1.html('''
-        <script>
-            if (window.top.detenerTTS) {
-                window.top.detenerTTS();
-            }
-        </script>
-        ''', height=0)
-        st.info("⏹️ Lectura detenida")
+    st.components.v1.html(tts_html, height=70)
     
     # [NUEVO] Panel de Scores de Relevancia (Forensic Score Board)
     with st.expander(f"🔍 Analizar Scores de Relevancia ({len(docs)} fragmentos)", expanded=False):
