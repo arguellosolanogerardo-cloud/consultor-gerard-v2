@@ -27,12 +27,19 @@ def _get_tts_client():
     try:
         import streamlit as st
         
-        # Opción 1: Streamlit secrets
-        if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
-            print("[TTS] Usando credenciales de Streamlit secrets")
-            credentials_info = dict(st.secrets["gcp_service_account"])
-            credentials = service_account.Credentials.from_service_account_info(credentials_info)
-            return texttospeech.TextToSpeechClient(credentials=credentials)
+        # Opción 1: Streamlit secrets (buscar en vertex_ai o gcp_service_account)
+        if hasattr(st, 'secrets'):
+            # Prioridad a vertex_ai (proyecto midyear-node-436821-t3)
+            if 'vertex_ai' in st.secrets:
+                print("[TTS] Usando credenciales de Streamlit secrets [vertex_ai]")
+                credentials_info = dict(st.secrets["vertex_ai"])
+                credentials = service_account.Credentials.from_service_account_info(credentials_info)
+                return texttospeech.TextToSpeechClient(credentials=credentials)
+            elif 'gcp_service_account' in st.secrets:
+                print("[TTS] Usando credenciales de Streamlit secrets [gcp_service_account]")
+                credentials_info = dict(st.secrets["gcp_service_account"])
+                credentials = service_account.Credentials.from_service_account_info(credentials_info)
+                return texttospeech.TextToSpeechClient(credentials=credentials)
         
         # Opción 2: Variable de entorno o archivo local
         # Buscar archivo de credenciales
