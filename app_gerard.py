@@ -2282,12 +2282,32 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     # Limpiar el texto para lectura (remover HTML, timestamps, etc.)
     import re as regex
     texto_para_leer = _strip_html_tags(response)
+    
+    # Remover referencias completas de VIDEO/AUDIO con sus citas
+    # Ejemplo: **[VIDEO / AUDIO: ... ]** "cita textual"
+    # Primero remover las referencias en corchetes
+    texto_para_leer = regex.sub(r'\*\*\[VIDEO\s*/\s*AUDIO:.*?\]\*\*', '', texto_para_leer, flags=regex.IGNORECASE | regex.DOTALL)
+    
+    # Remover líneas de citas que empiezan con * y tienen comillas
+    # Ejemplo: * "cita textual aquí"
+    texto_para_leer = regex.sub(r'\*\s*"[^"]*"', '', texto_para_leer)
+    
+    # Remover líneas que solo tienen asteriscos o puntos de lista
+    texto_para_leer = regex.sub(r'^\s*[\*\-]+\s*$', '', texto_para_leer, flags=regex.MULTILINE)
+    
     # Remover timestamps como [00:00:00] o (00:00:00)
     texto_para_leer = regex.sub(r'[\[\(]\d{1,2}:\d{2}(:\d{2})?[\]\)]', '', texto_para_leer)
+    
     # Remover emojis para lectura más limpia
     texto_para_leer = regex.sub(r'[🔴🟡🟢📺📻💬❌✅⚠️📄🎬📝🔍🎯👉🔹🔸⭐💡🧬🔬🚀📊📈🌟✨💎🙏💕❗‼️👀💥]', '', texto_para_leer)
+    
     # Remover asteriscos (markdown de negrita e itálica)
     texto_para_leer = texto_para_leer.replace('*', '')
+    
+    # Limpiar espacios múltiples y líneas vacías
+    texto_para_leer = regex.sub(r'\n\s*\n+', '\n\n', texto_para_leer)
+    texto_para_leer = regex.sub(r'  +', ' ', texto_para_leer)
+    
     # Limitar longitud (Google TTS tiene límite de 5000 caracteres)
     if len(texto_para_leer) > 4900:
         texto_para_leer = texto_para_leer[:4900] + '... y más contenido.'
