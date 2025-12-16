@@ -2340,28 +2340,48 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             }}
             
             document.getElementById('tts-leer-btn').onclick = function() {{
+                // DIAGNÓSTICO: Mostrar info del sistema
+                const voices = synth.getVoices();
+                const vozSeleccionada = getSpanishVoice();
+                const infoVoz = vozSeleccionada ? vozSeleccionada.name + ' (' + vozSeleccionada.lang + ')' : 'NO HAY VOCES DISPONIBLES';
+                const infoTexto = texto.length + ' caracteres';
+                
+                document.getElementById('tts-status').innerHTML = '🔍 Diagnóstico:<br>Voces: ' + voices.length + '<br>Voz: ' + infoVoz + '<br>Texto: ' + infoTexto;
+                
+                if (voices.length === 0) {{
+                    document.getElementById('tts-status').innerHTML = '❌ ERROR: No hay voces TTS disponibles. Tu navegador no soporta Text-to-Speech.';
+                    return;
+                }}
+                
                 if (synth.speaking) {{
                     synth.cancel();
                 }}
                 
-                document.getElementById('tts-status').textContent = '🔊 Leyendo...';
-                
-                utterance = new SpeechSynthesisUtterance(texto);
-                utterance.voice = getSpanishVoice();
-                utterance.lang = 'es-ES';
-                utterance.rate = 1.0;
-                
-                utterance.onend = function() {{
-                    document.getElementById('tts-status').textContent = '✅ Lectura completada';
-                    setTimeout(() => {{ document.getElementById('tts-status').textContent = ''; }}, 3000);
-                }};
-                
-                utterance.onerror = function(e) {{
-                    document.getElementById('tts-status').textContent = '❌ Error: ' + e.error;
-                    console.error('[TTS] Error:', e);
-                }};
-                
-                synth.speak(utterance);
+                setTimeout(() => {{
+                    document.getElementById('tts-status').innerHTML = '🔊 Iniciando lectura...';
+                    
+                    utterance = new SpeechSynthesisUtterance(texto);
+                    utterance.voice = vozSeleccionada;
+                    utterance.lang = 'es-ES';
+                    utterance.rate = 1.0;
+                    utterance.volume = 1.0;
+                    
+                    utterance.onstart = function() {{
+                        document.getElementById('tts-status').innerHTML = '🔊 LEYENDO... (voz: ' + infoVoz + ')';
+                    }};
+                    
+                    utterance.onend = function() {{
+                        document.getElementById('tts-status').textContent = '✅ Lectura completada';
+                        setTimeout(() => {{ document.getElementById('tts-status').textContent = ''; }}, 3000);
+                    }};
+                    
+                    utterance.onerror = function(e) {{
+                        document.getElementById('tts-status').innerHTML = '❌ Error TTS: ' + e.error + '<br>Esto es un error del navegador, no del código.';
+                        console.error('[TTS] Error:', e);
+                    }};
+                    
+                    synth.speak(utterance);
+                }}, 100);
             }};
             
             document.getElementById('tts-detener-btn').onclick = function() {{
