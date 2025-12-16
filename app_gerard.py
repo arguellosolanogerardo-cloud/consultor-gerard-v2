@@ -2321,7 +2321,9 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     </div>
     <script>
         (function() {{
-            const synth = window.speechSynthesis;
+            // IMPORTANTE: Usar el speechSynthesis del documento padre (window.top)
+            // para evitar restricciones del iframe de Streamlit
+            const synth = window.top.speechSynthesis;
             const texto = `{texto_para_leer}`;
             let utterance = null;
             
