@@ -3340,21 +3340,26 @@ if user_name:
         voice_search_btn = st.button("🎤 BUSCAR", key="voice_search_btn", type="primary", 
                                       help="Ejecutar búsqueda con el texto de voz", use_container_width=True)
         if voice_search_btn:
-            print(f"[DEBUG VOZ] 🎤 Botón BUSCAR clickeado! voice_input='{voice_input[:30] if voice_input else 'VACIO'}'")
-            if voice_input:
-                # Guardar el texto de voz como la consulta a ejecutar
-                st.session_state.voice_transcript = voice_input
-                st.session_state.last_executed_query = voice_input.upper()
+            # Intentar obtener el texto de voz de múltiples fuentes
+            texto_voz = voice_input.strip() if voice_input else ""
+            
+            # También revisar si hay texto guardado en session_state (como respaldo)
+            if not texto_voz:
+                texto_voz = st.session_state.get('voice_transcript', '').strip()
+            
+            # Mostrar debug visual
+            if texto_voz:
+                st.session_state.voice_transcript = texto_voz
+                st.session_state.last_executed_query = texto_voz.upper()
                 st.session_state.question_executed = True
                 st.session_state.trigger_search = True
-                print(f"[DEBUG VOZ] ✅ trigger_search=True, last_executed_query='{voice_input.upper()[:30]}'")
                 st.rerun()
             else:
-                st.warning("⚠️ Escribe o dicta una pregunta primero")
+                st.error("❌ El campo de voz está vacío. Escribe tu pregunta en el campo de arriba o dicta usando el micrófono.")
     
     # Sincronizar voice_transcript cuando el usuario edita el campo manualmente
-    if voice_input and voice_input != st.session_state.get('voice_transcript', ''):
-        st.session_state.voice_transcript = voice_input
+    if voice_input and voice_input.strip():
+        st.session_state.voice_transcript = voice_input.strip()
     
     # Checkbox de búsqueda exhaustiva
     col_checkbox, col_info = st.columns([1, 3])
@@ -3426,11 +3431,7 @@ if user_name:
     # podría estar vacío (especialmente cuando se usa el micrófono con JavaScript)
     query_to_process = st.session_state.get('last_executed_query', '')
     
-    # DEBUG: Log de valores para diagnosticar problema de voz
-    print(f"[DEBUG VOZ] trigger_search={st.session_state.get('trigger_search')}, query_to_process='{query_to_process[:50] if query_to_process else 'VACIO'}', query='{query[:30] if query else 'VACIO'}'")
-    
     if st.session_state.trigger_search and query_to_process:
-        print(f"[DEBUG VOZ] ✅ ENTRANDO A PROCESAR CONSULTA: {query_to_process[:50]}")
         # Desactivar trigger para evitar bucles, pero mantenemos question_executed
         st.session_state.trigger_search = False
         
