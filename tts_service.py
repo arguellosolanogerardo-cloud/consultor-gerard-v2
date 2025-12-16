@@ -5,14 +5,57 @@ Genera audio MP3 del lado del servidor para evitar restricciones del iframe de S
 import os
 import io
 import base64
+import json
 
 # Intentar importar la biblioteca de Google Cloud TTS
 TTS_AVAILABLE = False
 try:
     from google.cloud import texttospeech
+    from google.oauth2 import service_account
     TTS_AVAILABLE = True
 except ImportError:
     print("[WARNING] google-cloud-texttospeech no disponible. Instala con: pip install google-cloud-texttospeech")
+
+
+def _get_tts_client():
+    """
+    Crea un cliente de TTS usando credenciales de múltiples fuentes:
+    1. Streamlit secrets (para Streamlit Cloud)
+    2. Variable de entorno GOOGLE_APPLICATION_CREDENTIALS
+    3. Archivo JSON de credenciales local
+    """
+    try:
+        import streamlit as st
+        
+        # Opción 1: Streamlit secrets
+        if hasattr(st, 'secrets') and 'gcp_service_account' in st.secrets:
+            print("[TTS] Usando credenciales de Streamlit secrets")
+            credentials_info = dict(st.secrets["gcp_service_account"])
+            credentials = service_account.Credentials.from_service_account_info(credentials_info)
+            return texttospeech.TextToSpeechClient(credentials=credentials)
+        
+        # Opción 2: Variable de entorno o archivo local
+        # Buscar archivo de credenciales
+        possible_paths = [
+            os.getenv('GOOGLE_APPLICATION_CREDENTIALS', ''),
+            'credencial json/midyear-node-436821-t3-525a146e96a0.json',
+            'google_credentials.json',
+            'credentials.json'
+        ]
+        
+        for path in possible_paths:
+            if path and os.path.exists(path):
+                print(f"[TTS] Usando credenciales de archivo: {path}")
+                credentials = service_account.Credentials.from_service_account_file(path)
+                return texttospeech.TextToSpeechClient(credentials=credentials)
+        
+        # Opción 3: Credenciales por defecto de Google Cloud
+        print("[TTS] Usando credenciales por defecto de Google Cloud")
+        return texttospeech.TextToSpeechClient()
+        
+    except Exception as e:
+        print(f"[TTS] Error al crear cliente: {type(e).__name__}: {e}")
+        raise
 
 
 def synthesize_text_to_mp3(text: str, voice_name: str = "es-ES-Standard-A") -> bytes | None:
@@ -45,8 +88,8 @@ def synthesize_text_to_mp3(text: str, voice_name: str = "es-ES-Standard-A") -> b
         text = text[:4900] + "... y más contenido."
     
     try:
-        # Crear cliente (usa GOOGLE_APPLICATION_CREDENTIALS automáticamente)
-        client = texttospeech.TextToSpeechClient()
+        # Crear cliente con credenciales apropiadas
+        client = _get_tts_client()
         
         # Configurar la entrada de texto
         synthesis_input = texttospeech.SynthesisInput(text=text)
