@@ -30,6 +30,14 @@ except ImportError:
     JS_EVAL_AVAILABLE = False
     print("[WARNING] streamlit-js-eval no disponible - el micrófono funcionará en modo manual")
 
+# Importar servicio de Text-to-Speech (Google Cloud TTS)
+try:
+    from tts_service import synthesize_text_to_mp3, create_audio_html, TTS_AVAILABLE
+    print(f"[INFO] Servicio TTS {'disponible' if TTS_AVAILABLE else 'NO disponible'}")
+except ImportError:
+    TTS_AVAILABLE = False
+    print("[WARNING] tts_service no disponible - TTS deshabilitado")
+
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
     import auth_google  # [NEW] Módulo de autenticación
@@ -2270,7 +2278,7 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     # IMPORTANTE: Usar st.html() para renderizar HTML sin escapar (preserva todos los estilos)
     st.html(f'<div class="response-container" id="respuesta-gerard">{colored_response}</div>')
     
-    # BOTÓN LEER EN VOZ ALTA (TTS)
+    # BOTÓN LEER EN VOZ ALTA (TTS) - USANDO GOOGLE CLOUD TTS (SERVIDOR)
     # Limpiar el texto para lectura (remover HTML, timestamps, etc.)
     import re as regex
     texto_para_leer = _strip_html_tags(response)
@@ -2278,123 +2286,34 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     texto_para_leer = regex.sub(r'[\[\(]\d{1,2}:\d{2}(:\d{2})?[\]\)]', '', texto_para_leer)
     # Remover emojis para lectura más limpia
     texto_para_leer = regex.sub(r'[🔴🟡🟢📺📻💬❌✅⚠️📄🎬📝🔍🎯👉🔹🔸⭐💡🧬🔬🚀📊📈🌟✨💎🙏💕❗‼️👀💥]', '', texto_para_leer)
-    # Escapar comillas para JavaScript
-    texto_para_leer = texto_para_leer.replace('\\', '\\\\').replace("'", "\\'").replace('"', '\\"').replace('\n', ' ').replace('\r', '')
-    # Limitar longitud para evitar problemas
-    if len(texto_para_leer) > 5000:
-        texto_para_leer = texto_para_leer[:5000] + '... y más.'
+    # Limitar longitud (Google TTS tiene límite de 5000 caracteres)
+    if len(texto_para_leer) > 4900:
+        texto_para_leer = texto_para_leer[:4900] + '... y más contenido.'
     
-    # Botones HTML puros para TTS (NO usan st.button para evitar rerun)
-    tts_html = f'''
-    <div style="display: flex; gap: 10px; margin: 15px 0; flex-wrap: wrap;">
-        <button id="tts-leer-btn" style="
-            background: linear-gradient(45deg, #00d4ff, #0099cc);
-            color: #000;
-            border: none;
-            padding: 12px 25px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
-        ">
-            🔊 Leer Respuesta
-        </button>
-        <button id="tts-detener-btn" style="
-            background: linear-gradient(45deg, #ff4b4b, #cc0000);
-            color: #fff;
-            border: none;
-            padding: 12px 20px;
-            border-radius: 10px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-        ">
-            ⏹️ Detener
-        </button>
-        <span id="tts-status" style="
-            color: #00ff41;
-            font-size: 14px;
-            align-self: center;
-            margin-left: 10px;
-        "></span>
-    </div>
-    <script>
-        (function() {{
-            // IMPORTANTE: Usar el speechSynthesis del documento padre (window.top)
-            // para evitar restricciones del iframe de Streamlit
-            const synth = window.top.speechSynthesis;
-            const texto = `{texto_para_leer}`;
-            let utterance = null;
-            
-            // Esperar a que las voces estén disponibles
-            function getSpanishVoice() {{
-                const voices = synth.getVoices();
-                let googleEs = voices.find(v => v.name.toLowerCase().includes('google') && v.lang.includes('es'));
-                if (googleEs) return googleEs;
-                let anyEs = voices.find(v => v.lang.includes('es'));
-                return anyEs || voices[0];
-            }}
-            
-            // Precarga de voces
-            if (synth.onvoiceschanged !== undefined) {{
-                synth.onvoiceschanged = getSpanishVoice;
-            }}
-            
-            document.getElementById('tts-leer-btn').onclick = function() {{
-                // DIAGNÓSTICO: Mostrar info del sistema
-                const voices = synth.getVoices();
-                const vozSeleccionada = getSpanishVoice();
-                const infoVoz = vozSeleccionada ? vozSeleccionada.name + ' (' + vozSeleccionada.lang + ')' : 'NO HAY VOCES DISPONIBLES';
-                const infoTexto = texto.length + ' caracteres';
-                
-                document.getElementById('tts-status').innerHTML = '🔍 Diagnóstico:<br>Voces: ' + voices.length + '<br>Voz: ' + infoVoz + '<br>Texto: ' + infoTexto;
-                
-                if (voices.length === 0) {{
-                    document.getElementById('tts-status').innerHTML = '❌ ERROR: No hay voces TTS disponibles. Tu navegador no soporta Text-to-Speech.';
-                    return;
-                }}
-                
-                if (synth.speaking) {{
-                    synth.cancel();
-                }}
-                
-                setTimeout(() => {{
-                    document.getElementById('tts-status').innerHTML = '🔊 Iniciando lectura...';
-                    
-                    utterance = new SpeechSynthesisUtterance(texto);
-                    utterance.voice = vozSeleccionada;
-                    utterance.lang = 'es-ES';
-                    utterance.rate = 1.0;
-                    utterance.volume = 1.0;
-                    
-                    utterance.onstart = function() {{
-                        document.getElementById('tts-status').innerHTML = '🔊 LEYENDO... (voz: ' + infoVoz + ')';
-                    }};
-                    
-                    utterance.onend = function() {{
-                        document.getElementById('tts-status').textContent = '✅ Lectura completada';
-                        setTimeout(() => {{ document.getElementById('tts-status').textContent = ''; }}, 3000);
-                    }};
-                    
-                    utterance.onerror = function(e) {{
-                        document.getElementById('tts-status').innerHTML = '❌ Error TTS: ' + e.error + '<br>Esto es un error del navegador, no del código.';
-                        console.error('[TTS] Error:', e);
-                    }};
-                    
-                    synth.speak(utterance);
-                }}, 100);
-            }};
-            
-            document.getElementById('tts-detener-btn').onclick = function() {{
-                synth.cancel();
-                document.getElementById('tts-status').textContent = '⏹️ Detenido';
-                setTimeout(() => {{ document.getElementById('tts-status').textContent = ''; }}, 2000);
-            }};
-        }})();
-    </script>
-    '''
-    st.components.v1.html(tts_html, height=70)
+    # Mostrar botón TTS solo si el servicio está disponible
+    if TTS_AVAILABLE:
+        # Usar session_state para almacenar audio generado y evitar regenerar en cada rerun
+        tts_key = f"tts_audio_{hash(texto_para_leer[:100])}"
+        
+        tts_col1, tts_col2 = st.columns([1, 3])
+        with tts_col1:
+            generar_audio = st.button("🔊 Generar Audio", key="tts_generar_btn", type="primary", use_container_width=True)
+        
+        # Si el usuario hace clic en generar, crear el audio
+        if generar_audio:
+            with st.spinner("🎤 Generando audio con Google Cloud TTS..."):
+                audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-ES-Standard-A")
+                if audio_bytes:
+                    st.session_state[tts_key] = audio_bytes
+                    st.success("✅ Audio generado correctamente")
+                else:
+                    st.error("❌ Error al generar audio. Verifica que la API Text-to-Speech esté habilitada en Google Cloud.")
+        
+        # Mostrar reproductor si hay audio generado
+        if tts_key in st.session_state and st.session_state[tts_key]:
+            st.audio(st.session_state[tts_key], format="audio/mp3")
+    else:
+        st.info("ℹ️ TTS no disponible. Instala google-cloud-texttospeech para habilitar lectura en voz alta.")
     
     # [NUEVO] Panel de Scores de Relevancia (Forensic Score Board)
     with st.expander(f"🔍 Analizar Scores de Relevancia ({len(docs)} fragmentos)", expanded=False):
