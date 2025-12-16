@@ -323,7 +323,7 @@ def show_ip_simple_copy():
                             
                             // Agregar texto de confirmación
                             if (!this.textContent.includes('CONFIRMADO')) {
-                                this.innerHTML = '✅ ¡CONFIRMADO!';
+                                this.innerHTML = '✅ ¡ENVIAR CONFIRMADO!';
                             }
                         });
                         
@@ -333,7 +333,7 @@ def show_ip_simple_copy():
                             this.style.color = '#000';
                             this.style.boxShadow = '0 0 30px #00FF41';
                             this.style.border = '2px solid #00FF41';
-                            this.innerHTML = '✅ ¡CONFIRMADO!';
+                            this.innerHTML = '✅ ¡ENVIAR CONFIRMADO!';
                         });
                     }
                 });
