@@ -3384,9 +3384,11 @@ if user_name:
     
     # RESET AUTOMÁTICO: Si la consulta cambia, volver a estado normal
     # Comparamos la consulta actual con la última ejecutada
-    if query != st.session_state.last_executed_query:
+    # IMPORTANTE: NO resetear si trigger_search está activo Y last_executed_query tiene valor
+    # (esto significa que es una búsqueda por voz en progreso)
+    if query != st.session_state.last_executed_query and not (st.session_state.get('trigger_search') and st.session_state.get('last_executed_query')):
         st.session_state.question_executed = False
-        st.session_state.trigger_search = False # Cancelar búsqueda pendiente si cambia query
+        st.session_state.trigger_search = False  # Cancelar búsqueda pendiente si cambia query
     
     # Determinar texto y marcador del botón
     button_label = "🚀 EJECUTAR PREGUNTA"
