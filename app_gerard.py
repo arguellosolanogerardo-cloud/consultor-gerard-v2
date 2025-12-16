@@ -3192,6 +3192,18 @@ if user_name:
                     window.top.voiceTranscript = newValue;
                     console.log('[VOZ] Texto guardado en window.top.voiceTranscript:', newValue);
                     
+                    // 4. NUEVO: Copiar automáticamente al portapapeles
+                    if (navigator.clipboard && newValue) {
+                        navigator.clipboard.writeText(newValue).then(function() {
+                            console.log('[VOZ] ✅ Texto copiado al portapapeles');
+                            document.getElementById('mic-status').innerHTML = 
+                                '📋 <span style="color: #00ff41;">¡COPIADO!</span> Pega (Ctrl+V) en el campo de consulta ➡️ ' + 
+                                '<br><em style="font-size: 0.9em;">"' + newValue.substring(0, 60) + (newValue.length > 60 ? '...' : '') + '"</em>';
+                        }).catch(function(err) {
+                            console.error('[VOZ] Error al copiar:', err);
+                        });
+                    }
+                    
                 } catch (e) {
                     console.error('Error insertando texto:', e);
                 }
