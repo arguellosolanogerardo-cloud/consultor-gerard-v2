@@ -22,6 +22,14 @@ from google_sheets_logger import create_sheets_logger
 from real_ip_detector import show_ip_simple_copy
 from document_title_filter import hybrid_search_with_title, detect_title_in_query
 
+# Importar streamlit_js_eval para comunicación JavaScript <-> Python (micrófono)
+try:
+    from streamlit_js_eval import streamlit_js_eval
+    JS_EVAL_AVAILABLE = True
+except ImportError:
+    JS_EVAL_AVAILABLE = False
+    print("[WARNING] streamlit-js-eval no disponible - el micrófono funcionará en modo manual")
+
 # Intentar importar auth_google (opcional - solo para login con Google)
 try:
     import auth_google  # [NEW] Módulo de autenticación
@@ -3270,6 +3278,10 @@ if user_name:
                         }
                     }
                     
+                    // 3. CLAVE: Guardar en variable global para que streamlit_js_eval pueda leerlo
+                    window.top.voiceTranscript = newValue;
+                    console.log('[VOZ] Texto guardado en window.top.voiceTranscript:', newValue);
+                    
                 } catch (e) {
                     console.error('Error insertando texto:', e);
                 }
@@ -3347,7 +3359,15 @@ if user_name:
             if not texto_voz:
                 texto_voz = st.session_state.get('voice_transcript', '').strip()
             
-            # Mostrar debug visual
+            # NUEVA FUENTE: Usar streamlit_js_eval para leer la variable global
+            if not texto_voz and JS_EVAL_AVAILABLE:
+                try:
+                    js_voice = streamlit_js_eval(js_expressions="window.voiceTranscript || ''", key="get_voice_transcript")
+                    if js_voice and isinstance(js_voice, str):
+                        texto_voz = js_voice.strip()
+                except Exception as e:
+                    pass  # Silenciar errores, usar otros métodos
+            
             if texto_voz:
                 st.session_state.voice_transcript = texto_voz
                 st.session_state.last_executed_query = texto_voz.upper()
@@ -3360,6 +3380,17 @@ if user_name:
     # Sincronizar voice_transcript cuando el usuario edita el campo manualmente
     if voice_input and voice_input.strip():
         st.session_state.voice_transcript = voice_input.strip()
+    
+    # NUEVO: Intentar leer el texto de voz desde JavaScript automáticamente
+    if JS_EVAL_AVAILABLE:
+        try:
+            js_voice_auto = streamlit_js_eval(js_expressions="window.voiceTranscript || ''", key="auto_voice_sync")
+            if js_voice_auto and isinstance(js_voice_auto, str) and js_voice_auto.strip():
+                # Solo actualizar si es diferente (evitar loops)
+                if js_voice_auto.strip() != st.session_state.get('voice_transcript', ''):
+                    st.session_state.voice_transcript = js_voice_auto.strip()
+        except Exception:
+            pass  # Silenciar errores
     
     # Checkbox de búsqueda exhaustiva
     col_checkbox, col_info = st.columns([1, 3])
