@@ -2644,6 +2644,14 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 const modal = parentDoc.getElementById('pdf-modal');
                 if (modal) {
                     modal.style.display = 'block';
+                    
+                    // SEGURIDAD: Cerrar automáticamente después de 8 segundos
+                    setTimeout(function() {
+                        if (parentDoc.closePdfModal) {
+                            console.log('[PDF Modal] Cerrando automáticamente por timeout');
+                            parentDoc.closePdfModal();
+                        }
+                    }, 8000);
                 }
             }
             
