@@ -2302,12 +2302,17 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
         # Si el usuario hace clic en generar, crear el audio
         if generar_audio:
             with st.spinner("🎤 Generando audio con Google Cloud TTS..."):
-                audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-ES-Standard-A")
-                if audio_bytes:
-                    st.session_state[tts_key] = audio_bytes
-                    st.success("✅ Audio generado correctamente")
-                else:
-                    st.error("❌ Error al generar audio. Verifica que la API Text-to-Speech esté habilitada en Google Cloud.")
+                try:
+                    audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-ES-Standard-A")
+                    if audio_bytes:
+                        st.session_state[tts_key] = audio_bytes
+                        st.success("✅ Audio generado correctamente")
+                    else:
+                        st.error("❌ Error al generar audio. Verifica que la API Text-to-Speech esté habilitada en Google Cloud.")
+                        st.info("💡 Revisa los logs de Streamlit Cloud para ver el error específico.")
+                except Exception as e:
+                    st.error(f"❌ Error TTS: {type(e).__name__}: {str(e)}")
+                    st.info("💡 Verifica:\n1. API Text-to-Speech habilitada\n2. Credenciales correctas en Secrets\n3. Proyecto correcto (midyear-node-436821-t3)")
         
         # Mostrar reproductor si hay audio generado
         if tts_key in st.session_state and st.session_state[tts_key]:
