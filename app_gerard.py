@@ -3258,61 +3258,8 @@ if user_name:
     # Renderizar componente de voz (height=220 para acomodar texto en móviles)
     st.components.v1.html(voice_recognition_html, height=220)
     
-    # Campo para recibir la transcripción de voz (el JavaScript lo actualizará)
-    # El usuario puede ver y editar el texto antes de ejecutar
-    voice_col1, voice_col2 = st.columns([3, 1])
-    with voice_col1:
-        voice_input = st.text_input(
-            "🎤 Texto de voz:",
-            value=st.session_state.get('voice_transcript', ''),
-            key="voice_input_field",
-            placeholder="El texto del micrófono aparecerá aquí...",
-            label_visibility="collapsed"
-        )
-    with voice_col2:
-        # Botón que EJECUTA la búsqueda directamente con el texto de voz
-        voice_search_btn = st.button("🎤 BUSCAR", key="voice_search_btn", type="primary", 
-                                      help="Ejecutar búsqueda con el texto de voz", use_container_width=True)
-        if voice_search_btn:
-            # Intentar obtener el texto de voz de múltiples fuentes
-            texto_voz = voice_input.strip() if voice_input else ""
-            
-            # También revisar si hay texto guardado en session_state (como respaldo)
-            if not texto_voz:
-                texto_voz = st.session_state.get('voice_transcript', '').strip()
-            
-            # NUEVA FUENTE: Usar streamlit_js_eval para leer la variable global
-            if not texto_voz and JS_EVAL_AVAILABLE:
-                try:
-                    js_voice = streamlit_js_eval(js_expressions="window.voiceTranscript || ''", key="get_voice_transcript")
-                    if js_voice and isinstance(js_voice, str):
-                        texto_voz = js_voice.strip()
-                except Exception as e:
-                    pass  # Silenciar errores, usar otros métodos
-            
-            if texto_voz:
-                st.session_state.voice_transcript = texto_voz
-                st.session_state.last_executed_query = texto_voz.upper()
-                st.session_state.question_executed = True
-                st.session_state.trigger_search = True
-                st.rerun()
-            else:
-                st.error("❌ El campo de voz está vacío. Escribe tu pregunta en el campo de arriba o dicta usando el micrófono.")
-    
-    # Sincronizar voice_transcript cuando el usuario edita el campo manualmente
-    if voice_input and voice_input.strip():
-        st.session_state.voice_transcript = voice_input.strip()
-    
-    # NUEVO: Intentar leer el texto de voz desde JavaScript automáticamente
-    if JS_EVAL_AVAILABLE:
-        try:
-            js_voice_auto = streamlit_js_eval(js_expressions="window.voiceTranscript || ''", key="auto_voice_sync")
-            if js_voice_auto and isinstance(js_voice_auto, str) and js_voice_auto.strip():
-                # Solo actualizar si es diferente (evitar loops)
-                if js_voice_auto.strip() != st.session_state.get('voice_transcript', ''):
-                    st.session_state.voice_transcript = js_voice_auto.strip()
-        except Exception:
-            pass  # Silenciar errores
+    # Mensaje informativo sobre cómo usar el texto copiado
+    # (El micrófono ya copia automáticamente al portapapeles)
     
     # Checkbox de búsqueda exhaustiva
     col_checkbox, col_info = st.columns([1, 3])
