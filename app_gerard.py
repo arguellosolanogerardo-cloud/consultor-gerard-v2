@@ -2802,7 +2802,10 @@ if user_name:
                             }});
                             
                             questionAnimation.addEventListener('complete', function() {{
-                                targetDoc.getElementById('question-overlay').style.display = 'none';
+                                const overlay = targetDoc.getElementById('question-overlay');
+                                if (overlay) {{
+                                    overlay.remove();  // Eliminar completamente del DOM
+                                }}
                             }});
                             
                             // Mostrar y reproducir automáticamente
