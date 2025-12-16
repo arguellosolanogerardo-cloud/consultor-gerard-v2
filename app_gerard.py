@@ -2270,6 +2270,115 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     # IMPORTANTE: Usar st.html() para renderizar HTML sin escapar (preserva todos los estilos)
     st.html(f'<div class="response-container" id="respuesta-gerard">{colored_response}</div>')
     
+    # BOTÓN LEER EN VOZ ALTA (TTS)
+    # Limpiar el texto para lectura (remover HTML, timestamps, etc.)
+    import re as regex
+    texto_para_leer = _strip_html_tags(response)
+    # Remover timestamps como [00:00:00] o (00:00:00)
+    texto_para_leer = regex.sub(r'[\[\(]\d{1,2}:\d{2}(:\d{2})?[\]\)]', '', texto_para_leer)
+    # Remover emojis para lectura más limpia
+    texto_para_leer = regex.sub(r'[🔴🟡🟢📺📻💬❌✅⚠️📄🎬📝🔍🎯👉🔹🔸⭐💡🧬🔬🚀📊📈🌟✨💎🙏💕❗‼️👀💥]', '', texto_para_leer)
+    # Escapar comillas para JavaScript
+    texto_para_leer = texto_para_leer.replace('\\', '\\\\').replace("'", "\\'").replace('"', '\\"').replace('\n', ' ').replace('\r', '')
+    # Limitar longitud para evitar problemas
+    if len(texto_para_leer) > 5000:
+        texto_para_leer = texto_para_leer[:5000] + '... y más.'
+    
+    tts_html = f'''
+    <div style="display: flex; gap: 10px; margin: 15px 0;">
+        <button id="tts-btn" onclick="toggleTTS()" style="
+            background: linear-gradient(45deg, #00d4ff, #0099cc);
+            color: #000;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
+            transition: all 0.3s;
+        ">
+            🔊 Leer Respuesta
+        </button>
+        <button id="tts-stop-btn" onclick="stopTTS()" style="
+            background: linear-gradient(45deg, #ff4b4b, #cc0000);
+            color: #fff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            display: none;
+        ">
+            ⏹️ Detener
+        </button>
+    </div>
+    <script>
+        let synth = window.speechSynthesis;
+        let utterance = null;
+        let isReading = false;
+        
+        function getSpanishVoice() {{
+            const voices = synth.getVoices();
+            // Prioridad: Google español > cualquier español
+            let googleEs = voices.find(v => v.name.toLowerCase().includes('google') && v.lang.includes('es'));
+            if (googleEs) return googleEs;
+            let anyEs = voices.find(v => v.lang.includes('es'));
+            return anyEs || voices[0];
+        }}
+        
+        function toggleTTS() {{
+            if (isReading) {{
+                synth.pause();
+                document.getElementById('tts-btn').innerHTML = '▶️ Continuar';
+                isReading = false;
+            }} else if (synth.paused) {{
+                synth.resume();
+                document.getElementById('tts-btn').innerHTML = '⏸️ Pausar';
+                isReading = true;
+            }} else {{
+                startTTS();
+            }}
+        }}
+        
+        function startTTS() {{
+            const texto = '{texto_para_leer}';
+            utterance = new SpeechSynthesisUtterance(texto);
+            utterance.voice = getSpanishVoice();
+            utterance.lang = 'es-ES';
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            
+            utterance.onstart = function() {{
+                isReading = true;
+                document.getElementById('tts-btn').innerHTML = '⏸️ Pausar';
+                document.getElementById('tts-stop-btn').style.display = 'inline-block';
+            }};
+            
+            utterance.onend = function() {{
+                isReading = false;
+                document.getElementById('tts-btn').innerHTML = '🔊 Leer Respuesta';
+                document.getElementById('tts-stop-btn').style.display = 'none';
+            }};
+            
+            synth.speak(utterance);
+        }}
+        
+        function stopTTS() {{
+            synth.cancel();
+            isReading = false;
+            document.getElementById('tts-btn').innerHTML = '🔊 Leer Respuesta';
+            document.getElementById('tts-stop-btn').style.display = 'none';
+        }}
+        
+        // Cargar voces cuando estén disponibles
+        if (synth.onvoiceschanged !== undefined) {{
+            synth.onvoiceschanged = function() {{ getSpanishVoice(); }};
+        }}
+    </script>
+    '''
+    st.components.v1.html(tts_html, height=70)    
     # [NUEVO] Panel de Scores de Relevancia (Forensic Score Board)
     with st.expander(f"🔍 Analizar Scores de Relevancia ({len(docs)} fragmentos)", expanded=False):
         st.markdown("*Los scores indican la relevancia del fragmento. Mayor score = más relacionado con tu pregunta (0.0 - 1.0)*")
