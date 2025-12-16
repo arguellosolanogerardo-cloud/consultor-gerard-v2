@@ -3324,26 +3324,31 @@ if user_name:
     # Renderizar componente de voz (height=220 para acomodar texto en móviles)
     st.components.v1.html(voice_recognition_html, height=220)
     
-    # Campo oculto para recibir la transcripción de voz (el JavaScript lo actualizará)
-    # Usamos un text_input con label colapsado que el micrófono actualizará
-    voice_col1, voice_col2 = st.columns([4, 1])
+    # Campo para recibir la transcripción de voz (el JavaScript lo actualizará)
+    # El usuario puede ver y editar el texto antes de ejecutar
+    voice_col1, voice_col2 = st.columns([3, 1])
     with voice_col1:
         voice_input = st.text_input(
-            "🎤 Texto de voz (editable):",
+            "🎤 Texto de voz:",
             value=st.session_state.get('voice_transcript', ''),
             key="voice_input_field",
             placeholder="El texto del micrófono aparecerá aquí...",
             label_visibility="collapsed"
         )
     with voice_col2:
-        if st.button("📋", key="copy_voice_btn", help="Copiar texto de voz al campo de consulta"):
-            if voice_input:
-                st.session_state.last_query = voice_input
-                st.session_state.voice_transcript = voice_input
-                st.rerun()
+        # Botón que EJECUTA la búsqueda directamente con el texto de voz
+        voice_search_btn = st.button("🎤 BUSCAR", key="voice_search_btn", type="primary", 
+                                      help="Ejecutar búsqueda con el texto de voz", use_container_width=True)
+        if voice_search_btn and voice_input:
+            # Guardar el texto de voz como la consulta a ejecutar
+            st.session_state.voice_transcript = voice_input
+            st.session_state.last_executed_query = voice_input.upper()
+            st.session_state.question_executed = True
+            st.session_state.trigger_search = True
+            st.rerun()
     
-    # Actualizar session_state con el valor del campo de voz
-    if voice_input:
+    # Sincronizar voice_transcript cuando el usuario edita el campo manualmente
+    if voice_input and voice_input != st.session_state.get('voice_transcript', ''):
         st.session_state.voice_transcript = voice_input
     
     # Checkbox de búsqueda exhaustiva
