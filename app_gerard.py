@@ -2286,6 +2286,8 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     texto_para_leer = regex.sub(r'[\[\(]\d{1,2}:\d{2}(:\d{2})?[\]\)]', '', texto_para_leer)
     # Remover emojis para lectura más limpia
     texto_para_leer = regex.sub(r'[🔴🟡🟢📺📻💬❌✅⚠️📄🎬📝🔍🎯👉🔹🔸⭐💡🧬🔬🚀📊📈🌟✨💎🙏💕❗‼️👀💥]', '', texto_para_leer)
+    # Remover asteriscos (markdown de negrita e itálica)
+    texto_para_leer = texto_para_leer.replace('*', '')
     # Limitar longitud (Google TTS tiene límite de 5000 caracteres)
     if len(texto_para_leer) > 4900:
         texto_para_leer = texto_para_leer[:4900] + '... y más contenido.'
