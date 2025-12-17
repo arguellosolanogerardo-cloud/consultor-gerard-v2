@@ -2628,9 +2628,11 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                         modal.style.opacity = '0';
                         setTimeout(function() {
                             modal.remove();
-                            // CRÍTICO: Restaurar scroll del body
-                            parentDoc.body.style.overflow = '';
-                            parentDoc.documentElement.style.overflow = '';
+                            // CRÍTICO: Restaurar scroll del body inmediatamente
+                            parentDoc.body.style.overflow = 'auto';
+                            parentDoc.body.style.position = 'relative';
+                            parentDoc.documentElement.style.overflow = 'auto';
+                            parentDoc.body.style.pointerEvents = 'auto';
                             // Limpiar estilos agregados
                             const styles = parentDoc.querySelectorAll('style');
                             styles.forEach(function(style) {
@@ -2708,18 +2710,23 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 if (modal) {
                     modal.style.display = 'block';
                     
-                    // SEGURIDAD: Cerrar automáticamente después de 8 segundos
+                    // CRÍTICO: Auto-cerrar después de 5 segundos con restauración forzada
                     setTimeout(function() {
+                        console.log('[PDF Modal] Auto-cerrando por timeout de 5 segundos');
                         if (parentDoc.closePdfModal) {
-                            console.log('[PDF Modal] Cerrando automáticamente por timeout');
                             parentDoc.closePdfModal();
                         }
-                        // CRÍTICO: Forzar restauración de scroll después del timeout
-                        parentDoc.body.style.overflow = '';
-                        parentDoc.body.style.position = '';
-                        parentDoc.documentElement.style.overflow = '';
-                        console.log('[PDF Modal] Scroll forzado a restaurarse');
-                    }, 8000);
+                        // DOBLE SEGURIDAD: Forzar restauración incluso si closePdfModal falla
+                        parentDoc.body.style.overflow = 'auto';
+                        parentDoc.body.style.position = 'relative';
+                        parentDoc.documentElement.style.overflow = 'auto';
+                        parentDoc.body.style.pointerEvents = 'auto';
+                        const modalElement = parentDoc.getElementById('pdf-modal');
+                        if (modalElement) {
+                            modalElement.remove();
+                        }
+                        console.log('[PDF Modal] Scroll y página desbloqueados por timeout');
+                    }, 5000);
                 }
             }
             
