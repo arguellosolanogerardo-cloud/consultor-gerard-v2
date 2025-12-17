@@ -2779,10 +2779,10 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                             sessionStorage.setItem('pdfDownloaded_NUM_CONSULTAS', 'true');
                         }
                         
-                        // Mostrar modal después de cambiar el botón
-                        setTimeout(function() {
-                            showModal();
-                        }, 300);
+                        // MODAL DESHABILITADO - Causaba bloqueos de página
+                        // setTimeout(function() {
+                        //     showModal();
+                        // }, 300);
                     }, 500);
                     
                 } catch (e) {
