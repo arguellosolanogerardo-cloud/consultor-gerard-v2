@@ -2304,6 +2304,9 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
     # Remover asteriscos (markdown de negrita e itálica)
     texto_para_leer = texto_para_leer.replace('*', '')
     
+    # Remover almohadillas (markdown de títulos)
+    texto_para_leer = texto_para_leer.replace('#', '')
+    
     # Limpiar espacios múltiples y líneas vacías
     texto_para_leer = regex.sub(r'\n\s*\n+', '\n\n', texto_para_leer)
     texto_para_leer = regex.sub(r'  +', ' ', texto_para_leer)
