@@ -2714,6 +2714,11 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                             console.log('[PDF Modal] Cerrando automáticamente por timeout');
                             parentDoc.closePdfModal();
                         }
+                        // CRÍTICO: Forzar restauración de scroll después del timeout
+                        parentDoc.body.style.overflow = '';
+                        parentDoc.body.style.position = '';
+                        parentDoc.documentElement.style.overflow = '';
+                        console.log('[PDF Modal] Scroll forzado a restaurarse');
                     }, 8000);
                 }
             }
