@@ -2625,22 +2625,19 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                     console.log('[PDF Modal] Cerrando modal...');
                     const modal = parentDoc.getElementById('pdf-modal');
                     if (modal) {
+                        // IMPORTANTE: Solo animar y eliminar el modal, no tocar los estilos
                         modal.style.opacity = '0';
                         setTimeout(function() {
-                            modal.remove();
-                            // CRÍTICO: Restaurar scroll del body inmediatamente
-                            parentDoc.body.style.overflow = 'auto';
-                            parentDoc.body.style.position = 'relative';
-                            parentDoc.documentElement.style.overflow = 'auto';
-                            parentDoc.body.style.pointerEvents = 'auto';
-                            // Limpiar estilos agregados
-                            const styles = parentDoc.querySelectorAll('style');
-                            styles.forEach(function(style) {
-                                if (style.textContent.includes('#pdf-modal')) {
-                                    style.remove();
-                                }
-                            });
-                            console.log('[PDF Modal] Modal eliminado y scroll restaurado exitosamente');
+                            // SOLO eliminar el modal, nada más
+                            if (modal.parentNode) {
+                                modal.parentNode.removeChild(modal);
+                            }
+                            // Restaurar scroll del body
+                            parentDoc.body.style.overflow = '';
+                            parentDoc.body.style.position = '';
+                            parentDoc.documentElement.style.overflow = '';
+                            parentDoc.body.style.pointerEvents = '';
+                            console.log('[PDF Modal] Modal eliminado y scroll restaurado');
                         }, 200);
                     }
                 };
@@ -2710,22 +2707,23 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 if (modal) {
                     modal.style.display = 'block';
                     
-                    // CRÍTICO: Auto-cerrar después de 5 segundos con restauración forzada
+                    // Auto-cerrar después de 5 segundos
                     setTimeout(function() {
                         console.log('[PDF Modal] Auto-cerrando por timeout de 5 segundos');
                         if (parentDoc.closePdfModal) {
                             parentDoc.closePdfModal();
+                        } else {
+                            // Fallback: solo eliminar el modal y restaurar scroll
+                            const modalElement = parentDoc.getElementById('pdf-modal');
+                            if (modalElement && modalElement.parentNode) {
+                                modalElement.parentNode.removeChild(modalElement);
+                            }
+                            parentDoc.body.style.overflow = '';
+                            parentDoc.body.style.position = '';
+                            parentDoc.documentElement.style.overflow = '';
+                            parentDoc.body.style.pointerEvents = '';
                         }
-                        // DOBLE SEGURIDAD: Forzar restauración incluso si closePdfModal falla
-                        parentDoc.body.style.overflow = 'auto';
-                        parentDoc.body.style.position = 'relative';
-                        parentDoc.documentElement.style.overflow = 'auto';
-                        parentDoc.body.style.pointerEvents = 'auto';
-                        const modalElement = parentDoc.getElementById('pdf-modal');
-                        if (modalElement) {
-                            modalElement.remove();
-                        }
-                        console.log('[PDF Modal] Scroll y página desbloqueados por timeout');
+                        console.log('[PDF Modal] Modal cerrado por timeout');
                     }, 5000);
                 }
             }
