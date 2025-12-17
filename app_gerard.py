@@ -2625,7 +2625,17 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                         modal.style.opacity = '0';
                         setTimeout(function() {
                             modal.remove();
-                            console.log('[PDF Modal] Modal eliminado exitosamente');
+                            // CRÍTICO: Restaurar scroll del body
+                            parentDoc.body.style.overflow = '';
+                            parentDoc.documentElement.style.overflow = '';
+                            // Limpiar estilos agregados
+                            const styles = parentDoc.querySelectorAll('style');
+                            styles.forEach(function(style) {
+                                if (style.textContent.includes('#pdf-modal')) {
+                                    style.remove();
+                                }
+                            });
+                            console.log('[PDF Modal] Modal eliminado y scroll restaurado exitosamente');
                         }, 200);
                     }
                 };
