@@ -2328,7 +2328,7 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
         if generar_audio:
             with st.spinner("🎤 Generando audio con Google Cloud TTS..."):
                 try:
-                    audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-US-Neural2-A")
+                    audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-US-Wavenet-A")
                     if audio_bytes:
                         st.session_state[tts_key] = audio_bytes
                         st.success("✅ Audio generado correctamente")
