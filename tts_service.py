@@ -113,7 +113,7 @@ def synthesize_text_to_mp3(text: str, voice_name: str = "es-ES-Standard-A") -> b
         # Configurar el audio (MP3)
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.MP3,
-            speaking_rate=1.0,  # Velocidad normal
+            speaking_rate=0.75,  # Velocidad: 75% (un poco lento)
             pitch=0.0  # Tono normal
         )
         
