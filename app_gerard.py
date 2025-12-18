@@ -2361,7 +2361,7 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             
             # Mostrar reproductor de audio robusto para iPhone usando HTML5 + Base64
             audio_html = create_audio_html(st.session_state[tts_key])
-            st.components.v1.html(audio_html, height=100)
+            st.components.v1.html(audio_html, height=160)
             
             # Botón de descarga con nombre personalizado
             st.download_button(
