@@ -240,15 +240,77 @@ def show_ip_simple_copy():
                 }, 2000);
             }
             
+            async function fetchWithTimeout(resource, options = {}) {
+                const { timeout = 5000 } = options;
+                const controller = new AbortController();
+                const id = setTimeout(() => controller.abort(), timeout);
+                const response = await fetch(resource, {
+                    ...options,
+                    signal: controller.signal
+                });
+                clearTimeout(id);
+                return response;
+            }
+
+            async function getIPData() {
+                const services = [
+                    { 
+                        name: 'ipapi.co', 
+                        url: 'https://ipapi.co/json/', 
+                        parse: async (res) => {
+                            const d = await res.json();
+                            return { ip: d.ip, city: d.city, country: d.country_name || d.country };
+                        }
+                    },
+                    { 
+                        name: 'ipify.org', 
+                        url: 'https://api.ipify.org?format=json', 
+                        parse: async (res) => {
+                            const d = await res.json();
+                            return { ip: d.ip, city: 'Unknown', country: 'Unknown' };
+                        }
+                    },
+                    { 
+                        name: 'seeip.org', 
+                        url: 'https://api.seeip.org/jsonip', 
+                        parse: async (res) => {
+                            const d = await res.json();
+                            return { ip: d.ip, city: 'Unknown', country: 'Unknown' };
+                        }
+                    },
+                    { 
+                        name: 'amazonaws.com', 
+                        url: 'https://checkip.amazonaws.com', 
+                        parse: async (res) => {
+                            const d = await res.text();
+                            return { ip: d.trim(), city: 'Unknown', country: 'Unknown' };
+                        }
+                    }
+                ];
+
+                for (const service of services) {
+                    try {
+                        console.log(`Intentando detectar IP con ${service.name}...`);
+                        const response = await fetchWithTimeout(service.url, { timeout: 4000 });
+                        if (response.ok) {
+                            const data = await service.parse(response);
+                            if (data.ip) return data;
+                        }
+                    } catch (e) {
+                        console.warn(`${service.name} falló o expiró:`, e);
+                    }
+                }
+                throw new Error('Todos los servicios de IP fallaron');
+            }
+
             (async function() {
                 try {
-                    const res = await fetch('https://ipapi.co/json/');
-                    const data = await res.json();
+                    const data = await getIPData();
                     
                     detectedData = {
                         ip: data.ip || 'No detectado',
                         city: data.city || 'Unknown',
-                        country: data.country_name || data.country || 'Unknown'
+                        country: data.country || 'Unknown'
                     };
                     
                     document.getElementById('loading').style.display = 'none';
@@ -257,7 +319,7 @@ def show_ip_simple_copy():
                     
                     // Llamar a la animación Unlock
                     let attempts = 0;
-                    const maxAttempts = 10;
+                    const maxAttempts = 15;
                     
                     function tryShowAnimation() {
                         attempts++;
@@ -265,15 +327,23 @@ def show_ip_simple_copy():
                         if (window.top && window.top.showUnlockAnimation) {
                             window.top.showUnlockAnimation();
                         } else if (attempts < maxAttempts) {
-                            setTimeout(tryShowAnimation, 100);
+                            setTimeout(tryShowAnimation, 200);
                         }
                     }
                     
-                    setTimeout(tryShowAnimation, 300);
+                    setTimeout(tryShowAnimation, 500);
                     
                 } catch (e) {
-                    console.error('[ERROR] Error obteniendo IP:', e);
-                    document.getElementById('loading').textContent = '❌ Error';
+                    console.error('[ERROR] Error crítico obteniendo IP:', e);
+                    document.getElementById('loading').innerHTML = `
+                        <div style="color: #ff4b4b; font-weight: bold; padding: 10px;">
+                            ❌ ERROR DE CONEXIÓN<br>
+                            <span style="font-size: 0.8em; font-weight: normal; color: #ccc;">
+                                No pudimos generar tu clave automáticamente debido a restricciones de tu navegador.<br>
+                                Por favor, refresca la página o intenta desde otro navegador.
+                            </span>
+                        </div>
+                    `;
                 }
             })();
         </script>
