@@ -155,10 +155,12 @@ def create_audio_html(audio_bytes: bytes, autoplay: bool = False) -> str:
     autoplay_attr = "autoplay" if autoplay else ""
     
     return f'''
-    <audio controls {autoplay_attr} style="width: 100%; margin: 10px 0;">
-        <source src="data:audio/mp3;base64,{audio_b64}" type="audio/mpeg">
-        Tu navegador no soporta el elemento de audio.
-    </audio>
+    <div style="background: rgba(255, 255, 255, 0.05); padding: 15px; border-radius: 12px; border: 1px solid rgba(0, 255, 65, 0.3); margin: 10px 0;">
+        <audio controls {autoplay_attr} style="width: 100%; height: 45px;">
+            <source src="data:audio/mpeg;base64,{audio_b64}" type="audio/mpeg">
+            Tu navegador no soporta el elemento de audio.
+        </audio>
+    </div>
     '''
 
 

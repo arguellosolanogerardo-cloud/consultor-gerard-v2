@@ -2359,15 +2359,16 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             else:
                 audio_filename = f"AUDIO_CONSULTA_DE_{safe_username}_{timestamp_str}.mp3"
             
-            # Mostrar reproductor de audio
-            st.audio(st.session_state[tts_key], format="audio/mp3")
+            # Mostrar reproductor de audio robusto para iPhone usando HTML5 + Base64
+            audio_html = create_audio_html(st.session_state[tts_key])
+            st.components.v1.html(audio_html, height=100)
             
             # Botón de descarga con nombre personalizado
             st.download_button(
                 label="⬇️ Descargar Audio",
                 data=st.session_state[tts_key],
                 file_name=audio_filename,
-                mime="audio/mp3",
+                mime="audio/mpeg",
                 use_container_width=True
             )
     else:
