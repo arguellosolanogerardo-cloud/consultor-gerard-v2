@@ -2326,7 +2326,10 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
         
         # Si el usuario hace clic en generar, crear el audio
         if generar_audio:
-            with st.spinner("🎤 Generando audio con Google Cloud TTS..."):
+            # Mensaje personalizado más grande y de color verde neón
+            loading_msg = '<p style="color: #00ff41; font-size: 20px; font-weight: bold; text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);">🎤 GERARD ESTA GENERANDO EL AUDIO RESUMEN...</p>'
+            with st.spinner(" "): # Spinner vacío para usar el nuestro debajo
+                st.markdown(loading_msg, unsafe_allow_html=True)
                 try:
                     audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-US-Wavenet-A")
                     if audio_bytes:
