@@ -2332,16 +2332,14 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 st.markdown(loading_msg, unsafe_allow_html=True)
                 try:
                     # Intentar generar audio y capturar posibles errores específicos
-                    audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-MX-Wavenet-A")
+                    audio_bytes, error_msg = synthesize_text_to_mp3(texto_para_leer, voice_name="es-MX-Wavenet-A")
                     
                     if audio_bytes:
                         st.session_state[tts_key] = audio_bytes
                         st.success("✅ Audio generado correctamente")
                     else:
-                        st.error("❌ Error al generar audio.")
-                        st.info("💡 Por favor, contacta al soporte. Es posible que la voz seleccionada o la cuota de la API tengan problemas.")
-                        # Ver logs internos para más detalle
-                        print(f"[ERROR UI] synthesize_text_to_mp3 devuelvió None")
+                        st.error(f"❌ Error al generar audio: {error_msg}")
+                        st.info("💡 Este error viene directamente de Google Cloud. Puede ser un problema de cuota, de la voz seleccionada o de permisos de la API.")
                 except Exception as e:
                     error_detail = f"{type(e).__name__}: {str(e)}"
                     st.error(f"❌ Error crítico en TTS: {error_detail}")

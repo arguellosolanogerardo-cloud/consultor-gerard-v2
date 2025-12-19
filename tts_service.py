@@ -83,12 +83,10 @@ def synthesize_text_to_mp3(text: str, voice_name: str = "es-ES-Standard-A") -> b
         bytes: Audio en formato MP3, o None si hay error
     """
     if not TTS_AVAILABLE:
-        print("[TTS] La biblioteca google-cloud-texttospeech no está disponible")
-        return None
+        return None, "Biblioteca google-cloud-texttospeech no instalada"
     
     if not text or not text.strip():
-        print("[TTS] Texto vacío, no se puede generar audio")
-        return None
+        return None, "El texto proporcionado está vacío"
     
     # Limitar longitud del texto (Google Cloud TTS tiene límite de 5000 bytes)
     if len(text) > 5000:
@@ -126,11 +124,12 @@ def synthesize_text_to_mp3(text: str, voice_name: str = "es-ES-Standard-A") -> b
         )
         
         print(f"[TTS] Audio generado exitosamente ({len(response.audio_content)} bytes)")
-        return response.audio_content
+        return response.audio_content, None
         
     except Exception as e:
-        print(f"[TTS] Error al generar audio: {type(e).__name__}: {e}")
-        return None
+        error_msg = f"{type(e).__name__}: {str(e)}"
+        print(f"[TTS] Error al generar audio: {error_msg}")
+        return None, error_msg
 
 
 def get_audio_base64(audio_bytes: bytes) -> str:
