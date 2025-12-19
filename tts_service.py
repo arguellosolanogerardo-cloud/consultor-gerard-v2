@@ -100,8 +100,16 @@ def synthesize_text_to_mp3(text: str, voice_name: str = "es-ES-Standard-A") -> b
         synthesis_input = texttospeech.SynthesisInput(text=text)
         
         # Configurar la voz
-        # Detectar el idioma base de la voz
-        language_code = voice_name[:5]  # ej: "es-ES" o "es-US"
+        # Detectar el idioma base de la voz de forma más robusta
+        # Voces pueden ser es-MX-..., es-US-..., o es-419-...
+        parts = voice_name.split('-')
+        if len(parts) >= 2:
+            if parts[1].isdigit(): # Caso es-419
+                language_code = f"{parts[0]}-{parts[1]}"
+            else: # Caso es-MX, es-US, etc.
+                language_code = f"{parts[0]}-{parts[1]}"
+        else:
+            language_code = "es-MX" # Default seguro
         
         voice = texttospeech.VoiceSelectionParams(
             language_code=language_code,

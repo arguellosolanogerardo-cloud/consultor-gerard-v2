@@ -2332,7 +2332,7 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 st.markdown(loading_msg, unsafe_allow_html=True)
                 try:
                     # Intentar generar audio y capturar posibles errores específicos
-                    audio_bytes, error_msg = synthesize_text_to_mp3(texto_para_leer, voice_name="es-MX-Wavenet-A")
+                    audio_bytes, error_msg = synthesize_text_to_mp3(texto_para_leer, voice_name="es-US-Wavenet-A")
                     
                     if audio_bytes:
                         st.session_state[tts_key] = audio_bytes
