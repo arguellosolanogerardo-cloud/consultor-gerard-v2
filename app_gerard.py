@@ -2331,7 +2331,7 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             with st.spinner(" "): # Spinner vacío para usar el nuestro debajo
                 st.markdown(loading_msg, unsafe_allow_html=True)
                 try:
-                    audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-US-Wavenet-A")
+                    audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-MX-Neural2-A")
                     if audio_bytes:
                         st.session_state[tts_key] = audio_bytes
                         st.success("✅ Audio generado correctamente")
