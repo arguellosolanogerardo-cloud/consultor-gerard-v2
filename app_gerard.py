@@ -2331,16 +2331,21 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             with st.spinner(" "): # Spinner vacío para usar el nuestro debajo
                 st.markdown(loading_msg, unsafe_allow_html=True)
                 try:
-                    audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-MX-Neural2-A")
+                    # Intentar generar audio y capturar posibles errores específicos
+                    audio_bytes = synthesize_text_to_mp3(texto_para_leer, voice_name="es-MX-Wavenet-A")
+                    
                     if audio_bytes:
                         st.session_state[tts_key] = audio_bytes
                         st.success("✅ Audio generado correctamente")
                     else:
-                        st.error("❌ Error al generar audio. Verifica que la API Text-to-Speech esté habilitada en Google Cloud.")
-                        st.info("💡 Revisa los logs de Streamlit Cloud para ver el error específico.")
+                        st.error("❌ Error al generar audio.")
+                        st.info("💡 Por favor, contacta al soporte. Es posible que la voz seleccionada o la cuota de la API tengan problemas.")
+                        # Ver logs internos para más detalle
+                        print(f"[ERROR UI] synthesize_text_to_mp3 devuelvió None")
                 except Exception as e:
-                    st.error(f"❌ Error TTS: {type(e).__name__}: {str(e)}")
-                    st.info("💡 Verifica:\n1. API Text-to-Speech habilitada\n2. Credenciales correctas en Secrets\n3. Proyecto correcto (midyear-node-436821-t3)")
+                    error_detail = f"{type(e).__name__}: {str(e)}"
+                    st.error(f"❌ Error crítico en TTS: {error_detail}")
+                    st.info("💡 Verifica la configuración de la API y las credenciales.")
         
         # Mostrar reproductor si hay audio generado
         if tts_key in st.session_state and st.session_state[tts_key]:
