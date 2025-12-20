@@ -643,10 +643,187 @@ st.markdown("""
     .response-container span[style*="#E06C75"] {
         color: #E06C75 !important;
     }
+
+    /* === MODAL DE NOTIFICACIÓN MODERNO (GERARD NEO-MODAL) === */
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+
+    .gerard-notification-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(10, 10, 15, 0.85);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 9999999;
+        animation: modalFadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .gerard-notification-content {
+        background: linear-gradient(135deg, rgba(15, 15, 25, 0.95) 0%, rgba(25, 25, 40, 0.9) 100%);
+        border: 2px solid #00ff41;
+        border-radius: 24px;
+        padding: 40px;
+        max-width: 500px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 0 40px rgba(0, 255, 65, 0.2), 
+                    inset 0 0 20px rgba(0, 255, 65, 0.1);
+        font-family: 'Orbitron', sans-serif;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        animation: modalSlideUp 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* Efectos de luz para el modal */
+    .gerard-notification-content::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(0, 255, 65, 0.05) 0%, transparent 70%);
+        pointer-events: none;
+    }
+
+    .modal-icon-container {
+        width: 80px;
+        height: 80px;
+        background: rgba(0, 255, 65, 0.1);
+        border: 2px solid #00ff41;
+        border-radius: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin: 0 auto 25px;
+        box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+    }
+
+    .modal-icon-container svg {
+        width: 40px;
+        height: 40px;
+        fill: #00ff41;
+        filter: drop-shadow(0 0 8px rgba(0, 255, 65, 0.8));
+    }
+
+    .modal-title {
+        color: #00ff41;
+        font-size: 24px;
+        font-weight: 700;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        text-shadow: 0 0 10px rgba(0, 255, 65, 0.5);
+    }
+
+    .modal-message {
+        color: #e0e0e0;
+        font-size: 16px;
+        line-height: 1.6;
+        margin-bottom: 30px;
+    }
+
+    .modal-button {
+        background: linear-gradient(45deg, #00ff41, #00d4ff);
+        color: #000;
+        border: none;
+        padding: 15px 40px;
+        border-radius: 12px;
+        font-size: 18px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        cursor: pointer;
+        transition: all 0.3s;
+        box-shadow: 0 0 15px rgba(0, 255, 65, 0.4);
+        width: 100%;
+    }
+
+    .modal-button:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 5px 25px rgba(0, 255, 65, 0.6);
+    }
+
+    @keyframes modalFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    @keyframes modalSlideUp {
+        from { transform: translateY(50px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+    }
 </style>
+
+<script>
+// Sistema de Notificaciones Modernas GERARD Neo-Player
+(function() {
+    // Esperar a que el DOM esté listo
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initNotificationSystem);
+    } else {
+        initNotificationSystem();
+    }
+    
+    function initNotificationSystem() {
+        // Definir la función en window (no window.parent, porque este script ya está en el contexto correcto)
+        window.showGerardNotification = function(title, message, type) {
+            type = type || 'success';
+            
+            // Eliminar modal anterior si existe
+            const oldModal = document.getElementById('gerard-modal-overlay');
+            if (oldModal) oldModal.remove();
+            
+            // Crear overlay
+            const overlay = document.createElement('div');
+            overlay.id = 'gerard-modal-overlay';
+            overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(10,10,15,0.85);backdrop-filter:blur(15px);-webkit-backdrop-filter:blur(15px);display:flex;justify-content:center;align-items:center;z-index:9999999;';
+            
+            const iconSvg = type === 'success' 
+                ? '<svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:#00ff41;filter:drop-shadow(0 0 8px rgba(0,255,65,0.8));"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/></svg>'
+                : '<svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:#00ff41;"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
+
+            overlay.innerHTML = '<div style="background:linear-gradient(135deg,rgba(15,15,25,0.95),rgba(25,25,40,0.9));border:2px solid #00ff41;border-radius:24px;padding:40px;max-width:500px;width:90%;text-align:center;box-shadow:0 0 40px rgba(0,255,65,0.2);font-family:Orbitron,sans-serif;color:white;position:relative;overflow:hidden;"><div style="width:80px;height:80px;background:rgba(0,255,65,0.1);border:2px solid #00ff41;border-radius:50%;display:flex;justify-content:center;align-items:center;margin:0 auto 25px;box-shadow:0 0 20px rgba(0,255,65,0.4);">'+iconSvg+'</div><div style="color:#00ff41;font-size:24px;font-weight:700;margin-bottom:20px;text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 10px rgba(0,255,65,0.5);">'+title+'</div><div style="color:#e0e0e0;font-size:16px;line-height:1.6;margin-bottom:30px;">'+message+'</div><button id="gerard-modal-close-btn" style="background:linear-gradient(45deg,#00ff41,#00d4ff);color:#000;border:none;padding:15px 40px;border-radius:12px;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;box-shadow:0 0 15px rgba(0,255,65,0.4);width:100%;">ENTENDIDO</button><div style="position:absolute;bottom:0;left:0;height:3px;background:#00ff41;width:100%;animation:barWait 5s linear forwards;"></div></div><style>@keyframes barWait{from{width:100%}to{width:0%}}</style>';
+
+            document.body.appendChild(overlay);
+
+            // Event listener para el botón de cerrar
+            const closeBtn = document.getElementById('gerard-modal-close-btn');
+            if (closeBtn) {
+                closeBtn.onclick = function() {
+                    overlay.remove();
+                };
+            }
+
+            // Auto-cerrar después de 5 segundos
+            setTimeout(function() {
+                if (overlay && overlay.parentNode) {
+                    overlay.remove();
+                }
+            }, 5000);
+            
+            // Cerrar al hacer clic fuera del contenido
+            overlay.addEventListener('click', function(e) {
+                if (e.target === overlay) {
+                    overlay.remove();
+                }
+            });
+        };
+        
+        console.log('[GERARD] ✅ Sistema de notificaciones modernas inicializado');
+    }
+})();
+</script>
 """, unsafe_allow_html=True)
 
 # Configurar credenciales de Vertex AI
+
 # En Streamlit Cloud usa secrets, localmente usa archivo
 # @st.cache_resource - REMOVIDO para asegurar que os.environ se configure en cada worker/hilo
 def setup_gcp_credentials():
@@ -2332,7 +2509,7 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                 st.markdown(loading_msg, unsafe_allow_html=True)
                 try:
                     # Intentar generar audio y capturar posibles errores específicos
-                    audio_bytes, error_msg = synthesize_text_to_mp3(texto_para_leer, voice_name="es-US-Wavenet-A")
+                    audio_bytes, error_msg = synthesize_text_to_mp3(texto_para_leer, voice_name="es-US-Wavenet-B")
                     
                     if audio_bytes:
                         st.session_state[tts_key] = audio_bytes
@@ -2369,14 +2546,112 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             audio_html = create_audio_html(st.session_state[tts_key])
             st.components.v1.html(audio_html, height=160)
             
-            # Botón de descarga con nombre personalizado
-            st.download_button(
-                label="⬇️ Descargar Audio",
-                data=st.session_state[tts_key],
-                file_name=audio_filename,
-                mime="audio/mpeg",
-                use_container_width=True
-            )
+            # Botón de descarga de Audio Moderno con Modal Integrado
+            audio_b64 = base64.b64encode(st.session_state[tts_key]).decode()
+            audio_download_html = f"""
+            <script>
+            function downloadAudioWithModal() {{
+                try {{
+                    // Descargar el audio
+                    const byteCharacters = atob('{audio_b64}');
+                    const byteNumbers = new Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {{
+                        byteNumbers[i] = byteCharacters.charCodeAt(i);
+                    }}
+                    const byteArray = new Uint8Array(byteNumbers);
+                    const blob = new Blob([byteArray], {{type: 'audio/mpeg'}});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = '{audio_filename}';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                    
+                    // Mostrar modal
+                    setTimeout(function() {{
+                        const parentDoc = window.parent.document;
+                        
+                        // Eliminar modal anterior si existe
+                        const oldModal = parentDoc.getElementById('gerard-audio-modal');
+                        if (oldModal) oldModal.remove();
+                        
+                        // Crear modal
+                        const modal = parentDoc.createElement('div');
+                        modal.id = 'gerard-audio-modal';
+                        modal.innerHTML = `
+                            <style>
+                                #gerard-audio-modal {{
+                                    position: fixed;
+                                    top: 0;
+                                    left: 0;
+                                    width: 100%;
+                                    height: 100%;
+                                    background: rgba(10, 10, 15, 0.85);
+                                    backdrop-filter: blur(15px);
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: center;
+                                    z-index: 9999999;
+                                    animation: fadeIn 0.4s;
+                                }}
+                                @keyframes fadeIn {{ from {{ opacity: 0; }} to {{ opacity: 1; }} }}
+                                @keyframes slideUp {{ from {{ transform: translateY(50px); opacity: 0; }} to {{ transform: translateY(0); opacity: 1; }} }}
+                                @keyframes barWait {{ from {{ width: 100%; }} to {{ width: 0%; }} }}
+                            </style>
+                            <div style="background:linear-gradient(135deg,rgba(15,15,25,0.95),rgba(25,25,40,0.9));border:2px solid #00ff41;border-radius:24px;padding:40px;max-width:500px;width:90%;text-align:center;box-shadow:0 0 40px rgba(0,255,65,0.2);font-family:'Orbitron',sans-serif;color:white;position:relative;overflow:hidden;animation:slideUp 0.5s;">
+                                <div style="width:80px;height:80px;background:rgba(0,255,65,0.1);border:2px solid #00ff41;border-radius:50%;display:flex;justify-content:center;align-items:center;margin:0 auto 25px;box-shadow:0 0 20px rgba(0,255,65,0.4);">
+                                    <svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:#00ff41;filter:drop-shadow(0 0 8px rgba(0,255,65,0.8));">
+                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                    </svg>
+                                </div>
+                                <div style="color:#00ff41;font-size:24px;font-weight:700;margin-bottom:20px;text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 10px rgba(0,255,65,0.5);">✅ ¡AUDIO DESCARGADO!</div>
+                                <div style="color:#e0e0e0;font-size:16px;line-height:1.6;margin-bottom:30px;">🎙️ Tu audio resumen ha sido procesado y guardado exitosamente.</div>
+                                <button id="close-audio-modal-btn" style="background:linear-gradient(45deg,#00ff41,#00d4ff);color:#000;border:none;padding:15px 40px;border-radius:12px;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;box-shadow:0 0 15px rgba(0,255,65,0.4);width:100%;">ENTENDIDO</button>
+                                <div style="position:absolute;bottom:0;left:0;height:3px;background:#00ff41;width:100%;animation:barWait 5s linear forwards;"></div>
+                            </div>
+                        `;
+                        
+                        parentDoc.body.appendChild(modal);
+                        
+                        // Cerrar modal al hacer clic en el botón
+                        const closeBtn = parentDoc.getElementById('close-audio-modal-btn');
+                        if (closeBtn) {{
+                            closeBtn.onclick = function() {{ modal.remove(); }};
+                        }}
+                        
+                        // Cerrar al hacer clic fuera
+                        modal.onclick = function(e) {{
+                            if (e.target === modal) modal.remove();
+                        }};
+                        
+                        // Auto-cerrar después de 5 segundos
+                        setTimeout(function() {{ modal.remove(); }}, 5000);
+                    }}, 300);
+                    
+                }} catch (e) {{
+                    console.error('Error en descarga de audio:', e);
+                    alert('Error al descargar el audio. Por favor, intenta nuevamente.');
+                }}
+            }}
+            </script>
+            <button onclick="downloadAudioWithModal()" style="
+                background: linear-gradient(45deg, #00ff41, #00d4ff);
+                color: #000;
+                border: none;
+                padding: 12px 20px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-size: 16px;
+                font-weight: bold;
+                width: 100%;
+                margin: 10px 0;
+                box-shadow: 0 4px 15px rgba(0, 255, 65, 0.3);
+                transition: all 0.3s;
+            ">⬇️ DESCARGAR AUDIO RESUMEN</button>
+            """
+            st.components.v1.html(audio_download_html, height=80)
     else:
         st.info("ℹ️ TTS no disponible. Instala google-cloud-texttospeech para habilitar lectura en voz alta.")
     
@@ -2513,253 +2788,18 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
             # Convertir bytes a base64 para JavaScript
             pdf_b64 = base64.b64encode(pdf_bytes).decode()
             
-            # JavaScript para descarga
+            # JavaScript para descarga con Modal Integrado
             download_js_template = """
             <script>
             var pdfDownloaded = false;
             
-            // Inyectar modal en el documento padre
-            function injectModalInParent() {
-                const parentDoc = window.parent.document;
-                
-                // Verificar si ya existe el modal
-                if (parentDoc.getElementById('pdf-modal')) {
-                    return;
-                }
-                
-                // Inyectar estilos en el head del documento padre
-                const style = parentDoc.createElement('style');
-                style.textContent = `
-                    #pdf-modal {
-                        display: none;
-                        position: fixed;
-                        z-index: 9999999;
-                        left: 0;
-                        top: 0;
-                        width: 100%;
-                        height: 100%;
-                        background-color: rgba(0, 0, 0, 0.8);
-                        animation: pdfModalFadeIn 0.3s;
-                        transition: opacity 0.2s ease-out;
-                        overflow: auto;
-                    }
-                    #pdf-modal-content {
-                        background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
-                        margin: 15% auto;
-                        padding: 30px;
-                        border: 3px solid #00ff41;
-                        border-radius: 15px;
-                        width: 90%;
-                        max-width: 500px;
-                        box-shadow: 0 8px 32px rgba(0, 255, 65, 0.3);
-                        animation: pdfModalSlideDown 0.4s;
-                        color: white;
-                    }
-                    #pdf-modal h2 {
-                        color: #00ff41;
-                        margin-top: 0;
-                        text-align: center;
-                        font-size: 24px;
-                    }
-                    #pdf-modal p {
-                        font-size: 16px;
-                        line-height: 1.6;
-                        margin: 15px 0;
-                    }
-                    #pdf-modal .highlight {
-                        color: #00d4ff;
-                        font-weight: bold;
-                    }
-                    #pdf-modal-close {
-                        background: linear-gradient(45deg, #00ff41, #00cc33);
-                        color: #000;
-                        border: none;
-                        padding: 12px 30px;
-                        border-radius: 8px;
-                        cursor: pointer;
-                        font-size: 16px;
-                        font-weight: bold;
-                        width: 100%;
-                        margin-top: 20px;
-                        transition: transform 0.2s;
-                    }
-                    #pdf-modal-close:hover {
-                        transform: scale(1.05);
-                    }
-                    @keyframes pdfModalFadeIn {
-                        from { opacity: 0; }
-                        to { opacity: 1; }
-                    }
-                    @keyframes pdfModalSlideDown {
-                        from { transform: translateY(-50px); opacity: 0; }
-                        to { transform: translateY(0); opacity: 1; }
-                    }
-                    @media (max-width: 600px) {
-                        #pdf-modal-content {
-                            margin: 25% auto;
-                            padding: 20px;
-                            width: 85%;
-                        }
-                        #pdf-modal h2 {
-                            font-size: 20px;
-                        }
-                        #pdf-modal p {
-                            font-size: 14px;
-                        }
-                    }
-                `;
-                parentDoc.head.appendChild(style);
-                
-                // Crear el modal en el body del documento padre
-                const modalDiv = parentDoc.createElement('div');
-                modalDiv.id = 'pdf-modal';
-                modalDiv.innerHTML = `
-                    <div id="pdf-modal-content">
-                        <h2>✅ ¡PDF Descargado!</h2>
-                        <p>📄 Tu conversación completa ha sido descargada exitosamente.</p>
-                        <p><strong>📱 Para encontrar tu archivo:</strong></p>
-                        <p>🔹 <span class="highlight">Android:</span> Abre la app "Descargas" o "Archivos" → Busca en la carpeta "Download"</p>
-                        <p>🔹 <span class="highlight">iPhone/iPad:</span> Abre la app "Archivos" → Toca "Descargas"</p>
-                        <p>🔹 <span class="highlight">Computadora:</span> Revisa tu carpeta de Descargas</p>
-                        <p style="text-align: center; color: #00ff41; margin-top: 20px;">💡 También puedes revisar las notificaciones de tu navegador</p>
-                        <button id="pdf-modal-close">ENTENDIDO</button>
-                    </div>
-                `;
-                parentDoc.body.appendChild(modalDiv);
-                
-                // Función para cerrar el modal - definida en el documento padre
-                parentDoc.closePdfModal = function() {
-                    console.log('[PDF Modal] Cerrando modal...');
-                    const modal = parentDoc.getElementById('pdf-modal');
-                    if (modal) {
-                        // IMPORTANTE: Solo animar y eliminar el modal, no tocar los estilos
-                        modal.style.opacity = '0';
-                        setTimeout(function() {
-                            // SOLO eliminar el modal, nada más
-                            if (modal.parentNode) {
-                                modal.parentNode.removeChild(modal);
-                            }
-                            // Restaurar scroll del body
-                            parentDoc.body.style.overflow = '';
-                            parentDoc.body.style.position = '';
-                            parentDoc.documentElement.style.overflow = '';
-                            parentDoc.body.style.pointerEvents = '';
-                            console.log('[PDF Modal] Modal eliminado y scroll restaurado');
-                        }, 200);
-                    }
-                };
-                
-                // Event listeners para el modal en el documento padre
-                const closeBtn = parentDoc.getElementById('pdf-modal-close');
-                if (closeBtn) {
-                    console.log('[PDF Modal] Configurando event listeners...');
-                    
-                    // Múltiples estrategias para asegurar que funcione
-                    closeBtn.onclick = function(e) {
-                        console.log('[PDF Modal] Botón ENTENDIDO presionado (onclick)');
-                        e.preventDefault();
-                        e.stopPropagation();
-                        parentDoc.closePdfModal();
-                        return false;
-                    };
-                    
-                    closeBtn.addEventListener('click', function(e) {
-                        console.log('[PDF Modal] Botón ENTENDIDO presionado (addEventListener)');
-                        e.preventDefault();
-                        e.stopPropagation();
-                        parentDoc.closePdfModal();
-                    }, true);
-                    
-                    closeBtn.addEventListener('touchend', function(e) {
-                        console.log('[PDF Modal] Botón ENTENDIDO presionado (touchend)');
-                        e.preventDefault();
-                        e.stopPropagation();
-                        parentDoc.closePdfModal();
-                    }, true);
-                    
-                    // Asegurar que el botón sea completamente clickeable
-                    closeBtn.style.cursor = 'pointer';
-                    closeBtn.style.userSelect = 'none';
-                    closeBtn.style.webkitTapHighlightColor = 'transparent';
-                    closeBtn.style.pointerEvents = 'auto';
-                    closeBtn.style.touchAction = 'manipulation';
-                    closeBtn.style.zIndex = '10000001';
-                }
-                
-                // Cerrar al hacer click fuera del modal
-                const modal = parentDoc.getElementById('pdf-modal');
-                if (modal) {
-                    modal.style.pointerEvents = 'auto';
-                    
-                    modal.onclick = function(event) {
-                        if (event.target.id === 'pdf-modal') {
-                            console.log('[PDF Modal] Click fuera del modal');
-                            parentDoc.closePdfModal();
-                        }
-                    };
-                    
-                    // Asegurarse que el contenido no cierre el modal
-                    const modalContent = parentDoc.getElementById('pdf-modal-content');
-                    if (modalContent) {
-                        modalContent.onclick = function(e) {
-                            e.stopPropagation();
-                        };
-                    }
-                }
-            }
-            
-            function showModal() {
-                const parentDoc = window.parent.document;
-                const modal = parentDoc.getElementById('pdf-modal');
-                if (modal) {
-                    modal.style.display = 'block';
-                    
-                    // Auto-cerrar después de 5 segundos
-                    setTimeout(function() {
-                        console.log('[PDF Modal] Auto-cerrando por timeout de 5 segundos');
-                        if (parentDoc.closePdfModal) {
-                            parentDoc.closePdfModal();
-                        } else {
-                            // Fallback: solo eliminar el modal y restaurar scroll
-                            const modalElement = parentDoc.getElementById('pdf-modal');
-                            if (modalElement && modalElement.parentNode) {
-                                modalElement.parentNode.removeChild(modalElement);
-                            }
-                            parentDoc.body.style.overflow = '';
-                            parentDoc.body.style.position = '';
-                            parentDoc.documentElement.style.overflow = '';
-                            parentDoc.body.style.pointerEvents = '';
-                        }
-                        console.log('[PDF Modal] Modal cerrado por timeout');
-                    }, 5000);
-                }
-            }
-            
-            // Inyectar modal al cargar
-            setTimeout(injectModalInParent, 100);
-            
-            window.addEventListener('DOMContentLoaded', function() {
-                const btn = document.getElementById('pdf-download-btn');
-                if (sessionStorage.getItem('pdfDownloaded_NUM_CONSULTAS') === 'true') {
-                    if (btn) {
-                        btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
-                        btn.style.borderColor = '#00FF41';
-                        btn.innerHTML = '✅ ¡Descargado Exitosamente!';
-                        pdfDownloaded = true;
-                    }
-                }
-            });
-            
-            function downloadPDF() {
+            function downloadPDFWithModal() {
                 if (pdfDownloaded) return;
                 
-                // Scroll automático para hacer visible el botón completo
                 const btn = document.getElementById('pdf-download-btn');
-                if (btn) {
-                    btn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
                 
                 try {
+                    // Descargar el PDF
                     const byteCharacters = atob('PDF_B64_PLACEHOLDER');
                     const byteNumbers = new Array(byteCharacters.length);
                     for (let i = 0; i < byteCharacters.length; i++) {
@@ -2776,45 +2816,102 @@ def display_analysis_result(response, docs, search_time, search_method, relevant
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                     
-                    // Cambiar botón a verde con un pequeño delay para que se vea el scroll
+                    // Cambiar botón a verde
+                    if (btn) {
+                        btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
+                        btn.style.color = '#000';
+                        btn.innerHTML = '✅ ¡DESCARGADO!';
+                        pdfDownloaded = true;
+                    }
+                    
+                    // Mostrar modal
                     setTimeout(function() {
-                        if (btn) {
-                            btn.style.background = 'linear-gradient(45deg, #00FF41, #00CC33)';
-                            btn.style.borderColor = '#00FF41';
-                            btn.innerHTML = '✅ ¡Descargado Exitosamente!';
-                            pdfDownloaded = true;
-                            sessionStorage.setItem('pdfDownloaded_NUM_CONSULTAS', 'true');
+                        const parentDoc = window.parent.document;
+                        
+                        // Eliminar modal anterior si existe
+                        const oldModal = parentDoc.getElementById('gerard-pdf-modal');
+                        if (oldModal) oldModal.remove();
+                        
+                        // Crear modal
+                        const modal = parentDoc.createElement('div');
+                        modal.id = 'gerard-pdf-modal';
+                        modal.innerHTML = `
+                            <style>
+                                #gerard-pdf-modal {
+                                    position: fixed;
+                                    top: 0;
+                                    left: 0;
+                                    width: 100%;
+                                    height: 100%;
+                                    background: rgba(10, 10, 15, 0.85);
+                                    backdrop-filter: blur(15px);
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: center;
+                                    z-index: 9999999;
+                                    animation: fadeIn 0.4s;
+                                }
+                                @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+                                @keyframes slideUp { from { transform: translateY(50px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+                                @keyframes barWait { from { width: 100%; } to { width: 0%; } }
+                            </style>
+                            <div style="background:linear-gradient(135deg,rgba(15,15,25,0.95),rgba(25,25,40,0.9));border:2px solid #00ff41;border-radius:24px;padding:40px;max-width:500px;width:90%;text-align:center;box-shadow:0 0 40px rgba(0,255,65,0.2);font-family:'Orbitron',sans-serif;color:white;position:relative;overflow:hidden;animation:slideUp 0.5s;">
+                                <div style="width:80px;height:80px;background:rgba(0,255,65,0.1);border:2px solid #00ff41;border-radius:50%;display:flex;justify-content:center;align-items:center;margin:0 auto 25px;box-shadow:0 0 20px rgba(0,255,65,0.4);">
+                                    <svg viewBox="0 0 24 24" style="width:40px;height:40px;fill:#00ff41;filter:drop-shadow(0 0 8px rgba(0,255,65,0.8));">
+                                        <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+                                    </svg>
+                                </div>
+                                <div style="color:#00ff41;font-size:24px;font-weight:700;margin-bottom:20px;text-transform:uppercase;letter-spacing:2px;text-shadow:0 0 10px rgba(0,255,65,0.5);">✅ ¡PDF DESCARGADO!</div>
+                                <div style="color:#e0e0e0;font-size:16px;line-height:1.6;margin-bottom:30px;">📄 Tu conversación completa ha sido exportada exitosamente en formato PDF.</div>
+                                <button id="close-pdf-modal-btn" style="background:linear-gradient(45deg,#00ff41,#00d4ff);color:#000;border:none;padding:15px 40px;border-radius:12px;font-size:18px;font-weight:700;text-transform:uppercase;letter-spacing:1px;cursor:pointer;box-shadow:0 0 15px rgba(0,255,65,0.4);width:100%;">ENTENDIDO</button>
+                                <div style="position:absolute;bottom:0;left:0;height:3px;background:#00ff41;width:100%;animation:barWait 5s linear forwards;"></div>
+                            </div>
+                        `;
+                        
+                        parentDoc.body.appendChild(modal);
+                        
+                        // Cerrar modal al hacer clic en el botón
+                        const closeBtn = parentDoc.getElementById('close-pdf-modal-btn');
+                        if (closeBtn) {
+                            closeBtn.onclick = function() { modal.remove(); };
                         }
                         
-                        // MODAL DESHABILITADO - Causaba bloqueos de página
-                        // setTimeout(function() {
-                        //     showModal();
-                        // }, 300);
-                    }, 500);
+                        // Cerrar al hacer clic fuera
+                        modal.onclick = function(e) {
+                            if (e.target === modal) modal.remove();
+                        };
+                        
+                        // Auto-cerrar después de 5 segundos
+                        setTimeout(function() { modal.remove(); }, 5000);
+                    }, 300);
                     
                 } catch (e) {
                     console.error('Error en descarga:', e);
-                    alert('❌ Error al descargar PDF. Por favor, inténtalo nuevamente.');
+                    alert('Error al descargar el PDF. Por favor, intenta nuevamente.');
                 }
             }
             </script>
-            <button id="pdf-download-btn" onclick="downloadPDF()" style="
+            <button id="pdf-download-btn" onclick="downloadPDFWithModal()" style="
                 background: linear-gradient(45deg, #ff4b4b, #ff8080);
                 color: white;
-                border: 2px solid #ff4b4b;
-                padding: 12px 20px;
-                border-radius: 8px;
+                border: none;
+                padding: 15px 20px;
+                border-radius: 12px;
                 cursor: pointer;
-                font-size: 16px;
+                font-size: 18px;
                 font-weight: bold;
                 width: 100%;
-                margin: 10px 0 30px 0;
-            ">📥 DESCARGAR CONVERSACIÓN COMPLETA (PDF)</button>
+                margin: 20px 0;
+                box-shadow: 0 4px 15px rgba(255, 75, 75, 0.3);
+                transition: all 0.3s;
+                text-transform: uppercase;
+                letter-spacing: 1px;
+            ">📥 EXPORTAR CONVERSACIÓN COMPLETA (PDF)</button>
             """
             
             # Reemplazar placeholders
-            download_html = download_js_template.replace('PDF_B64_PLACEHOLDER', pdf_b64).replace('PDF_FILENAME_PLACEHOLDER', pdf_filename).replace('NUM_CONSULTAS', str(len(st.session_state.conversation_history)))
-            st.components.v1.html(download_html, height=150)
+            download_html = download_js_template.replace('PDF_B64_PLACEHOLDER', pdf_b64).replace('PDF_FILENAME_PLACEHOLDER', pdf_filename)
+            st.components.v1.html(download_html, height=120)
             
         except Exception as e:
             st.error(f"Error generando PDF: {e}")
@@ -3409,11 +3506,12 @@ if user_name:
     
     # RESET AUTOMÁTICO: Si la consulta cambia, volver a estado normal
     # Comparamos la consulta actual con la última ejecutada
-    # IMPORTANTE: NO resetear si trigger_search está activo Y last_executed_query tiene valor
-    # (esto significa que es una búsqueda por voz en progreso)
-    if query != st.session_state.last_executed_query and not (st.session_state.get('trigger_search') and st.session_state.get('last_executed_query')):
-        st.session_state.question_executed = False
-        st.session_state.trigger_search = False  # Cancelar búsqueda pendiente si cambia query
+    # IMPORTANTE: NO resetear si trigger_search está activo (búsqueda en progreso)
+    # El trigger_search solo debe resetearse DESPUÉS de ejecutar la búsqueda, no antes
+    if not st.session_state.get('trigger_search', False):
+        if query != st.session_state.get('last_executed_query', ''):
+            st.session_state.question_executed = False
+
     
     # Determinar texto y marcador del botón
     button_label = "🚀 EJECUTAR PREGUNTA"
