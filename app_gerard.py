@@ -48,7 +48,9 @@ except ImportError:
 
 # ===== CONFIGURACIÓN DE LOGIN =====
 # Habilita/deshabilita el formulario de ingreso manual
-ENABLE_MANUAL_LOGIN = False  # Cambia a False para reactivar el ingreso manual
+ENABLE_MANUAL_LOGIN = False  # Solo login con Google
+
+
 
 # ===== FUNCIONES DE GENERACIÓN DE PDF (CON WEASYPRINT) =====
 # Verificar disponibilidad de weasyprint (prioridad) y reportlab (fallback)

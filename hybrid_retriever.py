@@ -117,7 +117,82 @@ class HybridRetriever(BaseRetriever):
         ]
         is_exhaustive_search = any(pattern in query_lower for pattern in exhaustive_patterns)
         
+        # ===== NUEVO: Detectar búsqueda KEYWORD_EXHAUSTIVE ("dame todos los que mencionan X") =====
+        # Este modo busca TODOS los documentos que contienen un término específico
+        keyword_exhaustive_patterns = [
+            'dame todos', 'dámelos todos', 'todos los que', 'en cuales', 'en cuáles',
+            'en que videos', 'en qué videos', 'donde se menciona', 'dónde se menciona',
+            'que mencionan', 'busca todo', 'busca todos', 'muéstrame todos',
+            'en que mensajes', 'en qué mensajes', 'cuales mensajes', 'cuáles mensajes'
+        ]
+        is_keyword_exhaustive = any(pattern in query_lower for pattern in keyword_exhaustive_patterns)
+        
+        # Si es búsqueda de keyword exhaustiva, hacer búsqueda directa en texto
+        if is_keyword_exhaustive:
+            print(f"[KEYWORD_EXHAUSTIVE] 🔍 Modo keyword exhaustivo activado")
+            
+            # Extraer palabras clave potenciales (excluir stopwords y patrones)
+            stopwords = {'dame', 'todos', 'los', 'que', 'en', 'donde', 'cuales', 'se', 
+                        'menciona', 'mencionan', 'videos', 'mensajes', 'busca', 'muestrame',
+                        'la', 'el', 'de', 'un', 'una', 'y', 'o', 'a', 'con', 'por', 'para',
+                        'información', 'informacion', 'sobre', 'todo', 'toda', 'exclusivamente',
+                        'cual', 'cuál', 'dónde', 'qué', 'cuyos', 'autores', 'sean', 'cualquiera',
+                        'maestros', 'invasion', 'invasión'}
+            
+            query_words = [w for w in query_lower.split() if w not in stopwords and len(w) > 2]
+            
+            # Buscar keywords potenciales (nombres propios, lugares, etc.)
+            potential_keywords = []
+            for word in query_words:
+                # Si la palabra original (en la query) estaba en mayúsculas, es probable keyword
+                original_word = None
+                for orig in query.split():
+                    if orig.lower() == word:
+                        original_word = orig
+                        break
+                
+                if original_word and (original_word[0].isupper() or len(word) > 4):
+                    potential_keywords.append(word)
+            
+            # Si no encontramos keywords por mayúsculas, usar las palabras más largas
+            if not potential_keywords:
+                potential_keywords = sorted(query_words, key=len, reverse=True)[:3]
+            
+            print(f"[KEYWORD_EXHAUSTIVE] Keywords detectados: {potential_keywords}")
+            
+            # Buscar TODOS los documentos que contienen CUALQUIER keyword
+            keyword_doc_indices = set()
+            for keyword in potential_keywords:
+                for idx, doc_content in enumerate(self.bm25_docs):
+                    if keyword in doc_content.lower():
+                        keyword_doc_indices.add(idx)
+            
+            print(f"[KEYWORD_EXHAUSTIVE] Documentos encontrados con búsqueda directa: {len(keyword_doc_indices)}")
+            
+            if len(keyword_doc_indices) > 0:
+                # Crear documentos desde los índices encontrados
+                keyword_docs = []
+                for idx in keyword_doc_indices:
+                    doc = Document(
+                        page_content=self.bm25_docs[idx],
+                        metadata=self.bm25_metadatas[idx]
+                    )
+                    # Asignar score basado en cuántos keywords contiene
+                    content_lower = self.bm25_docs[idx].lower()
+                    matches = sum(1 for kw in potential_keywords if kw in content_lower)
+                    doc.metadata['relevance_score'] = min(0.5 + (matches * 0.2), 1.0)
+                    keyword_docs.append(doc)
+                
+                # Ordenar por relevance_score
+                keyword_docs.sort(key=lambda d: d.metadata.get('relevance_score', 0), reverse=True)
+                
+                # Limitar a 500 documentos máximo para evitar respuestas demasiado largas
+                max_keyword_docs = min(len(keyword_docs), 500)
+                print(f"[KEYWORD_EXHAUSTIVE] ✅ Retornando {max_keyword_docs} documentos")
+                return keyword_docs[:max_keyword_docs]
+        
         # Ajustar k dinámicamente según el tipo de búsqueda
+
         if is_exhaustive_search:
             effective_k = min(self.k * 4, 400)  # Máxima cobertura para "toda la información"
             print(f"[EXHAUSTIVE SEARCH] Búsqueda exhaustiva detectada, k aumentado a {effective_k}")
