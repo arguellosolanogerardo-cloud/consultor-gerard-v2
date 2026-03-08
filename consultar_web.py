@@ -198,13 +198,14 @@ def load_resources():
         if GoogleGenerativeAI is not None:
             try:
                 # Intentar con diferentes modelos disponibles
-                available_models = ["gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-pro", "models/gemini-pro"]
+                available_models = ["gemini-2.5-flash", "models/gemini-2.5-flash", "gemini-1.5-flash-latest", "gemini-1.5-flash", "gemini-pro"]
                 llm = None
                 
                 for model_name in available_models:
                     try:
                         llm = GoogleGenerativeAI(
                             model=model_name,
+                            google_api_key=api_key,
                             temperature=0.4,  # Precisión quirúrgica según prompt GERARD
                             top_p=0.90,
                             top_k=25
@@ -223,7 +224,25 @@ def load_resources():
     # Usar embeddings de Google
     if GoogleGenerativeAIEmbeddings is not None:
         try:
-            embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
+            from langchain_core.embeddings import Embeddings
+            class TruncatedEmbeddings(Embeddings):
+                def __init__(self, base_embeddings, dim=768):
+                    super().__init__()
+                    self.base_embeddings = base_embeddings
+                    self.dim = dim
+                def embed_documents(self, texts: List[str]) -> List[List[float]]:
+                    embs = self.base_embeddings.embed_documents(texts)
+                    return [emb[:self.dim] for emb in embs]
+                def embed_query(self, text: str) -> List[float]:
+                    emb = self.base_embeddings.embed_query(text)
+                    return emb[:self.dim]
+
+            if api_key:
+                base_embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001", google_api_key=api_key)
+            else:
+                base_embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-001")
+            
+            embeddings = TruncatedEmbeddings(base_embeddings, dim=768)
         except Exception as e:
             st.warning(f"No se pudo inicializar embeddings de Google: {e}, usando fallback local")
             from langchain_core.embeddings import FakeEmbeddings
@@ -1961,7 +1980,9 @@ RESPUESTA JSON:""")
             st.write(answer)
         
     except Exception as e:
+        import traceback
         st.error(f"Error al procesar: {str(e)}")
+        st.code(traceback.format_exc(), language="python")
 
 #     text = unicodedata.normalize('NFC', text)
 #     replacements = {
