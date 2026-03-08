@@ -91,5 +91,8 @@ def get_user_info(code, redirect_uri):
         
         return user_info
     except Exception as e:
+        import traceback
         print(f"Error obteniendo info de usuario: {e}")
+        st.error(f"Error técnico de Google Auth: {e}")
+        st.code(traceback.format_exc(), language="python")
         return None
