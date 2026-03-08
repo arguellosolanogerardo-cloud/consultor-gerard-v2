@@ -65,10 +65,19 @@ def get_login_url(redirect_uri):
     if not flow:
         return None
         
+    # Si hay "code" en los query params, estamos en callback, no generar nueva URL/verifier
+    if "code" in st.query_params:
+        return None
+
     authorization_url, state = flow.authorization_url(
         access_type='offline',
         include_granted_scopes='true'
     )
+    
+    # IMPORTANTE: Guardar el PKCE code_verifier en la sesión actual
+    if hasattr(flow, "code_verifier"):
+        st.session_state["oauth_code_verifier"] = flow.code_verifier
+        
     return authorization_url
 
 
@@ -81,6 +90,10 @@ def get_user_info(code, redirect_uri):
         flow = get_flow(redirect_uri)
         if not flow:
             return None
+            
+        # IMPORTANTE: Restaurar el PKCE code_verifier guardado en la sesión
+        if "oauth_code_verifier" in st.session_state:
+            flow.code_verifier = st.session_state["oauth_code_verifier"]
             
         flow.fetch_token(code=code)
         credentials = flow.credentials
