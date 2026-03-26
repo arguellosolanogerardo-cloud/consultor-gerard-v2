@@ -68,3 +68,33 @@ boton-google.json
 # Backups y archivos de prueba con posibles credenciales
 .streamlit_backup/
 test_credentials.json
+
+# FAISS index and large assets
+faiss_index/
+FAISS_v2/
+*.zip
+*.mp3
+
+
+# Hidden and backup directories
+.backup_*/
+.vs/
+.streamlit/
+*.srt
+*.pdf
+*.pkl
+*.tmp
+
+
+# Security: credentials and secrets
+credencial json/
+*.json
+# Large binaries and indexes
+*.dll
+*.lib
+*.exe
+*.bin
+faiss_index/
+*.zip
+*.pkl
+
