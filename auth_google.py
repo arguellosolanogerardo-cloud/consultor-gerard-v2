@@ -1,5 +1,6 @@
 import os
 import streamlit as st
+import tempfile
 
 # Importaciones con manejo defensivo de errores
 try:
@@ -17,6 +18,29 @@ SCOPES = [
     "https://www.googleapis.com/auth/userinfo.profile",
     "openid"
 ]
+
+def _save_verifier(state, verifier):
+    try:
+        path = os.path.join(tempfile.gettempdir(), f"oauth_{state}.txt")
+        with open(path, "w") as f:
+            f.write(verifier)
+    except:
+        pass
+
+def _get_verifier(state):
+    try:
+        path = os.path.join(tempfile.gettempdir(), f"oauth_{state}.txt")
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                verifier = f.read().strip()
+            try:
+                os.remove(path)
+            except:
+                pass
+            return verifier
+    except:
+        pass
+    return None
 
 
 def get_flow(redirect_uri):
@@ -74,13 +98,12 @@ def get_login_url(redirect_uri):
         include_granted_scopes='true'
     )
     
-    # IMPORTANTE: Guardar el PKCE code_verifier en la sesión actual
+    # IMPORTANTE: Guardar el PKCE code_verifier en la sesión actual y backup local
     if hasattr(flow, "code_verifier"):
         st.session_state["oauth_code_verifier"] = flow.code_verifier
+        _save_verifier(state, flow.code_verifier)
         
     return authorization_url
-
-
 def get_user_info(code, redirect_uri):
     """Intercambia el código por credenciales y obtiene info del usuario"""
     if not GOOGLE_LIBS_AVAILABLE:
@@ -91,10 +114,20 @@ def get_user_info(code, redirect_uri):
         if not flow:
             return None
             
-        # IMPORTANTE: Restaurar el PKCE code_verifier guardado en la sesión
+        # IMPORTANTE: Restaurar el PKCE code_verifier guardado en la sesión o backup
+        state = st.query_params.get("state")
+        
+        saved_verifier = None
         if "oauth_code_verifier" in st.session_state:
-            flow.code_verifier = st.session_state["oauth_code_verifier"]
+            saved_verifier = st.session_state["oauth_code_verifier"]
+        elif state:
+            # Recuperar de archivo temporal si la sesión se perdió
+            saved_verifier = _get_verifier(state)
             
+        if saved_verifier:
+            flow.code_verifier = saved_verifier
+            
+
         flow.fetch_token(code=code)
         credentials = flow.credentials
         
