@@ -139,41 +139,27 @@ def generate_pdf_from_html_local(
                         margin: 10px 0;
                         line-height: 1.8;
                     }
-                    /* Preservar TODOS los colores inline de los spans */
-                    span[style*="color"] {
-                        /* Los colores inline se preservan automáticamente */
-                    }
-                    /* Citas de texto en AZUL - #61AFEF */
-                    span[style*="#61AFEF"] {
-                        color: #61AFEF !important;
+                    /* Clases para xhtml2pdf en lugar de selectores de atributos */
+                    .color-blue {
+                        color: #61AFEF;
                         font-family: 'Merriweather', serif;
                         font-size: 12pt;
                         font-style: italic;
                     }
-                    /* Referencias de documentos en VERDE OSCURO - #2E7D32 */
-                    span[style*="#2E7D32"] {
-                        color: #2E7D32 !important;
+                    .color-green {
+                        color: #2E7D32;
                         font-family: 'Merriweather', serif;
                         font-size: 13pt;
                         font-weight: bold;
                     }
-                    /* Mantener compatibilidad con color antiguo por si acaso */
-                    span[style*="#98C379"] {
-                        color: #2E7D32 !important;
-                        font-family: 'Merriweather', serif;
-                        font-size: 13pt;
-                        font-weight: bold;
-                    }
-                    /* Timestamps en ROJO - #FF0000 */
-                    span[style*="#FF0000"] {
-                        color: #FF0000 !important;
+                    .color-red {
+                        color: #FF0000;
                         font-family: 'Merriweather', serif;
                         font-size: 11pt;
                         font-weight: bold;
                     }
-                    /* Encabezados especiales en AMARILLO - #E5C07B */
-                    span[style*="#E5C07B"] {
-                        color: #E5C07B !important;
+                    .color-yellow {
+                        color: #E5C07B;
                         font-family: 'Merriweather', serif;
                         font-size: 14pt;
                         font-weight: bold;
@@ -208,6 +194,14 @@ def generate_pdf_from_html_local(
             """
             
             # HTML completo con header y estilos
+            
+            # Preprocesar HTML para xhtml2pdf (que ignora selectores CSS modernos en spans)
+            import re
+            html_content = re.sub(r'(?i)<span[^>]*style="[^"]*(?:#61AFEF|#61afef|rgb\(97,\s*175,\s*239\))[^"]*"[^>]*>(.*?)</span>', r'<span class="color-blue">\1</span>', html_content)
+            html_content = re.sub(r'(?i)<span[^>]*style="[^"]*(?:#2E7D32|#2e7d32|#98C379|#98c379|rgb\(46,\s*125,\s*50\))[^"]*"[^>]*>(.*?)</span>', r'<span class="color-green">\1</span>', html_content)
+            html_content = re.sub(r'(?i)<span[^>]*style="[^"]*(?:#FF0000|#ff0000|rgb\(255,\s*0,\s*0\))[^"]*"[^>]*>(.*?)</span>', r'<span class="color-red">\1</span>', html_content)
+            html_content = re.sub(r'(?i)<span[^>]*style="[^"]*(?:#E5C07B|#e5c07b|rgb\(229,\s*192,\s*123\))[^"]*"[^>]*>(.*?)</span>', r'<span class="color-yellow">\1</span>', html_content)
+            
             full_html = f"""
             <!DOCTYPE html>
             <html>
