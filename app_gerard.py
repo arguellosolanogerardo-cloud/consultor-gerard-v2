@@ -57,17 +57,18 @@ ENABLE_MANUAL_LOGIN = False  # Solo login con Google
 WEASYPRINT_AVAILABLE = False
 REPORTLAB_AVAILABLE = False
 
-# Intentar importar weasyprint
+# Intentar importar xhtml2pdf
 try:
-    from weasyprint import HTML, CSS
-    WEASYPRINT_AVAILABLE = True
-    print("[INFO] ✅ Weasyprint disponible para generación de PDF con colores")
+    from xhtml2pdf import pisa
+    import io
+    XHTML2PDF_AVAILABLE = True
+    print("[INFO] ✅ xhtml2pdf disponible para generación de PDF con colores")
 except ImportError as e:
-    print(f"[WARNING] Weasyprint no disponible (ImportError): {e}")
-    WEASYPRINT_AVAILABLE = False
+    print(f"[WARNING] xhtml2pdf no disponible (ImportError): {e}")
+    XHTML2PDF_AVAILABLE = False
 except Exception as e:
-    print(f"[WARNING] Error al importar Weasyprint: {type(e).__name__}: {e}")
-    WEASYPRINT_AVAILABLE = False
+    print(f"[WARNING] Error al importar xhtml2pdf: {type(e).__name__}: {e}")
+    XHTML2PDF_AVAILABLE = False
 
 # Intentar importar reportlab SIEMPRE (no solo si weasyprint falla)
 try:
@@ -88,11 +89,11 @@ def generate_pdf_from_html_local(
 ) -> bytes:
     """
     Genera PDF desde HTML con PRESERVACIÓN COMPLETA de colores y estilos.
-    Usa weasyprint (prioridad) o reportlab (fallback).
+    Usa xhtml2pdf (prioridad) o reportlab (fallback).
     """
     
-    # OPCIÓN 1: Weasyprint (preserva TODO el CSS automáticamente)
-    if WEASYPRINT_AVAILABLE:
+    # OPCIÓN 1: xhtml2pdf (preserva estilos CSS básicos e inline)
+    if XHTML2PDF_AVAILABLE:
         try:
             date_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
             user_name = (user_name or 'usuario').strip()
@@ -221,16 +222,22 @@ def generate_pdf_from_html_local(
             </html>
             """
             
-            # Generar PDF con weasyprint (preserva TODOS los estilos CSS)
-            pdf_bytes = HTML(string=full_html).write_pdf()
-            return pdf_bytes
+            # Generar PDF con xhtml2pdf
+            result_file = io.BytesIO()
+            pisa_status = pisa.CreatePDF(full_html, dest=result_file)
             
+            if not pisa_status.err:
+                return result_file.getvalue()
+            else:
+                print(f"[ERROR] xhtml2pdf PDF failed: {pisa_status.err}")
+                
         except Exception as e:
-            print(f"[ERROR] Weasyprint PDF failed: {e}")
-            # Si falla, intentar con reportlab
-            if REPORTLAB_AVAILABLE:
-                return _generate_pdf_reportlab_fallback(html_content, title_base, user_name)
-            return b""
+            print(f"[ERROR] xhtml2pdf PDF exception: {e}")
+            
+        # Si falla, intentar con reportlab
+        if REPORTLAB_AVAILABLE:
+            return _generate_pdf_reportlab_fallback(html_content, title_base, user_name)
+        return b""
     
     # OPCIÓN 2: Reportlab fallback (limitado pero funcional)
     elif REPORTLAB_AVAILABLE:
