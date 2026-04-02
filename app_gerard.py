@@ -867,9 +867,7 @@ def setup_gcp_credentials():
         # Local/Render: detectar automáticamente el archivo correcto
         # Prioridad: archivo sin espacios (Render) -> archivo con espacios (Local)
         credential_paths = [
-            "google_credentials.json",  # Render/producción sin espacios
-            "credencial_json_midyear-node-436821-t3-525a146e96a0.json",  # Alternativa sin espacios
-            "credencial json/midyear-node-436821-t3-525a146e96a0.json"  # Local con espacios
+            "google_credentials.json"  # Fuente de verdad única
         ]
         
         credentials_file = None
@@ -1313,17 +1311,22 @@ def load_resources():
         except Exception as e:
             raise RuntimeError(f"Error configurando FAISS: {e}")
     
+    from google.oauth2 import service_account
+    creds = service_account.Credentials.from_service_account_file("google_credentials.json")
+
     # LLM
     llm = ChatVertexAI(
         model="gemini-2.5-pro",
-        project="midyear-node-436821-t3",
+        project="gerard-logger",
+        credentials=creds,
         temperature=0.3
     )
     
     # Embeddings
     embeddings = VertexAIEmbeddings(
         model_name="text-multilingual-embedding-002",
-        project="midyear-node-436821-t3"
+        project="gerard-logger",
+        credentials=creds
     )
     
     # FAISS Vector Store

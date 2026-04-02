@@ -157,9 +157,7 @@ def load_resources():
     if not hasattr(st, 'secrets') or 'gcp_service_account' not in getattr(st, 'secrets', {}):
         # Solo configurar archivo si no estamos en Streamlit Cloud con secrets
         credential_paths = [
-            "google_credentials.json",  # Render/producción sin espacios
-            "credencial_json_midyear-node-436821-t3-525a146e96a0.json",  # Alternativa sin espacios
-            "credencial json/midyear-node-436821-t3-525a146e96a0.json"  # Local con espacios
+            "google_credentials.json"  # Fuente de verdad única
         ]
         
         credentials_file = None
