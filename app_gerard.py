@@ -1312,7 +1312,29 @@ def load_resources():
             raise RuntimeError(f"Error configurando FAISS: {e}")
     
     from google.oauth2 import service_account
-    creds = service_account.Credentials.from_service_account_file("google_credentials.json")
+    import json, tempfile
+
+    # Cloud: leer credenciales desde st.secrets["vertex_ai"]
+    # Local: leer desde archivo google_credentials.json
+    _vertex_creds_info = None
+    try:
+        if hasattr(st, 'secrets') and 'vertex_ai' in st.secrets:
+            _vertex_creds_info = dict(st.secrets["vertex_ai"])
+    except Exception:
+        pass
+
+    if _vertex_creds_info:
+        creds = service_account.Credentials.from_service_account_info(
+            _vertex_creds_info,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        print("[INFO] Credenciales Vertex AI cargadas desde st.secrets")
+    else:
+        creds = service_account.Credentials.from_service_account_file(
+            "google_credentials.json",
+            scopes=["https://www.googleapis.com/auth/cloud-platform"]
+        )
+        print("[INFO] Credenciales Vertex AI cargadas desde google_credentials.json")
 
     # LLM
     llm = ChatVertexAI(
