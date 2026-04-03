@@ -1339,7 +1339,7 @@ def load_resources():
     # LLM
     llm = ChatVertexAI(
         model="gemini-2.5-pro",
-        project="gerard-logger",
+        project="asistente-gerard",
         credentials=creds,
         temperature=0.3
     )
@@ -1347,7 +1347,7 @@ def load_resources():
     # Embeddings
     embeddings = VertexAIEmbeddings(
         model_name="text-multilingual-embedding-002",
-        project="gerard-logger",
+        project="asistente-gerard",
         credentials=creds
     )
     
